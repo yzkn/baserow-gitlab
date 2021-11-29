@@ -26,8 +26,9 @@ from baserow.contrib.database.formula.ast.tree import (
     BaserowExpression,
     BaserowDecimalLiteral,
     BaserowBooleanLiteral,
+    BaserowLookupReference,
 )
-from baserow.contrib.database.formula.ast.visitors import BaserowFormulaASTVisitor
+from baserow.contrib.database.formula.ast.visitors import BaserowFormulaASTVisitor, X
 from baserow.contrib.database.formula.exceptions import formula_exception_handler
 from baserow.contrib.database.formula.parser.exceptions import (
     MaximumFormulaSizeError,
@@ -143,9 +144,11 @@ class BaserowExpressionToDjangoExpressionGenerator(
     ):
         self.model_instance = model_instance
         self.model = model
-        self.pre_annotations = {}
-        self.aggregate_filters = []
-        self.join_ids = set()
+
+    def visit_lookup_reference(
+        self, lookup_reference: BaserowLookupReference[BaserowFormulaType]
+    ):
+        return self._setup_lookup_expression(lookup_reference)
 
     def visit_field_reference(
         self, field_reference: BaserowFieldReference[BaserowFormulaType]
@@ -153,9 +156,7 @@ class BaserowExpressionToDjangoExpressionGenerator(
         db_column = field_reference.referenced_field_name
 
         generating_update_expression = self.model_instance is None
-        if field_reference.is_lookup():
-            return self._setup_lookup_expression(field_reference)
-        elif generating_update_expression:
+        if generating_update_expression:
             model_field = self.model._meta.get_field(db_column)
             return self._make_reference_to_model_field(
                 db_column, model_field, already_in_subquery=False
@@ -190,31 +191,11 @@ class BaserowExpressionToDjangoExpressionGenerator(
 
     # noinspection PyProtectedMember
     def _setup_lookup_expression(self, field_reference):
-        path_to_lookup_from_lookup_table = field_reference.target_field
-        m2m_to_lookup_table = field_reference.referenced_field_name
+        path_to_lookup_from_lookup_table = field_reference.target_field_expr
+        m2m_to_lookup_table = field_reference.referenced_db_column
 
         lookup_table_model = self._get_remote_model(m2m_to_lookup_table, self.model)
         lookup_of_link_field = "__" in path_to_lookup_from_lookup_table
-        if lookup_of_link_field:
-            (
-                model_field,
-                filtered_join_to_lookup_field,
-            ) = self._setup_extra_joins_to_linked_lookup_table(
-                lookup_table_model,
-                m2m_to_lookup_table,
-                path_to_lookup_from_lookup_table,
-            )
-        else:
-            filtered_join_to_lookup_table = self._setup_annotations_and_joins(
-                lookup_table_model, m2m_to_lookup_table
-            )
-
-            model_field = lookup_table_model._meta.get_field(
-                path_to_lookup_from_lookup_table
-            )
-            filtered_join_to_lookup_field = (
-                filtered_join_to_lookup_table + "__" + path_to_lookup_from_lookup_table
-            )
 
         return self._make_reference_to_model_field(
             filtered_join_to_lookup_field, model_field, already_in_subquery=True
@@ -317,14 +298,17 @@ class BaserowExpressionToDjangoExpressionGenerator(
     def visit_function_call(
         self, function_call: BaserowFunctionCall[BaserowFormulaType]
     ) -> Expression:
-        args = [expr.accept(self) for expr in function_call.args]
+
+        if function_call.function_def.convert_args_to_expressions:
+            args = [expr.accept(self) for expr in function_call.args]
+        else:
+            args = []
+        for e in function_call.args:
+            function_call.pending_joins += e.pending_joins
         return function_call.to_django_expression_given_args(
             args,
             self.model,
             self.model_instance,
-            self.pre_annotations,
-            self.aggregate_filters,
-            self.join_ids,
         )
 
     def visit_string_literal(

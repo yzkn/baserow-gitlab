@@ -628,7 +628,7 @@ def test_import_export_lookup_field(data_fixture, api_client):
     assert lookup_field_imported.primary == lookup.primary
     assert lookup_field_imported.formula == lookup.formula
     assert lookup_field_imported.through_field == lookup.through_field
-    assert lookup_field_imported.target_field == lookup.target_field
+    assert lookup_field_imported.target_field_expr == lookup.target_field_expr
     assert lookup_field_imported.through_field_name == lookup.through_field_name
     assert lookup_field_imported.target_field_name == lookup.target_field_name
 

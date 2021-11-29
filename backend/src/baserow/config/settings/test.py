@@ -15,3 +15,4 @@ USER_THUMBNAILS = {"tiny": [21, 21]}
 # could break the tests. They are expecting it to be 'http://localhost:8000/media/'
 # because that is default value in `base.py`.
 MEDIA_URL = "http://localhost:8000/media/"
+IN_TEST = True

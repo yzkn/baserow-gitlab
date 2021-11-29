@@ -742,7 +742,7 @@ class FieldType(
             f"A field of type {self.type} cannot be referenced in a Baserow formula."
         )
 
-    def to_baserow_formula_expression(self, field):
+    def to_baserow_formula_expression(self, field, for_lookup=False):
         """
         Should return a Typed Baserow Formula Expression to use when referencing the
         field in a formula.

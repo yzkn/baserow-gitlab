@@ -332,7 +332,7 @@ def test_import_export_lookup_field_when_through_field_trashed(
     )
     assert lookup_field_imported.through_field is None
     assert lookup_field_imported.through_field_name == link_field.name
-    assert lookup_field_imported.target_field is None
+    assert lookup_field_imported.target_field_expr is None
     assert lookup_field_imported.target_field_name == lookup.target_field_name
     assert lookup_field_imported.formula_type == BaserowFormulaInvalidType.type
     assert lookup_field_imported.error == "references the deleted or unknown field link"
@@ -385,7 +385,7 @@ def test_import_export_lookup_field_trashed_target_field(data_fixture, api_clien
     )
     assert lookup_field_imported.through_field.id == link_field.id
     assert lookup_field_imported.through_field_name == link_field.name
-    assert lookup_field_imported.target_field is None
+    assert lookup_field_imported.target_field_expr is None
     assert lookup_field_imported.target_field_name == lookup.target_field_name
     assert lookup_field_imported.formula_type == BaserowFormulaInvalidType.type
     assert (
@@ -472,7 +472,7 @@ def test_import_export_tables_with_lookup_fields(
     assert imported_lookup_field.formula_type == BaserowFormulaArrayType.type
     assert imported_lookup_field.array_formula_type == BaserowFormulaNumberType.type
     assert imported_lookup_field.through_field.name == link_row_field.name
-    assert imported_lookup_field.target_field.name == customer_age.name
+    assert imported_lookup_field.target_field_expr.name == customer_age.name
     assert imported_lookup_field.through_field_name == link_row_field.name
     assert imported_lookup_field.target_field_name == customer_age.name
     assert imported_lookup_field.target_field_id == imported_target_field.id
@@ -914,7 +914,7 @@ def test_deleting_restoring_lookup_target_works(
         lookup_field.error
         == "references the deleted or unknown field lookupfield in table table 2"
     )
-    assert lookup_field.target_field is None
+    assert lookup_field.target_field_expr is None
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field.id == linkrowfield.id
 
@@ -968,7 +968,7 @@ def test_deleting_restoring_lookup_target_works(
     assert lookup_field.formula_type == "array"
     assert lookup_field.array_formula_type == "date"
     assert lookup_field.error is None
-    assert lookup_field.target_field.id == looked_up_field.id
+    assert lookup_field.target_field_expr.id == looked_up_field.id
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field.id == linkrowfield.id
 
@@ -1093,7 +1093,7 @@ def test_deleting_related_link_row_field_dep_breaks_deps(
     lookup_field.refresh_from_db()
     assert lookup_field.formula_type == "invalid"
     assert lookup_field.error == "references the deleted or unknown field linkrowfield"
-    assert lookup_field.target_field is None
+    assert lookup_field.target_field_expr is None
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field is None
     assert lookup_field.through_field_name == linkrowfield.name
@@ -1153,7 +1153,7 @@ def test_deleting_related_link_row_field_dep_breaks_deps(
     assert lookup_field.formula_type == "array"
     assert lookup_field.array_formula_type == "date"
     assert lookup_field.error is None
-    assert lookup_field.target_field.id == looked_up_field.id
+    assert lookup_field.target_field_expr.id == looked_up_field.id
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field.id == linkrowfield.id
 
@@ -1250,7 +1250,7 @@ def test_deleting_table_with_dependants_works(
     lookup_field.refresh_from_db()
     assert lookup_field.formula_type == "invalid"
     assert "references the deleted or unknown" in lookup_field.error
-    assert lookup_field.target_field is None
+    assert lookup_field.target_field_expr is None
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field is None
     assert lookup_field.through_field_name == linkrowfield.name
@@ -1303,7 +1303,7 @@ def test_deleting_table_with_dependants_works(
 
     lookup_field.refresh_from_db()
     assert lookup_field.formula_type == "array"
-    assert lookup_field.target_field.id == looked_up_field.id
+    assert lookup_field.target_field_expr.id == looked_up_field.id
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field.id == linkrowfield.id
     assert lookup_field.through_field_name == linkrowfield.name
@@ -1349,7 +1349,7 @@ def test_deleting_table_with_dependants_works(
     assert lookup_field.formula_type == "array"
     assert lookup_field.array_formula_type == "date"
     assert lookup_field.error is None
-    assert lookup_field.target_field.id == looked_up_field.id
+    assert lookup_field.target_field_expr.id == looked_up_field.id
     assert lookup_field.target_field_name == looked_up_field.name
     assert lookup_field.through_field.id == linkrowfield.id
 

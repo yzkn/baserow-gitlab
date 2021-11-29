@@ -11,9 +11,10 @@ from baserow.contrib.database.formula.ast.tree import (
     BaserowIntegerLiteral,
     BaserowDecimalLiteral,
     BaserowBooleanLiteral,
-    BaserowFunctionDefinition,
+    BaserowLookupReference,
 )
-from baserow.contrib.database.formula.ast.visitors import BaserowFormulaASTVisitor
+from baserow.contrib.database.formula.ast.function_def import BaserowFunctionDefinition
+from baserow.contrib.database.formula.ast.visitors import BaserowFormulaASTVisitor, X
 from baserow.contrib.database.formula.types.formula_type import (
     UnTyped,
     BaserowFormulaValidType,
@@ -30,6 +31,9 @@ from baserow.contrib.database.formula.types.formula_types import (
 class FunctionsUsedVisitor(
     BaserowFormulaASTVisitor[Any, Set[BaserowFunctionDefinition]]
 ):
+    def visit_lookup_reference(self, lookup_reference: BaserowLookupReference) -> X:
+        return set()
+
     def visit_field_reference(self, field_reference: BaserowFieldReference):
         return set()
 
@@ -74,32 +78,29 @@ class FieldReferenceExtractingVisitor(
         self.field_lookup_cache = field_lookup_cache
         self.table = table
 
+    def visit_lookup_reference(
+        self, lookup_reference: BaserowLookupReference[UnTyped]
+    ) -> FieldDependencies:
+        return {(lookup_reference.through_field, lookup_reference.target_field)}
+
     def visit_field_reference(
         self, field_reference: BaserowFieldReference[UnTyped]
     ) -> FieldDependencies:
-        if field_reference.target_field is None:
-            field = self.field_lookup_cache.lookup_by_name(
-                self.table, field_reference.referenced_field_name
-            )
-            from baserow.contrib.database.fields.models import LinkRowField
+        field = self.field_lookup_cache.lookup_by_name(
+            self.table, field_reference.referenced_field_name
+        )
+        from baserow.contrib.database.fields.models import LinkRowField
 
-            if field is not None and isinstance(field, LinkRowField):
-                primary_field = field.get_related_primary_field()
-                return {
-                    (
-                        field_reference.referenced_field_name,
-                        primary_field.name if primary_field is not None else "unknown",
-                    )
-                }
-
-            return {field_reference.referenced_field_name}
-        else:
+        if field is not None and isinstance(field, LinkRowField):
+            primary_field = field.get_related_primary_field()
             return {
                 (
                     field_reference.referenced_field_name,
-                    field_reference.target_field,
+                    primary_field.name if primary_field is not None else "unknown",
                 )
             }
+
+        return {field_reference.referenced_field_name}
 
     def visit_string_literal(
         self, string_literal: BaserowStringLiteral[UnTyped]
@@ -137,6 +138,69 @@ class FormulaTypingVisitor(
         self.field_lookup_cache = field_lookup_cache
         self.field_being_typed = field_being_typed
 
+    def visit_lookup_reference(
+        self, lookup_reference: BaserowLookupReference[UnTyped]
+    ) -> BaserowExpression[BaserowFormulaType]:
+        from baserow.contrib.database.fields.models import LinkRowField
+
+        through_field_name = lookup_reference.through_field
+
+        if through_field_name == self.field_being_typed.name:
+            raise SelfReferenceFieldDependencyError()
+
+        through_field = self.field_lookup_cache.lookup_by_name(
+            self.field_being_typed.table, through_field_name
+        )
+        if through_field is None:
+            return lookup_reference.with_invalid_type(
+                f"cannot lookup through unknown field {through_field_name}"
+            )
+        elif not isinstance(through_field, LinkRowField):
+            return lookup_reference.with_invalid_type(
+                f"cannot lookup through non link row field {through_field_name}"
+            )
+
+        target_table = through_field.link_row_table
+        target_field_name = lookup_reference.target_field
+
+        target_field = self.field_lookup_cache.lookup_by_name(
+            target_table, target_field_name
+        )
+        if target_field is None:
+            return lookup_reference.with_invalid_type(
+                f"references the deleted or unknown field"
+                f" {target_field_name} in table "
+                f"{target_table.name}"
+            )
+        else:
+            from baserow.contrib.database.fields.registries import field_type_registry
+
+            target_field_type = field_type_registry.get_by_model(target_field)
+            # Can return a lookup to the primary field of a link row field
+            # Can return a single select extract func
+            target_expression = target_field_type.to_baserow_formula_expression(
+                target_field, for_lookup=True
+            )
+            if target_expression.wrapper:
+                target_expression = (
+                    target_expression.expression_type.unwrap_at_field_level(
+                        target_expression
+                    )
+                )
+            from baserow.contrib.database.formula.registries import (
+                formula_function_registry,
+            )
+
+            db_lookup = formula_function_registry.get("db_lookup")
+            return db_lookup.call_and_type_with_args(
+                [
+                    BaserowStringLiteral(
+                        through_field.db_column, BaserowFormulaTextType()
+                    ),
+                    target_expression,
+                ]
+            )
+
     def visit_field_reference(
         self, field_reference: BaserowFieldReference[UnTyped]
     ) -> BaserowExpression[BaserowFormulaType]:
@@ -157,59 +221,14 @@ class FormulaTypingVisitor(
             )
         else:
             field_type = field_type_registry.get_by_model(referenced_field)
-            target_field = field_reference.target_field
-            if target_field is not None:
-                from baserow.contrib.database.fields.models import LinkRowField
-
-                if not isinstance(referenced_field, LinkRowField):
-                    return field_reference.with_invalid_type(
-                        "first lookup function argument must be a link row field"
-                    )
-                target_table = referenced_field.link_row_table
-
-                target_field = self.field_lookup_cache.lookup_by_name(
-                    target_table, target_field
-                )
-                if target_field is None:
-                    return field_reference.with_invalid_type(
-                        f"references the deleted or unknown field"
-                        f" {field_reference.target_field} in table "
-                        f"{target_table.name}"
-                    )
-                else:
-                    return self._create_lookup_reference(
-                        target_field, referenced_field, field_reference
-                    )
-            # check the lookup field
+            # Can return a lookup to the primary field of a link row field
+            # Can return a single select extract func
             expression = field_type.to_baserow_formula_expression(referenced_field)
-            if isinstance(expression, BaserowFunctionCall):
+            if expression.wrapper:
                 expression = expression.expression_type.unwrap_at_field_level(
                     expression
                 )
             return expression
-
-    def _create_lookup_reference(self, target_field, referenced_field, field_reference):
-        from baserow.contrib.database.fields.registries import field_type_registry
-        from baserow.contrib.database.fields.models import LinkRowField
-
-        lookup_field_type = field_type_registry.get_by_model(target_field)
-        formula_type = lookup_field_type.to_baserow_formula_type(target_field)
-        if isinstance(target_field, LinkRowField):
-            # If we are looking up a link row field we need to do an
-            # extra relational jump to that primary field.
-            related_primary_field = target_field.get_related_primary_field()
-            if related_primary_field is None:
-                return field_reference.with_invalid_type(
-                    "references a deleted or unknown table"
-                )
-            sub_ref = "__" + related_primary_field.db_column
-        else:
-            sub_ref = ""
-        return BaserowFieldReference(
-            referenced_field.db_column,
-            target_field.db_column + sub_ref,
-            formula_type,
-        )
 
     def visit_string_literal(
         self, string_literal: BaserowStringLiteral[UnTyped]
@@ -220,23 +239,29 @@ class FormulaTypingVisitor(
         self, function_call: BaserowFunctionCall[UnTyped]
     ) -> BaserowExpression[BaserowFormulaType]:
         typed_args: List[BaserowExpression[BaserowFormulaValidType]] = []
-        requires_aggregate_wrapper = []
+        pending_aggregate_filter = None
         for index, expr in enumerate(function_call.args):
             arg_expr = expr.accept(self)
-            if arg_expr.requires_aggregate_wrapper:
-                requires_aggregate_wrapper.append(str(index + 1))
+            if arg_expr.pending_aggregate_filter:
+                if pending_aggregate_filter is not None:
+                    return function_call.with_invalid_type(
+                        "cannot provide multiple filtered inputs to a function"
+                    )
+                else:
+                    pending_aggregate_filter = arg_expr
             typed_args.append(arg_expr)
 
-        if requires_aggregate_wrapper and not function_call.function_def.aggregate:
-            plural_s = (
-                "s numbered" if len(requires_aggregate_wrapper) > 1 else " number"
-            )
+        if (
+            pending_aggregate_filter is not None
+            and not function_call.function_def.aggregate
+        ):
             return function_call.with_invalid_type(
-                f"input{plural_s} {','.join(requires_aggregate_wrapper)} to"
-                f" {function_call.function_def} must be directly wrapped by an "
-                f"aggregate function like sum, avg, count etc"
+                "the filter function must be wrapped directly by an aggregate function"
+                "like sum,avg,count etc."
             )
-        return function_call.type_function_given_typed_args(typed_args)
+        return function_call.with_pending_aggregate_filter(
+            pending_aggregate_filter
+        ).type_function_given_typed_args(typed_args)
 
     def visit_int_literal(
         self, int_literal: BaserowIntegerLiteral[UnTyped]

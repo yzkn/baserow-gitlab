@@ -2,7 +2,6 @@ from typing import Tuple
 
 from django.db.models import Q
 
-from baserow.contrib.database.fields import models as field_models
 from baserow.contrib.database.fields.dependencies.circular_reference_checker import (
     will_cause_circular_dep,
 )
@@ -32,7 +31,7 @@ def break_dependencies_for_field(field):
         )
 
 
-def update_fields_with_broken_references(field: "field_models.Field"):
+def update_fields_with_broken_references(field):
     """
     Checks to see if there are any fields which should now depend on `field` if it's
     name has changed to match a broken reference.

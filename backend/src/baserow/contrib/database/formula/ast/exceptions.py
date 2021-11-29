@@ -15,6 +15,10 @@ class InvalidDecimalLiteralProvided(BaserowFormulaException):
     pass
 
 
+class BaserowTypingError(BaserowFormulaException):
+    pass
+
+
 class UnknownFieldReference(BaserowFormulaException):
     def __init__(self, unknown_field_name):
         super().__init__(

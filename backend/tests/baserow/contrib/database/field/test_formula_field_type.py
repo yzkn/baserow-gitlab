@@ -19,7 +19,7 @@ from baserow.contrib.database.formula import (
     BaserowFormulaTextType,
     BaserowFormulaNumberType,
 )
-from baserow.contrib.database.formula.ast.tree import BaserowFunctionDefinition
+from baserow.contrib.database.formula.ast.function_def import BaserowFunctionDefinition
 from baserow.contrib.database.formula.registries import formula_function_registry
 from baserow.contrib.database.rows.handler import RowHandler
 from baserow.contrib.database.views.handler import ViewHandler
@@ -992,7 +992,7 @@ def test_accessing_cached_internal_formula_second_time_does_no_queries(
         assert str(formula_field.cached_untyped_expression) == formula_field.formula
         assert (
             str(formula_field.cached_typed_internal_expression)
-            == f"error_to_null(field('{a_field.db_column}'))"
+            == f"error_to_null(db_field('{a_field.db_column}'))"
         )
         assert formula_field.cached_formula_type.type == BaserowFormulaTextType.type
 
@@ -1013,7 +1013,7 @@ def test_saving_after_properties_have_been_cached_does_recaclulation(data_fixtur
     assert str(formula_field.cached_untyped_expression) == formula_field.formula
     assert (
         str(formula_field.cached_typed_internal_expression)
-        == f"error_to_null(field('{a_field.db_column}'))"
+        == f"error_to_null(db_field('{a_field.db_column}'))"
     )
     assert formula_field.cached_formula_type.type == BaserowFormulaTextType.type
 

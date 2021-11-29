@@ -8,6 +8,7 @@ from baserow.contrib.database.formula.ast.tree import (
     BaserowExpression,
     BaserowDecimalLiteral,
     BaserowBooleanLiteral,
+    BaserowLookupReference,
 )
 from baserow.contrib.database.formula.parser.exceptions import (
     InvalidNumberOfArguments,
@@ -32,7 +33,7 @@ from baserow.core.exceptions import InstanceTypeDoesNotExist
 
 
 def raw_formula_to_untyped_expression(
-    formula: str,
+    formula: str, allow_internal_functions=False
 ) -> BaserowExpression[UnTyped]:
     """
     Takes a raw user input string, syntax checks it to see if it matches the syntax of
@@ -41,6 +42,8 @@ def raw_formula_to_untyped_expression(
 
     :param formula: A raw user supplied string possibly in the format of a Baserow
         Formula.
+    :param allow_internal_functions: Whether the input formula is from a trusted source
+        and can be allowed to use internal functions or not.
     :return: An untyped BaserowExpression which represents the provided raw formula.
     :raises BaserowFormulaSyntaxError: If the supplied formula is not in the syntax
         of the Baserow Formula language.
@@ -48,9 +51,13 @@ def raw_formula_to_untyped_expression(
 
     try:
         tree = get_parse_tree_for_formula(formula)
-        return BaserowFormulaToBaserowASTMapper().visit(tree)
+        return BaserowFormulaToBaserowASTMapper(allow_internal_functions).visit(tree)
     except RecursionError:
         raise MaximumFormulaSizeError()
+
+
+def _invalid_function_error(function_name):
+    return BaserowFormulaSyntaxError(f"{function_name} is not a valid function")
 
 
 class BaserowFormulaToBaserowASTMapper(BaserowFormulaVisitor):
@@ -62,6 +69,9 @@ class BaserowFormulaToBaserowASTMapper(BaserowFormulaVisitor):
     Raises an UnknownFunctionDefinition if the formula has a function call to a function
     not in the registry.
     """
+
+    def __init__(self, allow_internal_functions=False) -> None:
+        self.allow_internal_functions = allow_internal_functions
 
     def visitRoot(self, ctx: BaserowFormula.RootContext):
         return ctx.expr().accept(self)
@@ -132,12 +142,14 @@ class BaserowFormulaToBaserowASTMapper(BaserowFormulaVisitor):
         if not function_def.num_args.test(num_expressions):
             raise InvalidNumberOfArguments(function_def, num_expressions)
 
-    @staticmethod
-    def _get_function_def(function_name):
+    def _get_function_def(self, function_name):
         try:
             function_def = formula_function_registry.get(function_name)
         except InstanceTypeDoesNotExist:
-            raise BaserowFormulaSyntaxError(f"{function_name} is not a valid function")
+            raise _invalid_function_error(function_name)
+
+        if function_def.internal and not self.allow_internal_functions:
+            raise _invalid_function_error(function_name)
         return function_def
 
     def visitFunc_name(self, ctx: BaserowFormula.Func_nameContext):
@@ -154,20 +166,20 @@ class BaserowFormulaToBaserowASTMapper(BaserowFormulaVisitor):
         field_name = convert_string_literal_token_to_string(
             reference.getText(), reference.SINGLEQ_STRING_LITERAL()
         )
-        return BaserowFieldReference[UnTyped](field_name, None, None)
+        return BaserowFieldReference[UnTyped](field_name, None)
 
     def visitLookupFieldReference(
         self, ctx: BaserowFormula.LookupFieldReferenceContext
     ):
         reference = ctx.field_reference(0)
-        field_name = convert_string_literal_token_to_string(
+        through_field = convert_string_literal_token_to_string(
             reference.getText(), reference.SINGLEQ_STRING_LITERAL()
         )
         lookup = ctx.field_reference(1)
-        lookup_name = convert_string_literal_token_to_string(
+        target_field = convert_string_literal_token_to_string(
             lookup.getText(), reference.SINGLEQ_STRING_LITERAL()
         )
-        return BaserowFieldReference[UnTyped](field_name, lookup_name, None)
+        return BaserowLookupReference[UnTyped](through_field, target_field, None)
 
     def visitFieldByIdReference(self, ctx: BaserowFormula.FieldByIdReferenceContext):
         raise FieldByIdReferencesAreDeprecated()

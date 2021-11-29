@@ -102,6 +102,8 @@ from .models import (
     LookupField,
 )
 from .registries import FieldType, field_type_registry
+from ..formula.ast.tree import BaserowStringLiteral
+from ..formula.registries import formula_function_registry
 
 
 class TextFieldMatchingRegexFieldType(FieldType, ABC):
@@ -1307,11 +1309,11 @@ class LinkRowFieldType(FieldType):
             return related_field_type.to_baserow_formula_type(primary_field)
 
     def to_baserow_formula_expression(
-        self, field
+        self, field, for_lookup=False
     ) -> BaserowExpression[BaserowFormulaType]:
         primary_field = field.get_related_primary_field()
         return FormulaHandler.get_lookup_field_reference_expression(
-            field, primary_field, self.to_baserow_formula_type(field)
+            field, primary_field.specific, self.to_baserow_formula_type(field)
         )
 
     def get_field_dependencies(self, field_instance, field_lookup_cache):
@@ -1815,6 +1817,19 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
     def from_baserow_formula_type(self, formula_type) -> Field:
         return self.model_class()
 
+    def to_baserow_formula_expression(
+        self, field, for_lookup=False
+    ) -> BaserowExpression[BaserowFormulaType]:
+        single_select_to_json = formula_function_registry.get("single_select_to_json")
+        inner = single_select_to_json.call_and_type_with(
+            BaserowStringLiteral(field.db_column, BaserowFormulaTextType())
+        )
+        if not for_lookup:
+            subquery = formula_function_registry.get("subquery")
+            return subquery.call_and_type_with(inner)
+        else:
+            return inner
+
 
 class MultipleSelectFieldType(SelectOptionBaseFieldType):
     type = "multiple_select"
@@ -2231,7 +2246,7 @@ class FormulaFieldType(FieldType):
         return field.cached_formula_type
 
     def to_baserow_formula_expression(
-        self, field: FormulaField
+        self, field: FormulaField, for_lookup=False
     ) -> BaserowExpression[BaserowFormulaType]:
         return FormulaHandler.get_typed_internal_expression_from_field(field)
 

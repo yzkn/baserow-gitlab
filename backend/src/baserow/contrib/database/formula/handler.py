@@ -10,8 +10,9 @@ from baserow.contrib.database.formula import (
 from baserow.contrib.database.formula.ast.tree import (
     BaserowExpression,
     BaserowFieldReference,
-    BaserowFunctionDefinition,
+    BaserowStringLiteral,
 )
+from baserow.contrib.database.formula.ast.function_def import BaserowFunctionDefinition
 from baserow.contrib.database.formula.expression_generator.generator import (
     baserow_expression_to_update_django_expression,
     baserow_expression_to_single_row_update_django_expression,
@@ -30,6 +31,7 @@ from baserow.contrib.database.formula.types.formula_type import (
 from baserow.contrib.database.formula.types.formula_types import (
     _lookup_formula_type_from_string,
     literal,
+    BaserowFormulaTextType,
 )
 from baserow.contrib.database.formula.types.typer import (
     calculate_typed_expression,
@@ -96,7 +98,7 @@ class FormulaHandler:
     Baserow.
     """
 
-    BASEROW_FORMULA_VERSION = 2
+    BASEROW_FORMULA_VERSION = 3
 
     @classmethod
     def baserow_expression_to_update_django_expression(
@@ -183,9 +185,16 @@ class FormulaHandler:
             a reference to field.
         """
 
-        return BaserowFieldReference[BaserowFormulaType](
-            f"field_{field.id}", None, formula_type
+        from baserow.contrib.database.formula.registries import (
+            formula_function_registry,
         )
+
+        db_field = formula_function_registry.get("db_field")
+        return db_field.call_and_type_with_args(
+            [
+                BaserowStringLiteral(field.db_column, BaserowFormulaTextType()),
+            ],
+        ).with_type(formula_type)
 
     @classmethod
     def rename_field_references_in_formula_string(
@@ -260,7 +269,9 @@ class FormulaHandler:
         )
 
     @classmethod
-    def raw_formula_to_untyped_expression(cls, formula_string):
+    def raw_formula_to_untyped_expression(
+        cls, formula_string, allow_internal_functions=False
+    ):
         """
         Converts the provided formula string to an untyped BaserowExpression which is
         an intermediate representation of the formula consisting of a tree of python
@@ -269,8 +280,13 @@ class FormulaHandler:
 
         :param formula_string: A string containing a formula in the Baserow Formula
             expression language.
+        :param allow_internal_functions: Whether the input formula is from a trusted source
+            and can be allowed to use internal functions or not.
         """
-        return raw_formula_to_untyped_expression(formula_string)
+
+        return raw_formula_to_untyped_expression(
+            formula_string, allow_internal_functions
+        )
 
     @classmethod
     def get_formula_type_from_field(cls, formula_field) -> BaserowFormulaType:
@@ -321,7 +337,7 @@ class FormulaHandler:
         """
 
         untyped_internal_expr = FormulaHandler.raw_formula_to_untyped_expression(
-            formula_field.internal_formula
+            formula_field.internal_formula, allow_internal_functions=True
         )
         return untyped_internal_expr.with_type(formula_field.cached_formula_type)
 
@@ -444,7 +460,25 @@ class FormulaHandler:
     @classmethod
     def get_lookup_field_reference_expression(cls, field, primary_field, formula_type):
         if primary_field is None:
-            db_column = "unknown"
+            target_expr = BaserowFieldReference("unknown", None).with_invalid_type(
+                "references unknown target field"
+            )
         else:
-            db_column = primary_field.db_column
-        return BaserowFieldReference(field.db_column, db_column, formula_type)
+            from baserow.contrib.database.fields.registries import field_type_registry
+
+            primary_field_type = field_type_registry.get_by_model(primary_field)
+            target_expr = primary_field_type.to_baserow_formula_expression(
+                primary_field
+            )
+
+        from baserow.contrib.database.formula.registries import (
+            formula_function_registry,
+        )
+
+        db_lookup = formula_function_registry.get("db_lookup")
+        return db_lookup.call_and_type_with_args(
+            [
+                BaserowStringLiteral(field.db_column, BaserowFormulaTextType()),
+                target_expr,
+            ],
+        )

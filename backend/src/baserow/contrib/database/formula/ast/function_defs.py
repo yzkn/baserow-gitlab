@@ -1,6 +1,6 @@
 from abc import ABC
 from decimal import Decimal
-from typing import List, Optional, Type, Dict, Set
+from typing import List, Optional, Type, Dict, Any
 
 from django.contrib.postgres.aggregates import JSONBAgg
 from django.db.models import (
@@ -21,6 +21,10 @@ from django.db.models import (
     Min,
     Avg,
     StdDev,
+    Subquery,
+    OuterRef,
+    FilteredRelation,
+    Q,
 )
 from django.db.models.functions import (
     Upper,
@@ -43,18 +47,24 @@ from django.db.models.functions import (
 from baserow.contrib.database.fields.models import (
     NUMBER_MAX_DECIMAL_PLACES,
 )
+from baserow.contrib.database.formula.ast.exceptions import (
+    UnknownFieldReference,
+    BaserowTypingError,
+)
 from baserow.contrib.database.formula.ast.function import (
-    BaserowFunctionDefinition,
     NumOfArgsGreaterThan,
     OneArgumentBaserowFunction,
     TwoArgumentBaserowFunction,
     ThreeArgumentBaserowFunction,
     ZeroArgumentBaserowFunction,
-    aggregate_wrapper,
 )
+from baserow.contrib.database.formula.ast.function_def import BaserowFunctionDefinition
 from baserow.contrib.database.formula.ast.tree import (
     BaserowFunctionCall,
     BaserowExpression,
+    BaserowStringLiteral,
+    ArgCountSpecifier,
+    PendingJoin,
 )
 from baserow.contrib.database.formula.expression_generator.django_expressions import (
     EqualsExpr,
@@ -75,7 +85,6 @@ from baserow.contrib.database.formula.types.formula_type import (
     BaserowFormulaType,
     BaserowFormulaValidType,
     UnTyped,
-    BaserowArgumentTypeChecker,
 )
 from baserow.contrib.database.formula.types.formula_types import (
     BaserowFormulaTextType,
@@ -88,6 +97,10 @@ from baserow.contrib.database.formula.types.formula_types import (
     BaserowFormulaSingleSelectType,
     BaserowFormulaCharType,
     literal,
+)
+from baserow.contrib.database.formula.types.type_checker import (
+    BaserowArgumentTypeChecker,
+    BaserowSingleArgumentTypeChecker,
 )
 from baserow.contrib.database.formula.types.type_checkers import OnlyIntegerNumberTypes
 
@@ -161,6 +174,10 @@ def register_formula_functions(registry):
     registry.register(BaserowSum())
     # Single Select functions
     registry.register(BaserowGetSingleSelectValue())
+    registry.register(BaserowSingleSelectToJson())
+    registry.register(BaserowSubquery())
+    registry.register(BaserowDbLookup())
+    registry.register(BaserowDbField())
 
 
 class BaserowUpper(OneArgumentBaserowFunction):
@@ -432,6 +449,16 @@ class BaserowEqual(TwoArgumentBaserowFunction):
     operator = "="
 
     @property
+    def arg1_type(self) -> BaserowSingleArgumentTypeChecker:
+        # arg_types property overrides this one
+        raise BaserowTypingError()
+
+    @property
+    def arg2_type(self) -> BaserowSingleArgumentTypeChecker:
+        # arg_types property overrides this one
+        raise BaserowTypingError()
+
+    @property
     def arg_types(self) -> BaserowArgumentTypeChecker:
         def type_checker(arg_index: int, arg_types: List[BaserowFormulaType]):
             if arg_index == 1:
@@ -473,6 +500,8 @@ class BaserowIf(ThreeArgumentBaserowFunction):
     type = "if"
 
     arg1_type = [BaserowFormulaBooleanType]
+    arg2_type = [BaserowFormulaValidType]
+    arg3_type = [BaserowFormulaValidType]
 
     def type_function(
         self,
@@ -532,6 +561,7 @@ class BaserowToNumber(OneArgumentBaserowFunction):
 class BaserowErrorToNan(OneArgumentBaserowFunction):
     type = "error_to_nan"
     arg_type = [BaserowFormulaNumberType]
+    wrapper = True
 
     def type_function(
         self,
@@ -547,6 +577,7 @@ class BaserowErrorToNan(OneArgumentBaserowFunction):
 class BaserowErrorToNull(OneArgumentBaserowFunction):
     type = "error_to_null"
     arg_type = [BaserowFormulaValidType]
+    wrapper = True
 
     def type_function(
         self,
@@ -611,6 +642,16 @@ class BaserowNotEqual(BaserowEqual):
 
 
 class BaseLimitComparableFunction(TwoArgumentBaserowFunction, ABC):
+    @property
+    def arg1_type(self) -> BaserowSingleArgumentTypeChecker:
+        # arg_types property overrides this one
+        raise BaserowTypingError()
+
+    @property
+    def arg2_type(self) -> BaserowSingleArgumentTypeChecker:
+        # arg_types property overrides this one
+        raise BaserowTypingError()
+
     @property
     def arg_types(self) -> BaserowArgumentTypeChecker:
         def type_checker(arg_index: int, arg_types: List[BaserowFormulaType]):
@@ -898,9 +939,7 @@ class BaserowRowId(ZeroArgumentBaserowFunction):
         args: List[Expression],
         model: Type[Model],
         model_instance: Optional[Model],
-        pre_annotations: Dict[str, Expression],
-        aggregate_filters: List[Expression],
-        join_ids: Set[str],
+        func_call: BaserowFunctionCall,
     ) -> Expression:
         if model_instance is None:
             return ExpressionWrapper(
@@ -953,7 +992,8 @@ class BaserowReverse(OneArgumentBaserowFunction):
 class BaserowWhenEmpty(TwoArgumentBaserowFunction):
 
     type = "when_empty"
-    arg_type = [BaserowFormulaValidType]
+    arg1_type = [BaserowFormulaValidType]
+    arg2_type = [BaserowFormulaValidType]
 
     def type_function(
         self,
@@ -971,18 +1011,20 @@ class BaserowWhenEmpty(TwoArgumentBaserowFunction):
         return Coalesce(arg1, arg2)
 
 
-def _calculate_aggregate_orders(join_ids):
+def _calculate_aggregate_orders(pending_joins):
     orders = []
-    for join in reversed(join_ids):
-        orders.append(join[0] + "__order")
-        orders.append(join[0] + "__id")
+    for pending_join in reversed(pending_joins):
+        join = pending_join.join_path
+        orders.append(join + "__order")
+        orders.append(join + "__id")
     return orders
 
 
 class BaserowArrayAgg(OneArgumentBaserowFunction):
     type = "array_agg"
     arg_type = [BaserowFormulaValidType]
-    aggregate = True
+    internal = True
+    wrapper = True
 
     def type_function(
         self,
@@ -996,28 +1038,32 @@ class BaserowArrayAgg(OneArgumentBaserowFunction):
 
     def to_django_expression_given_args(
         self,
-        args: List[Expression],
+        expr_args: List[Expression],
         model: Type[Model],
         model_instance: Optional[Model],
-        pre_annotations: Dict[str, Expression],
-        aggregate_filters: List[Expression],
-        join_ids: Set[str],
+        func_call: BaserowFunctionCall,
     ) -> Expression:
-        join_ids = list(join_ids)
-        json_builder_args = {"value": args[0]}
-        if len(join_ids) > 1:
+        pending_joins = func_call.pending_joins
+        json_builder_args = {"value": expr_args[0]}
+        # todo should this be used
+        # prefix = pending_joins[-1].get_unique_annotation_name()
+        if len(pending_joins) > 1:
             json_builder_args["ids"] = JSONObject(
-                **{tbl: F(i + "__id") for i, tbl in join_ids}
+                **{
+                    join.join_table: F(join.join_path + "__id")
+                    for join in pending_joins
+                }
             )
         else:
-            json_builder_args["id"] = F(join_ids[0][0] + "__id")
+            only_join = pending_joins[0]
+            json_builder_args["id"] = F(only_join.join_path + "__id")
 
-        orders = _calculate_aggregate_orders(join_ids)
+        orders = _calculate_aggregate_orders(pending_joins)
 
         expr = JSONBAgg(JSONObject(**json_builder_args), ordering=orders)
         return Coalesce(
-            aggregate_wrapper(
-                expr, model, pre_annotations, aggregate_filters, join_ids
+            BaserowSubquery().to_django_expression_given_args(
+                [expr], model, model_instance, func_call
             ),
             Value([], output_field=JSONField()),
             output_field=JSONField(),
@@ -1027,7 +1073,8 @@ class BaserowArrayAgg(OneArgumentBaserowFunction):
 class Baserow2dArrayAgg(OneArgumentBaserowFunction):
     type = "array_agg_unnesting"
     arg_type = [BaserowFormulaArrayType]
-    aggregate = True
+    internal = True
+    wrapper = True
 
     def type_function(
         self,
@@ -1048,14 +1095,17 @@ class Baserow2dArrayAgg(OneArgumentBaserowFunction):
         args: List[Expression],
         model: Type[Model],
         model_instance: Optional[Model],
-        pre_annotations: Dict[str, Expression],
-        aggregate_filters: List[Expression],
-        join_ids: Set[str],
+        func_call: BaserowFunctionCall,
     ) -> Expression:
-        subquery = super().to_django_expression_given_args(
-            args, model, model_instance, pre_annotations, aggregate_filters, join_ids
+        return Func(
+            Func(
+                BaserowSubquery().to_django_expression_given_args(
+                    args, model, model_instance, func_call
+                ),
+                function="array",
+            ),
+            function="to_jsonb",
         )
-        return Func(Func(subquery, function="array"), function="to_jsonb")
 
 
 class BaserowCount(OneArgumentBaserowFunction):
@@ -1093,29 +1143,12 @@ class BaserowFilter(TwoArgumentBaserowFunction):
                 "a lookup function call or a field reference to a lookup/link "
                 "field)"
             )
-        valid_type = func_call.with_valid_type(arg1.expression_type)
-        # Force all usages of filter to be immediately wrapped by an aggregate call
-        # otherwise formula behaviour when filtering is odd.
-        valid_type.requires_aggregate_wrapper = True
-        return valid_type
+        return func_call.with_pending_aggregate_filter(arg2).with_valid_type(
+            arg1.expression_type
+        )
 
     def to_django_expression(self, arg1: Expression, arg2: Expression) -> Expression:
         return arg1
-
-    def to_django_expression_given_args(
-        self,
-        args: List[Expression],
-        model: Type[Model],
-        model_instance: Optional[Model],
-        pre_annotations: Dict[str, Expression],
-        aggregate_filters: List[Expression],
-        join_ids: Set[str],
-    ) -> Expression:
-        result = super().to_django_expression_given_args(
-            args, model, model_instance, pre_annotations, aggregate_filters, join_ids
-        )
-        aggregate_filters.append(args[1])
-        return result
 
 
 class BaserowAny(OneArgumentBaserowFunction):
@@ -1262,20 +1295,10 @@ class BaserowAggJoin(TwoArgumentBaserowFunction):
         args: List[Expression],
         model: Type[Model],
         model_instance: Optional[Model],
-        pre_annotations: Dict[str, Expression],
-        aggregate_filters: List[Expression],
-        join_ids: Set[str],
+        func_call: BaserowFunctionCall,
     ) -> Expression:
-        join_ids = list(join_ids)
-        orders = _calculate_aggregate_orders(join_ids)
-        join_ids.clear()
-        return aggregate_wrapper(
-            BaserowStringAgg(args[0], args[1], ordering=orders),
-            model,
-            pre_annotations,
-            aggregate_filters,
-            join_ids,
-        )
+        orders = _calculate_aggregate_orders(func_call.pending_joins)
+        return BaserowStringAgg(args[0], args[1], ordering=orders)
 
 
 class BaserowSum(OneArgumentBaserowFunction):
@@ -1383,9 +1406,9 @@ class BaserowRight(TwoArgumentBaserowFunction):
 class BaserowRegexReplace(ThreeArgumentBaserowFunction):
 
     type = "regex_replace"
-    arg_type1 = [BaserowFormulaTextType]
-    arg_type2 = [BaserowFormulaTextType]
-    arg_type3 = [BaserowFormulaTextType]
+    arg1_type = [BaserowFormulaTextType]
+    arg2_type = [BaserowFormulaTextType]
+    arg3_type = [BaserowFormulaTextType]
 
     def type_function(
         self,
@@ -1461,3 +1484,245 @@ class BaserowSecond(OneArgumentBaserowFunction):
 
     def to_django_expression(self, arg: Expression) -> Expression:
         return Extract(arg, "second", output_field=fields.DecimalField())
+
+
+class BaserowSubquery(OneArgumentBaserowFunction):
+    type = "subquery"
+    internal = True
+    arg_type = [BaserowFormulaValidType]
+
+    def type_function(
+        self,
+        func_call: BaserowFunctionCall[UnTyped],
+        arg: BaserowExpression[BaserowFormulaValidType],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        if not arg.many:
+            func_call.with_invalid_type(
+                "first argument must be an aggregate expression"
+            )
+        return func_call.with_valid_type(arg.expression_type)
+
+    def to_django_expression(self, arg: Expression) -> Expression:
+        pass
+
+    def to_django_expression_given_args(
+        self,
+        expr_args: List[Expression],
+        model: Type[Model],
+        model_instance: Optional[Model],
+        func_call: BaserowFunctionCall,
+    ) -> Expression:
+        not_null_filters_for_inner_join = {}
+        pre_annotations = {}
+        for pending_join in func_call.pending_joins:
+            join = pending_join.join_path
+            not_null_filters_for_inner_join[join + "__isnull"] = False
+            intermediate_links = {f"{i}__trashed": False for i in join.split("__")[:-1]}
+            pre_annotations[
+                pending_join.get_unique_annotation_name()
+            ] = FilteredRelation(
+                join,
+                condition=Q(
+                    **{
+                        f"{join}__trashed": False,
+                        f"{join}__isnull": False,
+                        **intermediate_links,
+                    }
+                ),
+            )
+        inner_aggregate_expr = expr_args[0]
+        expr = ExpressionWrapper(
+            Subquery(
+                model.objects_and_trash.annotate(**pre_annotations)
+                .filter(id=OuterRef("id"), **not_null_filters_for_inner_join)
+                .values(result=inner_aggregate_expr),
+            ),
+            output_field=inner_aggregate_expr.output_field,
+        )
+
+        # TODO is there something nicer than this
+        func_call.pending_joins = []
+        func_call.many = False
+        return expr
+
+
+class BaserowSingleSelectToJson(OneArgumentBaserowFunction):
+
+    type = "single_select_to_json"
+    arg_type = [BaserowFormulaTextType]
+    internal = True
+    convert_args_to_expressions = False
+
+    def type_function(
+        self,
+        func_call: BaserowFunctionCall[UnTyped],
+        arg: BaserowExpression[BaserowFormulaValidType],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        if not isinstance(arg, BaserowStringLiteral):
+            func_call.with_invalid_type(f"argument must a string literal")
+        return func_call.with_valid_type(BaserowFormulaTextType())
+
+    def to_django_expression(self, arg: Expression) -> Expression:
+        pass
+
+    def to_django_expression_given_args(
+        self,
+        args: List[Expression],
+        model: Type[Model],
+        model_instance: Optional[Model],
+        func_call: BaserowFunctionCall,
+    ) -> Expression:
+        db_column = func_call.args[0].literal
+        if model_instance is None:
+            prefix = func_call.get_parent_join_prefix()
+            db_column = prefix + db_column
+            return ExpressionWrapper(
+                JSONObject(
+                    **{
+                        "value": f"{db_column}__value",
+                        "id": f"{db_column}__id",
+                        "color": f"{db_column}__color",
+                    }
+                ),
+                output_field=JSONField(),
+            )
+        else:
+            instance_attr_value = getattr(model_instance, db_column)
+            if instance_attr_value is not None:
+                return JSONObject(
+                    **{
+                        "value": Value(instance_attr_value.value),
+                        "id": Value(instance_attr_value.id),
+                        "color": Value(instance_attr_value.color),
+                    }
+                )
+            else:
+                # We need to cast and be super explicit what type this raw value is so
+                # postgres does not get angry and claim this is an unknown type.
+                return Cast(
+                    Value(None),
+                    output_field=JSONField(),
+                )
+
+
+class BaserowDbField(OneArgumentBaserowFunction):
+    """
+    The function used to reference other fields in the same table.
+    """
+
+    type = "db_field"
+    arg_type = [BaserowFormulaTextType]
+    internal = True
+    convert_args_to_expressions = False
+
+    def type_function(
+        self,
+        func_call: BaserowFunctionCall[UnTyped],
+        arg: BaserowExpression[BaserowFormulaValidType],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        if not isinstance(arg, BaserowStringLiteral):
+            func_call.with_invalid_type(f"argument must a string literal")
+        return func_call.with_valid_type(BaserowFormulaTextType())
+
+    def to_django_expression(self, arg: Expression) -> Expression:
+        pass
+
+    def to_django_expression_given_args(
+        self,
+        args: List[Expression],
+        model: Type[Model],
+        model_instance: Optional[Model],
+        func_call: BaserowFunctionCall,
+    ) -> Expression:
+        db_column = func_call.args[0].literal
+        if model_instance is None:
+            prefix = func_call.get_parent_join_prefix()
+            model_field = model._meta.get_field(db_column)
+            return ExpressionWrapper(
+                F(prefix + db_column),
+                output_field=model_field,
+            )
+        elif not hasattr(model_instance, db_column):
+            raise UnknownFieldReference(db_column)
+        else:
+            model_field = model._meta.get_field(db_column)
+            instance_attr_value = getattr(model_instance, db_column)
+            # We need to cast and be super explicit what type this raw value is so
+            # postgres does not get angry and claim this is an unknown type.
+            return Cast(
+                Value(instance_attr_value),
+                output_field=model_field,
+            )
+
+
+class BaserowDbLookup(BaserowFunctionDefinition):
+    """
+    The function used to reference fields in other tables.
+    """
+
+    num_args = NumOfArgsGreaterThan(0)
+
+    type = "db_lookup"
+    internal = True
+    convert_args_to_expressions = False
+    many = True
+
+    @property
+    def arg_types(self) -> BaserowArgumentTypeChecker:
+        return lambda _, _2: [BaserowFormulaValidType]
+
+    def type_function_given_valid_args(
+        self,
+        args: List[BaserowExpression[BaserowFormulaValidType]],
+        expression: BaserowFunctionCall[UnTyped],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        for i, join_arg in enumerate(args[:-1]):
+            if not isinstance(join_arg, BaserowStringLiteral):
+                return expression.with_invalid_type(
+                    f"input number {i+1} must be a " f"string literal."
+                )
+
+        return expression.with_type(args[-1].expression_type)
+
+    def to_django_expression_given_args(
+        self,
+        args: List[Expression],
+        model: Type[Model],
+        model_instance: Optional[Model],
+        func_call: BaserowFunctionCall,
+    ) -> Expression:
+
+        pending_joins = []
+        joins = func_call.args[:-1]
+
+        parent_last_join = func_call.get_last_parent_join()
+        if parent_last_join:
+            path_so_far = parent_last_join.join_path.split("__")
+        else:
+            path_so_far = []
+
+        current_model = model
+        for join_field in joins:
+            join_field = join_field.literal
+            path_so_far.append(join_field)
+            join_model_field = current_model._meta.get_field(join_field)
+            current_model = join_model_field.remote_field.model
+            pending_joins.append(
+                PendingJoin("__".join(path_so_far), current_model._meta.db_table)
+            )
+
+        func_call.pending_joins = pending_joins
+
+        target_expression = func_call.args[-1]
+        if isinstance(target_expression, BaserowStringLiteral):
+            target_expression = BaserowFunctionCall(
+                BaserowDbField(), [target_expression], None
+            )
+        result = target_expression.to_django_expression_given_args(
+            [],
+            current_model,
+            model_instance,
+        )
+        if target_expression.pending_joins:
+            func_call.pending_joins += target_expression.pending_joins
+        return result
