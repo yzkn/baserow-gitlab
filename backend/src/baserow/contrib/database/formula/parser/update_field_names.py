@@ -196,5 +196,6 @@ def update_field_names(
             field_names_to_replace_with_id_refs,
             via_field,
         ).visit(tree)
-    except RecursionError:
+    except RecursionError as e:
+        print(e)
         raise MaximumFormulaSizeError()

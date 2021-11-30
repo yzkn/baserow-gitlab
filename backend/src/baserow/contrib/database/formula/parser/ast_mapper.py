@@ -52,7 +52,8 @@ def raw_formula_to_untyped_expression(
     try:
         tree = get_parse_tree_for_formula(formula)
         return BaserowFormulaToBaserowASTMapper(allow_internal_functions).visit(tree)
-    except RecursionError:
+    except RecursionError as e:
+        print(e)
         raise MaximumFormulaSizeError()
 
 

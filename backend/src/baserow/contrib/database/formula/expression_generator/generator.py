@@ -110,7 +110,8 @@ def _baserow_expression_to_django_expression(
                     model, model_instance
                 )
                 return baserow_expression.accept(generator)
-    except RecursionError:
+    except RecursionError as e:
+        print(e)
         raise MaximumFormulaSizeError()
     except Exception as e:
         formula_exception_handler(e)
@@ -148,168 +149,29 @@ class BaserowExpressionToDjangoExpressionGenerator(
     def visit_lookup_reference(
         self, lookup_reference: BaserowLookupReference[BaserowFormulaType]
     ):
-        return self._setup_lookup_expression(lookup_reference)
+        raise Exception("Should never happen")
 
     def visit_field_reference(
         self, field_reference: BaserowFieldReference[BaserowFormulaType]
     ):
-        db_column = field_reference.referenced_field_name
-
-        generating_update_expression = self.model_instance is None
-        if generating_update_expression:
-            model_field = self.model._meta.get_field(db_column)
-            return self._make_reference_to_model_field(
-                db_column, model_field, already_in_subquery=False
-            )
-        elif not hasattr(self.model_instance, db_column):
-            raise UnknownFieldReference(db_column)
-        else:
-            return self._generate_insert_expression(db_column)
-
-    def _generate_insert_expression(self, db_column):
-        model_field = self.model._meta.get_field(db_column)
-        instance_attr_value = getattr(self.model_instance, db_column)
-        value = Value(instance_attr_value)
-        from baserow.contrib.database.fields.fields import SingleSelectForeignKey
-
-        if isinstance(model_field, SingleSelectForeignKey):
-            model_field = JSONField()
-            if instance_attr_value is not None:
-                value = JSONObject(
-                    **{
-                        "value": Value(instance_attr_value.value),
-                        "id": Value(instance_attr_value.id),
-                        "color": Value(instance_attr_value.color),
-                    }
-                )
-        # We need to cast and be super explicit what type this raw value is so
-        # postgres does not get angry and claim this is an unknown type.
-        return Cast(
-            value,
-            output_field=model_field,
-        )
-
-    # noinspection PyProtectedMember
-    def _setup_lookup_expression(self, field_reference):
-        path_to_lookup_from_lookup_table = field_reference.target_field_expr
-        m2m_to_lookup_table = field_reference.referenced_db_column
-
-        lookup_table_model = self._get_remote_model(m2m_to_lookup_table, self.model)
-        lookup_of_link_field = "__" in path_to_lookup_from_lookup_table
-
-        return self._make_reference_to_model_field(
-            filtered_join_to_lookup_field, model_field, already_in_subquery=True
-        )
-
-    # noinspection PyProtectedMember
-    def _setup_extra_joins_to_linked_lookup_table(
-        self, lookup_table_model, m2m_to_lookup_table, path_to_lookup_from_lookup_table
-    ):
-        # If someone has done a lookup of a link row field in the other table,
-        # the actual values we want to lookup are in that linked tables primary
-        # field. To get at those values we need to do two joins, the first
-        # above into the lookup table. The second from the lookup table to the
-        # linked table.
-        split_ref = path_to_lookup_from_lookup_table.split("__")
-        link_field_in_lookup_table = split_ref[0]
-
-        path_to_link_table = m2m_to_lookup_table + "__" + link_field_in_lookup_table
-
-        link_table_model = self._get_remote_model(
-            link_field_in_lookup_table, lookup_table_model
-        )
-
-        self.join_ids.add((m2m_to_lookup_table, lookup_table_model._meta.db_table))
-        filtered_join_to_link_table = self._setup_annotations_and_joins(
-            link_table_model, path_to_link_table, middle_link=m2m_to_lookup_table
-        )
-
-        primary_field_in_related_table = split_ref[1]
-        model_field = link_table_model._meta.get_field(primary_field_in_related_table)
-        return (
-            model_field,
-            filtered_join_to_link_table + "__" + primary_field_in_related_table,
-        )
-
-    # noinspection PyProtectedMember,PyMethodMayBeStatic
-    def _get_remote_model(self, m2m_field_name, mode):
-        looked_up_link_table_model = mode._meta.get_field(
-            m2m_field_name
-        ).remote_field.model
-        return looked_up_link_table_model
-
-    # noinspection PyProtectedMember
-    def _setup_annotations_and_joins(self, model, join_path, middle_link=None):
-        self.join_ids.add((join_path, model._meta.db_table))
-
-        # We must ensure the annotation name has no __ as otherwise django will think
-        # we aren't referring to an annotation but instead try to perform the joins.
-        unique_annotation_path_name = f"not_trashed_{join_path}".replace("__", "_")
-        relation_filters = {
-            f"{join_path}__trashed": False,
-            f"{join_path}__isnull": False,
-        }
-        if middle_link is not None:
-            # We are joining via a middle m2m relation, ensure we don't use any trashed
-            # rows there also.
-            relation_filters[middle_link + "__trashed"] = False
-        self.pre_annotations[unique_annotation_path_name] = FilteredRelation(
-            join_path,
-            condition=Q(**relation_filters),
-        )
-        return unique_annotation_path_name
-
-    def _make_reference_to_model_field(
-        self, db_column, model_field, already_in_subquery
-    ):
-        from baserow.contrib.database.fields.fields import SingleSelectForeignKey
-
-        if isinstance(model_field, SingleSelectForeignKey):
-            single_select_extractor = ExpressionWrapper(
-                JSONObject(
-                    **{
-                        "value": f"{db_column}__value",
-                        "id": f"{db_column}__id",
-                        "color": f"{db_column}__color",
-                    }
-                ),
-                output_field=model_field,
-            )
-            if already_in_subquery:
-                return single_select_extractor
-            else:
-                return self._wrap_in_subquery(single_select_extractor)
-        else:
-            return ExpressionWrapper(
-                F(db_column),
-                output_field=model_field,
-            )
-
-    def _wrap_in_subquery(self, single_select_extractor):
-        return ExpressionWrapper(
-            Subquery(
-                self.model.objects.filter(id=OuterRef("id")).values(
-                    result=single_select_extractor
-                ),
-            ),
-            output_field=JSONField(),
-        )
+        raise Exception("Should never happen")
 
     def visit_function_call(
         self, function_call: BaserowFunctionCall[BaserowFormulaType]
     ) -> Expression:
-
+        function_call.pending_joins = []
         if function_call.function_def.convert_args_to_expressions:
             args = [expr.accept(self) for expr in function_call.args]
         else:
             args = []
         for e in function_call.args:
             function_call.pending_joins += e.pending_joins
-        return function_call.to_django_expression_given_args(
+        expr = function_call.to_django_expression_given_args(
             args,
             self.model,
             self.model_instance,
         )
+        return expr
 
     def visit_string_literal(
         self, string_literal: BaserowStringLiteral[BaserowFormulaType]

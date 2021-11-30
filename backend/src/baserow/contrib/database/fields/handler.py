@@ -1,4 +1,5 @@
 import logging
+import traceback
 from copy import deepcopy
 from typing import Dict, Any, Optional, List
 
@@ -265,79 +266,64 @@ class FieldHandler:
             as a second tuple value.
         :rtype: Union[Field, Tuple[Field, List[Field]]
         """
+        try:
 
-        if not isinstance(field, Field):
-            raise ValueError("The field is not an instance of Field.")
+            if not isinstance(field, Field):
+                raise ValueError("The field is not an instance of Field.")
 
-        group = field.table.database.group
-        group.has_user(user, raise_error=True)
+            group = field.table.database.group
+            group.has_user(user, raise_error=True)
 
-        old_field = deepcopy(field)
-        field_type = field_type_registry.get_by_model(field)
-        old_field_type = field_type
-        from_model = field.table.get_model(field_ids=[], fields=[field])
-        from_field_type = field_type.type
+            old_field = deepcopy(field)
+            field_type = field_type_registry.get_by_model(field)
+            old_field_type = field_type
+            from_model = field.table.get_model(field_ids=[], fields=[field])
+            from_field_type = field_type.type
 
-        # If the provided field type does not match with the current one we need to
-        # migrate the field to the new type. Because the type has changed we also need
-        # to remove all view filters.
-        baserow_field_type_changed = new_type_name and field_type.type != new_type_name
-        if baserow_field_type_changed:
-            field_type = field_type_registry.get(new_type_name)
+            # If the provided field type does not match with the current one we need to
+            # migrate the field to the new type. Because the type has changed we also need
+            # to remove all view filters.
+            baserow_field_type_changed = (
+                new_type_name and field_type.type != new_type_name
+            )
+            if baserow_field_type_changed:
+                field_type = field_type_registry.get(new_type_name)
 
-            if field.primary and not field_type.can_be_primary_field:
-                raise IncompatiblePrimaryFieldTypeError(new_type_name)
+                if field.primary and not field_type.can_be_primary_field:
+                    raise IncompatiblePrimaryFieldTypeError(new_type_name)
 
-            new_model_class = field_type.model_class
-            field.change_polymorphic_type_to(new_model_class)
+                new_model_class = field_type.model_class
+                field.change_polymorphic_type_to(new_model_class)
 
-            # If the field type changes it could be that some dependencies,
-            # like filters or sortings need to be changed.
-            ViewHandler().field_type_changed(field)
+                # If the field type changes it could be that some dependencies,
+                # like filters or sortings need to be changed.
+                ViewHandler().field_type_changed(field)
 
-        allowed_fields = ["name"] + field_type.allowed_fields
-        field_values = extract_allowed(kwargs, allowed_fields)
+            allowed_fields = ["name"] + field_type.allowed_fields
+            field_values = extract_allowed(kwargs, allowed_fields)
 
-        _validate_field_name(
-            field_values, field.table, field, raise_if_name_missing=False
-        )
+            _validate_field_name(
+                field_values, field.table, field, raise_if_name_missing=False
+            )
 
-        field_values = field_type.prepare_values(field_values, user)
-        before = field_type.before_update(old_field, field_values, user)
+            field_values = field_type.prepare_values(field_values, user)
+            before = field_type.before_update(old_field, field_values, user)
 
-        field = set_allowed_attrs(field_values, allowed_fields, field)
-        update_collector = CachingFieldUpdateCollector(field.table)
-        field.save(field_lookup_cache=update_collector, raise_if_invalid=True)
-        FieldDependencyHandler.rebuild_dependencies(field, update_collector)
-        # If no converter is found we are going to convert to field using the
-        # lenient schema editor which will alter the field's type and set the data
-        # value to null if it can't be converted.
-        to_model = field.table.get_model(field_ids=[], fields=[field])
-        from_model_field = from_model._meta.get_field(field.db_column)
-        to_model_field = to_model._meta.get_field(field.db_column)
+            field = set_allowed_attrs(field_values, allowed_fields, field)
+            update_collector = CachingFieldUpdateCollector(field.table)
+            field.save(field_lookup_cache=update_collector, raise_if_invalid=True)
+            FieldDependencyHandler.rebuild_dependencies(field, update_collector)
+            # If no converter is found we are going to convert to field using the
+            # lenient schema editor which will alter the field's type and set the data
+            # value to null if it can't be converted.
+            to_model = field.table.get_model(field_ids=[], fields=[field])
+            from_model_field = from_model._meta.get_field(field.db_column)
+            to_model_field = to_model._meta.get_field(field.db_column)
 
-        # Before a field is updated we are going to call the before_schema_change
-        # method of the old field because some cleanup of related instances might
-        # need to happen.
-        old_field_type.before_schema_change(
-            old_field,
-            field,
-            from_model,
-            to_model,
-            from_model_field,
-            to_model_field,
-            user,
-        )
-
-        # Try to find a data converter that can be applied.
-        converter = field_converter_registry.find_applicable_converter(
-            from_model, old_field, field
-        )
-
-        if converter:
-            # If a field data converter is found we are going to use that one to alter
-            # the field and maybe do some data conversion.
-            converter.alter_field(
+            # Before a field is updated we are going to call the before_schema_change
+            # method of the old field because some cleanup of related instances might
+            # need to happen.
+            old_field_type.before_schema_change(
                 old_field,
                 field,
                 from_model,
@@ -345,97 +331,120 @@ class FieldHandler:
                 from_model_field,
                 to_model_field,
                 user,
-                connection,
             )
-        else:
-            if baserow_field_type_changed:
-                # If the baserow type has changed we always want to force run any alter
-                # column SQL as otherwise it might not run if the two baserow fields
-                # share the same underlying database column type.
-                force_alter_column = True
+
+            # Try to find a data converter that can be applied.
+            converter = field_converter_registry.find_applicable_converter(
+                from_model, old_field, field
+            )
+
+            if converter:
+                # If a field data converter is found we are going to use that one to alter
+                # the field and maybe do some data conversion.
+                converter.alter_field(
+                    old_field,
+                    field,
+                    from_model,
+                    to_model,
+                    from_model_field,
+                    to_model_field,
+                    user,
+                    connection,
+                )
             else:
-                force_alter_column = field_type.force_same_type_alter_column(
-                    old_field, field
+                if baserow_field_type_changed:
+                    # If the baserow type has changed we always want to force run any alter
+                    # column SQL as otherwise it might not run if the two baserow fields
+                    # share the same underlying database column type.
+                    force_alter_column = True
+                else:
+                    force_alter_column = field_type.force_same_type_alter_column(
+                        old_field, field
+                    )
+
+                # If no field converter is found we are going to alter the field using the
+                # the lenient schema editor.
+                with lenient_schema_editor(
+                    connection,
+                    old_field_type.get_alter_column_prepare_old_value(
+                        connection, old_field, field
+                    ),
+                    field_type.get_alter_column_prepare_new_value(
+                        connection, old_field, field
+                    ),
+                    force_alter_column,
+                ) as schema_editor:
+                    try:
+                        schema_editor.alter_field(
+                            from_model, from_model_field, to_model_field
+                        )
+                    except (ProgrammingError, DataError) as e:
+                        # If something is going wrong while changing the schema we will
+                        # just raise a specific exception. In the future we want to have
+                        # some sort of converter abstraction where the values of certain
+                        # types can be converted to another value.
+                        logger.error(str(e))
+                        message = (
+                            f"Could not alter field when changing field type "
+                            f"{from_field_type} to {new_type_name}."
+                        )
+                        raise CannotChangeFieldType(message)
+
+            from_model_field_type = from_model_field.db_parameters(connection)["type"]
+            to_model_field_type = to_model_field.db_parameters(connection)["type"]
+            altered_column = from_model_field_type != to_model_field_type
+
+            # If the new field doesn't support select options we can delete those
+            # relations.
+            if (
+                old_field_type.can_have_select_options
+                and not field_type.can_have_select_options
+            ):
+                old_field.select_options.all().delete()
+
+            field_type.after_update(
+                old_field,
+                field,
+                from_model,
+                to_model,
+                user,
+                connection,
+                altered_column,
+                before,
+            )
+
+            update_collector.cache_model_fields(to_model)
+            for (
+                dependant_field,
+                dependant_field_type,
+                via_path_to_starting_table,
+            ) in field.dependant_fields_with_types(field_cache=update_collector):
+                dependant_field_type.field_dependency_updated(
+                    dependant_field,
+                    field,
+                    old_field,
+                    via_path_to_starting_table,
+                    update_collector,
                 )
 
-            # If no field converter is found we are going to alter the field using the
-            # the lenient schema editor.
-            with lenient_schema_editor(
-                connection,
-                old_field_type.get_alter_column_prepare_old_value(
-                    connection, old_field, field
-                ),
-                field_type.get_alter_column_prepare_new_value(
-                    connection, old_field, field
-                ),
-                force_alter_column,
-            ) as schema_editor:
-                try:
-                    schema_editor.alter_field(
-                        from_model, from_model_field, to_model_field
-                    )
-                except (ProgrammingError, DataError) as e:
-                    # If something is going wrong while changing the schema we will
-                    # just raise a specific exception. In the future we want to have
-                    # some sort of converter abstraction where the values of certain
-                    # types can be converted to another value.
-                    logger.error(str(e))
-                    message = (
-                        f"Could not alter field when changing field type "
-                        f"{from_field_type} to {new_type_name}."
-                    )
-                    raise CannotChangeFieldType(message)
-
-        from_model_field_type = from_model_field.db_parameters(connection)["type"]
-        to_model_field_type = to_model_field.db_parameters(connection)["type"]
-        altered_column = from_model_field_type != to_model_field_type
-
-        # If the new field doesn't support select options we can delete those
-        # relations.
-        if (
-            old_field_type.can_have_select_options
-            and not field_type.can_have_select_options
-        ):
-            old_field.select_options.all().delete()
-
-        field_type.after_update(
-            old_field,
-            field,
-            from_model,
-            to_model,
-            user,
-            connection,
-            altered_column,
-            before,
-        )
-
-        update_collector.cache_model_fields(to_model)
-        for (
-            dependant_field,
-            dependant_field_type,
-            via_path_to_starting_table,
-        ) in field.dependant_fields_with_types(field_cache=update_collector):
-            dependant_field_type.field_dependency_updated(
-                dependant_field,
-                field,
-                old_field,
-                via_path_to_starting_table,
-                update_collector,
+            updated_fields = update_collector.apply_updates_and_get_updated_fields()
+            field_updated.send(
+                self,
+                field=field,
+                related_fields=updated_fields,
+                user=user,
             )
+            update_collector.send_additional_field_updated_signals()
 
-        updated_fields = update_collector.apply_updates_and_get_updated_fields()
-        field_updated.send(
-            self,
-            field=field,
-            related_fields=updated_fields,
-            user=user,
-        )
-        update_collector.send_additional_field_updated_signals()
-
-        if return_updated_fields:
-            return field, updated_fields
-        else:
-            return field
+            if return_updated_fields:
+                return field, updated_fields
+            else:
+                return field
+        except Exception as e:
+            print(e)
+            tb = traceback.format_exc()
+            print(tb)
+            raise e
 
     def delete_field(
         self,

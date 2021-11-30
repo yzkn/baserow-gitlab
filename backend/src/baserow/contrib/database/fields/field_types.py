@@ -2108,6 +2108,7 @@ class FormulaFieldType(FieldType):
 
     @staticmethod
     def _stack_error_mapper(e):
+        print(e)
         return (
             ERROR_TOO_DEEPLY_NESTED_FORMULA
             if "stack depth limit exceeded" in str(e)

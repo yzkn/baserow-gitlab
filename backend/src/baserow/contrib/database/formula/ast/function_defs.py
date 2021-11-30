@@ -1055,6 +1055,10 @@ class BaserowArrayAgg(OneArgumentBaserowFunction):
                 }
             )
         else:
+            print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            print(func_call)
+            print(func_call.parent)
+            print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", flush=True)
             only_join = pending_joins[0]
             json_builder_args["id"] = F(only_join.join_path + "__id")
 
@@ -1490,6 +1494,7 @@ class BaserowSubquery(OneArgumentBaserowFunction):
     type = "subquery"
     internal = True
     arg_type = [BaserowFormulaValidType]
+    aggregate = True
 
     def type_function(
         self,
@@ -1500,6 +1505,7 @@ class BaserowSubquery(OneArgumentBaserowFunction):
             func_call.with_invalid_type(
                 "first argument must be an aggregate expression"
             )
+        func_call.many = False
         return func_call.with_valid_type(arg.expression_type)
 
     def to_django_expression(self, arg: Expression) -> Expression:
@@ -1721,7 +1727,7 @@ class BaserowDbLookup(BaserowFunctionDefinition):
         result = target_expression.to_django_expression_given_args(
             [],
             current_model,
-            model_instance,
+            None,
         )
         if target_expression.pending_joins:
             func_call.pending_joins += target_expression.pending_joins

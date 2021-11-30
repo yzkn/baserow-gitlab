@@ -282,7 +282,7 @@ class BaserowFunctionDefinition(Instance, abc.ABC):
         )
 
     def _wrap_aggregate_with_subquery(self, expr):
-        if self.aggregate:
+        if self.aggregate and not self.type == "subquery":
             from baserow.contrib.database.formula.registries import (
                 formula_function_registry,
             )

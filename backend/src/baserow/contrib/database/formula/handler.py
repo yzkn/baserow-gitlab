@@ -1,3 +1,4 @@
+import traceback
 from typing import Type, Dict, Set, Optional
 
 from django.db.models import Model, Expression, Q
@@ -362,6 +363,9 @@ class FormulaHandler:
         try:
             expression = calculate_typed_expression(formula_field, field_lookup_cache)
         except BaserowFormulaException as e:
+            print(e)
+            tb = traceback.format_exc()
+            print(tb)
             expression = literal("").with_invalid_type(str(e))
 
         expression_type = expression.expression_type
