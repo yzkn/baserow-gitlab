@@ -265,7 +265,7 @@ export class GridViewType extends ViewType {
   }
 
   getIconClass() {
-    return 'th'
+    return 'bars'
   }
 
   getName() {
@@ -468,6 +468,48 @@ export class GridViewType extends ViewType {
         updateFunction,
       })
     }
+  }
+}
+
+export class GalleryViewType extends ViewType {
+  static getType() {
+    return 'gallery'
+  }
+
+  getIconClass() {
+    return 'th-large'
+  }
+
+  getColorClass() {
+    return 'color-error'
+  }
+
+  getName() {
+    const { i18n } = this.app
+    return i18n.t('viewType.gallery')
+  }
+
+  getHeaderComponent() {
+    return null
+  }
+
+  getComponent() {
+    return null
+  }
+
+  async fetch({ store }, view, fields, primary, storePrefix = '') {
+    await console.log('@TODO fetch')
+  }
+
+  async refresh(
+    { store },
+    view,
+    fields,
+    primary,
+    storePrefix = '',
+    includeFieldOptions = false
+  ) {
+    await console.log('@TODO refresh')
   }
 }
 
