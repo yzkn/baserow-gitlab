@@ -2,6 +2,8 @@ import { Registerable } from '@baserow/modules/core/registry'
 import ViewForm from '@baserow/modules/database/components/view/ViewForm'
 import GridView from '@baserow/modules/database/components/view/grid/GridView'
 import GridViewHeader from '@baserow/modules/database/components/view/grid/GridViewHeader'
+import GalleryView from '@baserow/modules/database/components/view/gallery/GalleryView'
+import GalleryViewHeader from '@baserow/modules/database/components/view/gallery/GalleryViewHeader'
 import FormView from '@baserow/modules/database/components/view/form/FormView'
 import FormViewHeader from '@baserow/modules/database/components/view/form/FormViewHeader'
 
@@ -490,11 +492,11 @@ export class GalleryViewType extends ViewType {
   }
 
   getHeaderComponent() {
-    return null
+    return GalleryViewHeader
   }
 
   getComponent() {
-    return null
+    return GalleryView
   }
 
   async fetch({ store }, view, fields, primary, storePrefix = '') {
