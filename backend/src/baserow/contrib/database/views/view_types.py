@@ -128,6 +128,13 @@ class GalleryViewType(ViewType):
     field_options_model_class = GalleryViewFieldOptions
     field_options_serializer_class = GalleryViewFieldOptionsSerializer
 
+    def get_api_urls(self):
+        from baserow.contrib.database.api.views.gallery import urls as api_urls
+
+        return [
+            path("gallery/", include(api_urls, namespace=self.type)),
+        ]
+
     def export_serialized(self, gallery, files_zip, storage):
         """
         Adds the serialized gallery view options to the exported dict.
