@@ -1,10 +1,5 @@
 .gallery-view {
-  // nothing
-}
-
-.gallery-view__scroll {
-  overflow-y: scroll;
-  z-index: 1;
+  overflow: hidden;
 
   @include absolute(0);
 }
@@ -26,22 +21,17 @@
   }
 }
 
+.gallery-view__scroll {
+  overflow-y: auto;
+  z-index: 1;
+
+  @include absolute(0);
+}
+
 .gallery-view__cards {
-  display: flex;
-  flex-wrap: wrap;
-  padding: 0 $gallery-view-gutter $gallery-view-gutter $gallery-view-gutter;
+  position: relative;
 }
 
 .gallery-view__card {
-  margin-top: $gallery-view-gutter;
-
-  @for $i from 1 through 20 {
-    .gallery-view__cards--#{$i}-per-row & {
-      width: calc(100% / #{$i} - #{$gallery-view-gutter / $i * ($i - 1)});
-
-      &:not(:nth-child(#{$i}n+#{$i})) {
-        margin-right: 30px;
-      }
-    }
-  }
+  @include absolute(0, auto, auto, 0);
 }

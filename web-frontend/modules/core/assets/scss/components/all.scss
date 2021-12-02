@@ -22,6 +22,8 @@
 @import 'fields/file';
 @import 'fields/multiple_select';
 @import 'fields/array';
+@import 'card';
+@import 'card/all';
 @import 'views/grid';
 @import 'views/grid/text';
 @import 'views/grid/long_text';
@@ -78,7 +80,5 @@
 @import 'infinite_scroll';
 @import 'formula_field';
 @import 'lang_picker';
-@import 'card';
-@import 'card/all';
 @import 'webhook';
 @import 'tab';

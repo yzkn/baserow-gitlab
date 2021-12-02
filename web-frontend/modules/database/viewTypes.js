@@ -500,7 +500,11 @@ export class GalleryViewType extends ViewType {
   }
 
   async fetch({ store }, view, fields, primary, storePrefix = '') {
-    await console.log('@TODO fetch')
+    await store.dispatch(storePrefix + 'view/gallery/fetchInitial', {
+      viewId: view.id,
+      fields,
+      primary,
+    })
   }
 
   async refresh(
