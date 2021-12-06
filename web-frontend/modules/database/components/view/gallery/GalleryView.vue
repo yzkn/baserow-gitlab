@@ -228,6 +228,13 @@ export default {
       const endIndex = startIndex + minimumCardsToRender
       const visibleRows = this.allRows.slice(startIndex, endIndex)
 
+      // Tell the store which rows/cards are visible so that it can fetch the missing
+      // ones if needed.
+      this.$store.dispatch(this.storePrefix + 'view/gallery/visibleRows', {
+        startIndex,
+        endIndex,
+      })
+
       this.buffer = visibleRows.map((row, positionInVisible) => {
         const positionInAll = startIndex + positionInVisible
         const left =

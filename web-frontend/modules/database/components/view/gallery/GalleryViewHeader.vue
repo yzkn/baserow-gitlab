@@ -20,21 +20,19 @@
         ref="customizeContext"
         :fields="allFields"
         :read-only="readOnly"
-        :field-options="{}"
+        :field-options="fieldOptions"
+        @update-all-field-options="updateAllFieldOptions"
+        @update-field-options-of-field="updateFieldOptionsOfField"
+        @update-order="orderFieldOptions"
       ></ViewFieldsContext>
-      <!--
-      :field-options="fieldOptions"
-      @update-all-field-options="updateAllFieldOptions"
-      @update-field-options-of-field="updateFieldOptionsOfField"
-      @update-order="orderFieldOptions"
-      -->
     </li>
   </ul>
 </template>
 
 <script>
-import { mapState } from 'vuex'
+import { mapGetters, mapState } from 'vuex'
 
+import { notifyIf } from '@baserow/modules/core/utils/error'
 import ViewFieldsContext from '@baserow/modules/database/components/view/ViewFieldsContext'
 
 export default {
@@ -65,6 +63,10 @@ export default {
       type: Boolean,
       required: true,
     },
+    storePrefix: {
+      type: String,
+      required: true,
+    },
   },
   computed: {
     allFields() {
@@ -74,46 +76,56 @@ export default {
       tableLoading: (state) => state.table.loading,
     }),
   },
-  // methods: {
-  //   async updateAllFieldOptions({ newFieldOptions, oldFieldOptions }) {
-  //     try {
-  //       await this.$store.dispatch(
-  //         this.storePrefix + 'view/kanban/updateAllFieldOptions',
-  //         {
-  //           newFieldOptions,
-  //           oldFieldOptions,
-  //         }
-  //       )
-  //     } catch (error) {
-  //       notifyIf(error, 'view')
-  //     }
-  //   },
-  //   async updateFieldOptionsOfField({ field, values, oldValues }) {
-  //     try {
-  //       await this.$store.dispatch(
-  //         this.storePrefix + 'view/kanban/updateFieldOptionsOfField',
-  //         {
-  //           field,
-  //           values,
-  //           oldValues,
-  //         }
-  //       )
-  //     } catch (error) {
-  //       notifyIf(error, 'view')
-  //     }
-  //   },
-  //   async orderFieldOptions({ order }) {
-  //     try {
-  //       await this.$store.dispatch(
-  //         this.storePrefix + 'view/kanban/updateFieldOptionsOrder',
-  //         {
-  //           order,
-  //         }
-  //       )
-  //     } catch (error) {
-  //       notifyIf(error, 'view')
-  //     }
-  //   },
-  // },
+  beforeCreate() {
+    this.$options.computed = {
+      ...(this.$options.computed || {}),
+      ...mapGetters({
+        fieldOptions:
+          this.$options.propsData.storePrefix +
+          'view/gallery/getAllFieldOptions',
+      }),
+    }
+  },
+  methods: {
+    async updateAllFieldOptions({ newFieldOptions, oldFieldOptions }) {
+      try {
+        await this.$store.dispatch(
+          this.storePrefix + 'view/gallery/updateAllFieldOptions',
+          {
+            newFieldOptions,
+            oldFieldOptions,
+          }
+        )
+      } catch (error) {
+        notifyIf(error, 'view')
+      }
+    },
+    async updateFieldOptionsOfField({ field, values, oldValues }) {
+      try {
+        await this.$store.dispatch(
+          this.storePrefix + 'view/gallery/updateFieldOptionsOfField',
+          {
+            field,
+            values,
+            oldValues,
+          }
+        )
+      } catch (error) {
+        notifyIf(error, 'view')
+      }
+    },
+    async orderFieldOptions({ order }) {
+      try {
+        await this.$store.dispatch(
+          this.storePrefix + 'view/gallery/updateFieldOptionsOrder',
+          {
+            order,
+          }
+        )
+      } catch (error) {
+        notifyIf(error, 'view')
+      }
+    },
+  },
 }
 </script>

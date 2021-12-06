@@ -1,6 +1,6 @@
 import _ from 'lodash'
-import ViewService from '@baserow/modules/database/services/view'
 import { clone } from '@baserow/modules/core/utils/object'
+import ViewService from '@baserow/modules/database/services/view'
 
 export default () => {
   const state = () => ({
@@ -138,6 +138,9 @@ export default () => {
   }
 
   const getters = {
+    getViewId(state) {
+      return state.viewId
+    },
     getAllFieldOptions(state) {
       return state.fieldOptions
     },

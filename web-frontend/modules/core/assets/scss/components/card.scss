@@ -53,8 +53,8 @@
   margin-bottom: 6px;
 
   .card--loading & {
-    color: $color-neutral-200;
-    background-color: $color-neutral-200;
+    color: $color-neutral-100;
+    background-color: $color-neutral-100;
   }
 }
 
@@ -63,7 +63,7 @@
 
   .card--loading & {
     width: 50%;
-    background-color: $color-neutral-200;
+    background-color: $color-neutral-100;
     height: 13px;
   }
 }
