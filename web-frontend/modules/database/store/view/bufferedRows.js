@@ -106,8 +106,9 @@ export default ({
       const visibleRows = allRows.slice(startIndex, endIndex + 1)
 
       // If all of the visible rows have been fetched, we don't have to do anything.
-      const visibleRowsNullIndex = visibleRows.findIndex((row) => row === null)
-      if (visibleRowsNullIndex === -1) {
+      const firstNullIndex = visibleRows.findIndex((row) => row === null)
+      const lastNullIndex = visibleRows.lastIndexOf(null)
+      if (firstNullIndex === -1) {
         return
       }
 
@@ -118,8 +119,8 @@ export default ({
         startIndex - endIndex,
         getters.getRequestSize
       )
-      let offset = startIndex
-      let limit = endIndex - startIndex
+      let offset = startIndex + firstNullIndex
+      let limit = lastNullIndex - firstNullIndex + 1
       let check = 'next'
 
       // Because we have an ideal request size and this is often higher than the
@@ -140,26 +141,12 @@ export default ({
           check = 'previous'
           if (next === null) {
             limit += 1
-          } else if (offset + limit === endIndex) {
-            // If the current offset + limit is equal to the end index, then it
-            // means there are only fetched rows after the provided only. In that
-            // case, we can decrease the limit to the first null so we can fetch the
-            // un-fetched rows before the provided range.
-            limit = visibleRowsNullIndex + 1
           }
         } else if (check === 'previous') {
           check = 'next'
           if (previous === null) {
             offset -= 1
             limit += 1
-          } else if (offset === startIndex) {
-            // If the current offset is equal to the start index, we know that there
-            // aren't any un-fetched rows before the provided range. In that case,
-            // we can try to shift the offset to the first null index found because
-            // that's the first row we want to fetch.
-            const newOffset = startIndex + visibleRowsNullIndex
-            limit = limit + offset - newOffset
-            offset = newOffset
           }
         }
       }

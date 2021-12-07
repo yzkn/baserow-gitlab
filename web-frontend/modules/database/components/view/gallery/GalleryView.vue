@@ -73,7 +73,6 @@ export default {
     return {
       height: 0,
       cardWidth: 0,
-      cardsPerRow: 1,
       buffer: [],
     }
   },
@@ -189,7 +188,7 @@ export default {
       const cardHeight = this.cardHeight
       const cardWidth = (containerWidth - gutterSize) / cardsPerRow - gutterSize
       const totalRows = Math.ceil(this.allRows.length / cardsPerRow)
-      const height = totalRows * cardHeight + gutterSize + gutterSize
+      const height = totalRows * (cardHeight + gutterSize) + gutterSize
 
       this.cardWidth = cardWidth
       this.height = height

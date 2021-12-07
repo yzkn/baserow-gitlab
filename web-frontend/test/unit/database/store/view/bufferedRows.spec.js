@@ -64,7 +64,6 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    console.log('1')
     await store.dispatch('test/visibleRows', { startIndex: 0, endIndex: 1 })
     const rowsInStore = store.getters['test/getRows']
     expect(rowsInStore[0].id).toBe(1)
@@ -82,7 +81,6 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12]).toBe(null)
     expect(rowsInStore[13]).toBe(null)
 
-    console.log('2')
     await store.dispatch('test/visibleRows', { startIndex: 1, endIndex: 2 })
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
@@ -99,7 +97,6 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12]).toBe(null)
     expect(rowsInStore[13]).toBe(null)
 
-    console.log('3')
     await store.dispatch('test/visibleRows', { startIndex: 10, endIndex: 11 })
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
@@ -147,6 +144,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[10].id).toBe(11)
     expect(rowsInStore[11].id).toBe(12)
     expect(rowsInStore[12].id).toBe(13)
+    // Check if the state has not been overwritten.
     expect(rowsInStore[12]._.tmp).toBe(true)
     expect(rowsInStore[13].id).toBe(14)
   })
