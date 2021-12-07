@@ -515,7 +515,11 @@ export class GalleryViewType extends ViewType {
     storePrefix = '',
     includeFieldOptions = false
   ) {
-    await console.log('@TODO refresh')
+    await store.dispatch(storePrefix + 'view/gallery/refresh', {
+      fields,
+      primary,
+      includeFieldOptions,
+    })
   }
 }
 

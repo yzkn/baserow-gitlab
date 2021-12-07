@@ -1,4 +1,6 @@
 import Vue from 'vue'
+import axios from 'axios'
+import { RefreshCancelledError } from '@baserow/modules/core/errors'
 
 export default ({
   service,
@@ -6,15 +8,94 @@ export default ({
   fetchInitialRowsArguments = {},
   fetchedInitialCallback = function () {},
 }) => {
+  let lastRequestSource = null
+
+  /**
+   * This helper function calculates the most optimal `limit` `offset` range of rows
+   * that must be fetched. Based on the provided visible `startIndex` and `endIndex`
+   * we know which rows must be fetched because those values are `null` in the
+   * provided `rows` array. If a request must be made, we want to do so in the most
+   * efficient manner, so we want to respect the ideal request size by filling up
+   * the request with other before and after the range that must also be fetched.
+   * This function checks if there are other `null` rows close to the range and if
+   * so, it tries to include them in the range.
+   *
+   * @param rows        An array containing the rows that we have fetched already.
+   * @param requestSize The ideal request when making a request to the server.
+   * @param startIndex  The start index of the visible rows.
+   * @param endIndex    The end index of the visible rows.
+   */
+  const getRangeToFetch = (rows, requestSize, startIndex, endIndex) => {
+    const visibleRows = rows.slice(startIndex, endIndex + 1)
+
+    const firstNullIndex = visibleRows.findIndex((row) => row === null)
+    const lastNullIndex = visibleRows.lastIndexOf(null)
+
+    // If all of the visible rows have been fetched, so none of them are `null`, we
+    // don't have to do anything.
+    if (firstNullIndex === -1) {
+      return
+    }
+
+    // Figure out what the request size is. In almost all cases this is going to
+    // be the configured request size, but it could be that more rows must be visible
+    // and in that case we want to increase it
+    const maxRequestSize = Math.max(startIndex - endIndex, requestSize)
+
+    // The initial offset can be the first `null` found in the range.
+    let offset = startIndex + firstNullIndex
+    let limit = lastNullIndex - firstNullIndex + 1
+    let check = 'next'
+
+    // Because we have an ideal request size and this is often higher than the
+    // visible rows, we want to efficiently fetch additional rows that are close
+    // to the visible range.
+    while (limit < maxRequestSize) {
+      const previous = rows[offset - 1]
+      const next = rows[offset + limit + 1]
+
+      // If both the previous and next item are not `null`, which means there is
+      // no un-fetched row before or after the range anymore, we want to stop the for
+      // loop because there is nothing to fetch.
+      if (previous !== null && next !== null) {
+        break
+      }
+
+      if (check === 'next') {
+        check = 'previous'
+        // If the next element is null, we want to include that in the range to be
+        // fetched.
+        if (next === null) {
+          limit += 1
+        }
+      } else if (check === 'previous') {
+        check = 'next'
+        // If the previous element is null, we want to include that in the range to
+        // be fetched.
+        if (previous === null) {
+          offset -= 1
+          limit += 1
+        }
+      }
+    }
+
+    return { offset, limit }
+  }
+
   const state = () => ({
     // If another visible rows action has been dispatched while fetching rows, the
     // requested is temporarily delayed and the parameters are stored here.
     delayedRequest: null,
     // Holds the last requested start and end index of the currently visible rows
     visible: [0, 0],
+    // Contains the ideal size of rows that's being fetched when making a request.
     requestSize: 100,
+    // The current view id.
     viewId: -1,
+    // Indicates whether the store is currently fetching another batch of rows.
     fetching: false,
+    // A list of all the rows in the table. The ones that haven't been fetched yet
+    // are `null`.
     rows: [],
   })
 
@@ -75,113 +156,167 @@ export default ({
       fetchedInitialCallback(context, data)
     },
     /**
-     * Should be called when the different rows are displayed to the user. It will
-     * figure out which rows have not been loaded and will make a request with the
-     * backend to replace to missing ones.
-     *
-     * @param startIndex
-     * @param endIndex
+     * Should be called when the different rows are displayed to the user. This
+     * could for example happen when a user scrolls. It will figure out which rows
+     * have not been fetched and will make a request with the backend to replace to
+     * missing ones if needed.
      */
     async visibleRows({ dispatch, getters, commit }, parameters) {
       const { startIndex, endIndex } = parameters
 
-      // If the store is already fetching a set of pages, we don't want to do
-      // anything because when the fetching is complete it's going to check if
-      // another set of rows must be fetched.
+      // If the store is already fetching a set of pages, we're temporarily storing
+      // the parameters so that this action can be dispatched again with the latest
+      // parameters.
       if (getters.getFetching) {
         commit('SET_DELAYED_REQUEST', parameters)
         return
       }
 
-      const currentVisible = getters.getVisible
-
       // Check if the currently visible range isn't to same as the provided one
       // because we don't want to do anything in that case.
+      const currentVisible = getters.getVisible
       if (currentVisible[0] === startIndex && currentVisible[1] === endIndex) {
         return
       }
 
+      // Update the last visible range to make sure this action isn't dispatched
+      // multiple times.
       commit('SET_VISIBLE', { startIndex, endIndex })
-      const allRows = getters.getRows
-      const visibleRows = allRows.slice(startIndex, endIndex + 1)
 
-      // If all of the visible rows have been fetched, we don't have to do anything.
-      const firstNullIndex = visibleRows.findIndex((row) => row === null)
-      const lastNullIndex = visibleRows.lastIndexOf(null)
-      if (firstNullIndex === -1) {
-        return
-      }
-
-      // Figure out what the request size is. In almost all cases this is going to
-      // be the configured request size, but it could be that more rows are visible
-      // and in that case we want to fetch enough rows.
-      const requestSize = Math.max(
-        startIndex - endIndex,
-        getters.getRequestSize
+      // Check what the ideal range is to fetch with the backend.
+      const rangeToFetch = getRangeToFetch(
+        getters.getRows,
+        getters.getRequestSize,
+        startIndex,
+        endIndex
       )
-      let offset = startIndex + firstNullIndex
-      let limit = lastNullIndex - firstNullIndex + 1
-      let check = 'next'
 
-      // Because we have an ideal request size and this is often higher than the
-      // visible rows, we want to efficiently fetch additional rows that are close
-      // to the visible range.
-      while (limit < requestSize) {
-        const previous = allRows[offset - 1]
-        const next = allRows[offset + limit + 1]
-
-        // If both the previous and next item are not `null`, which means there is
-        // no un-fetched row before or after the range anymore, we want to stop the for
-        // loop because there is nothing to fetch.
-        if (previous !== null && next !== null) {
-          break
-        }
-
-        if (check === 'next') {
-          check = 'previous'
-          if (next === null) {
-            limit += 1
-          }
-        } else if (check === 'previous') {
-          check = 'next'
-          if (previous === null) {
-            offset -= 1
-            limit += 1
-          }
-        }
-      }
-
-      // If the limit is zero, it means that there aren't any rows to fetch, so
-      // we will stop immediately.
-      if (limit === 0) {
+      // If there is no ideal range or if the limit is 0, then there aren't any rows
+      // to fetch so we can stop.
+      if (rangeToFetch === undefined || rangeToFetch.limit === 0) {
         return
       }
 
-      // We can only make one request at the same time, so when we're going to make
-      // a request, to set the fetching state to `true` to prevent multiple requests
-      // being fired simultaneously.
+      // We can only make one request at the same time, so we're going to to set the
+      // fetching state to `true` to prevent multiple requests being fired
+      // simultaneously.
       commit('SET_FETCHING', true)
+      lastRequestSource = axios.CancelToken.source()
+      try {
+        const { data } = await service(this.$client).fetchRows({
+          viewId: getters.getViewId,
+          offset: rangeToFetch.offset,
+          limit: rangeToFetch.limit,
+          cancelToken: lastRequestSource.token,
+        })
+        commit('UPDATE_ROWS', {
+          offset: rangeToFetch.offset,
+          rows: data.results,
+        })
+      } catch (error) {
+        if (axios.isCancel(error)) {
+          throw new RefreshCancelledError()
+        } else {
+          lastRequestSource = null
+          throw error
+        }
+      } finally {
+        // Check if another `visibleRows` action has been dispatched while we were
+        // fetching the rows. If so, we need to dispatch the same action again with
+        // the latest parameters.
+        commit('SET_FETCHING', false)
+        const delayedRequestParameters = getters.getDelayedRequest
+        if (delayedRequestParameters !== null) {
+          commit('SET_DELAYED_REQUEST', null)
+          await dispatch('visibleRows', delayedRequestParameters)
+        }
+      }
+    },
+    /**
+     * Refreshes the current visible page by clearing all the rows in the store and
+     * fetching the currently visible rows. This is typically done when a filter has
+     * changed and we can't trust what's in the store anymore.
+     */
+    async refresh(
+      { dispatch, commit, getters },
+      { fields, primary, includeFieldOptions = false }
+    ) {
+      // If another refresh or fetch request is currently running, we need to cancel
+      // them because the response is most likely going to be outdated and we don't
+      // need it anymore.
+      if (lastRequestSource !== null) {
+        lastRequestSource.cancel('Cancelled in favor of new request')
+      }
 
-      const viewId = getters.getViewId
-      const { data } = await service(this.$client).fetchRows({
-        viewId,
-        offset,
-        limit,
-      })
-      commit('UPDATE_ROWS', {
-        offset,
-        rows: data.results,
-      })
+      lastRequestSource = axios.CancelToken.source()
 
-      // Check if another `visibleRows` action has been dispatched while we're
-      // fetching the rows. If so, we need to dispatch the same action again with
-      // the new parameters. Nothing will be done if the visible start and index
-      // haven't changed.
-      commit('SET_FETCHING', false)
-      const delayedRequestParameters = getters.getDelayedRequest
-      if (delayedRequestParameters !== null) {
-        commit('SET_DELAYED_REQUEST', null)
-        await dispatch('visibleRows', delayedRequestParameters)
+      try {
+        // We first need to fetch the count of all rows because we need to know how
+        // many rows there are in total to estimate what are new visible range it
+        // going to be.
+        commit('SET_FETCHING', true)
+        const {
+          data: { count },
+        } = await service(this.$client).fetchCount({
+          viewId: getters.getViewId,
+          cancelToken: lastRequestSource.token,
+        })
+
+        // Create a new empty array containing un-fetched rows.
+        const rows = Array(count).fill(null)
+        let startIndex = 0
+        let endIndex = 0
+
+        if (count > 0) {
+          // Figure out which range was previous visible and see if that still fits
+          // within the new set of rows. Otherwise we're going to fall
+          const currentVisible = getters.getVisible
+          startIndex = currentVisible[0]
+          endIndex = currentVisible[1]
+          const difference = count - endIndex
+
+          if (difference < 0) {
+            startIndex += difference
+            endIndex += difference
+          }
+
+          // Based on the newly calculated range we can figure out which rows we want
+          // to fetch from the backend to populate our store with. These should be the
+          // rows that the user is going to look at.
+          const rangeToFetch = getRangeToFetch(
+            rows,
+            getters.getRequestSize,
+            startIndex,
+            endIndex
+          )
+
+          // Only fetch visible rows if there are any.
+          const {
+            data: { results },
+          } = await service(this.$client).fetchRows({
+            viewId: getters.getViewId,
+            offset: rangeToFetch.offset,
+            limit: rangeToFetch.limit,
+            includeFieldOptions,
+            cancelToken: lastRequestSource.token,
+          })
+
+          results.forEach((row, index) => {
+            rows[rangeToFetch.offset + index] = populateRow(row)
+          })
+        }
+
+        commit('SET_ROWS', rows)
+        commit('SET_VISIBLE', { startIndex, endIndex })
+      } catch (error) {
+        if (axios.isCancel(error)) {
+          throw new RefreshCancelledError()
+        } else {
+          lastRequestSource = null
+          throw error
+        }
+      } finally {
+        commit('SET_FETCHING', false)
       }
     },
   }

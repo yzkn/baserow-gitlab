@@ -6,6 +6,7 @@ export default (client) => {
       offset = null,
       includeFieldOptions = false,
       search = false,
+      cancelToken = null,
     }) {
       const config = {
         params: {
@@ -13,6 +14,10 @@ export default (client) => {
         },
       }
       const include = []
+
+      if (cancelToken !== null) {
+        config.cancelToken = cancelToken
+      }
 
       if (offset !== null) {
         config.params.offset = offset

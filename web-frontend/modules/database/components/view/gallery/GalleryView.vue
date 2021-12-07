@@ -30,8 +30,10 @@
 </template>
 
 <script>
+import debounce from 'lodash/debounce'
 import { mapGetters } from 'vuex'
 import ResizeObserver from 'resize-observer-polyfill'
+
 import { getCardHeight } from '@baserow/modules/database/utils/card'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
 import RowCard from '@baserow/modules/database/components/card/RowCard'
@@ -146,8 +148,35 @@ export default {
     })
     this.$el.resizeObserver.observe(this.$el)
 
-    this.$el.scrollEvent = () => {
-      this.updateBuffer()
+    let lastScrollTop = this.$refs.scroll.scrollTop
+
+    // Debounce function that's called when the user scrolls really fast. This is to
+    // make sure that the `updateBuffer` method is called with the
+    // `dispatchVisibleRows` parameter to true when the user immediately stops
+    // scrolling fast.
+    const updateBufferDebounced = debounce(() => {
+      this.updateBuffer(true)
+    }, 50)
+
+    this.$el.scrollEvent = (event) => {
+      // Check if the user is scrolling super fast because in that case we don't fetch
+      // the rows when they're not needed.
+      const scrollTop = event.target.scrollTop
+      const difference = Math.abs(scrollTop - lastScrollTop)
+      lastScrollTop = scrollTop
+      const isScrollingSlow = difference < 100
+
+      // When not scrolling slow, we trigger the debounce to make sure that when the
+      // user immediately stops scrolling, the visible rows are still fetched.
+      if (!isScrollingSlow) {
+        updateBufferDebounced()
+      } else {
+        updateBufferDebounced.cancel()
+      }
+
+      // When scrolling "slow", the dispatchVisibleRows parameter is true so that the
+      // visible rows are fetched if needed.
+      this.updateBuffer(isScrollingSlow)
     }
     this.$refs.scroll.addEventListener('scroll', this.$el.scrollEvent)
   },
@@ -167,14 +196,15 @@ export default {
     }
   },
   methods: {
-    async refresh() {
-      await console.log('@TODO refresh')
-    },
-
     /**
      * @TODO make this really virtual
+     *
+     * @param dispatchVisibleRows Indicates whether we want to dispatch the visibleRows
+     *  action in the store. In some cases, when scrolling really fast through data we
+     *  might want to wait a small moment before calling the action, which will make a
+     *  request to the backend if needed.
      */
-    updateBuffer() {
+    updateBuffer(dispatchVisibleRows = true) {
       const el = this.$refs.scroll
 
       const gutterSize = 30
@@ -202,13 +232,6 @@ export default {
       const endIndex = startIndex + minimumCardsToRender
       const visibleRows = this.allRows.slice(startIndex, endIndex)
 
-      // Tell the store which rows/cards are visible so that it can fetch the missing
-      // ones if needed.
-      this.$store.dispatch(this.storePrefix + 'view/gallery/visibleRows', {
-        startIndex,
-        endIndex,
-      })
-
       this.buffer = visibleRows.map((row, positionInVisible) => {
         const positionInAll = startIndex + positionInVisible
         const left =
@@ -224,6 +247,15 @@ export default {
           top,
         }
       })
+
+      if (dispatchVisibleRows) {
+        // Tell the store which rows/cards are visible so that it can fetch the missing
+        // ones if needed.
+        this.$store.dispatch(this.storePrefix + 'view/gallery/visibleRows', {
+          startIndex,
+          endIndex,
+        })
+      }
     },
   },
 }
