@@ -20,35 +20,10 @@
           class="gallery-view__card"
           :style="{
             width: cardWidth + 'px',
+            height: slot.row === null ? cardHeight + 'px' : undefined,
             transform: `translateX(${slot.left}px) translateY(${slot.top}px)`,
           }"
         ></RowCard>
-
-        <!--
-        :style="{
-            transform: `translateY(${
-              slot.position * cardHeight + bufferTop
-            }px)`,
-          }"
-        <template v-for="(row, index) in buffer">
-          <RowCard
-            v-if="row !== null"
-            :key="'card-' + row.id"
-            :fields="cardFields"
-            :row="row"
-            class="gallery-view__card"
-          ></RowCard>
-          <RowCard
-            v-else
-            :key="'loading-' + index"
-            :fields="cardFields"
-            :loading="true"
-            class="gallery-view__card"
-            :style="{ height: cardHeight + 'px' }"
-          >
-          </RowCard>
-        </template>
-        -->
       </div>
     </div>
   </div>
