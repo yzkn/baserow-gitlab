@@ -144,6 +144,12 @@ export default ({
     DELETE_ROW_AT_INDEX(state, { index }) {
       state.rows.splice(index, 1)
     },
+    MOVE_ROW(state, { oldIndex, newIndex }) {
+      state.rows.splice(newIndex, 0, state.rows.splice(oldIndex, 1)[0])
+    },
+    UPDATE_ROW_AT_INDEX(state, { index, values }) {
+      Object.assign(state.rows[index], values)
+    },
   }
 
   const actions = {
@@ -418,7 +424,9 @@ export default ({
 
       // Check if the row matches the filters. If not, we don't have to do anything
       // because we know this row does not exist in the view.
-      if (!dispatch('rowMatchesFilters', { view, fields, primary, row })) {
+      if (
+        !(await dispatch('rowMatchesFilters', { view, fields, primary, row }))
+      ) {
         return
       }
 
@@ -438,7 +446,96 @@ export default ({
 
       commit('INSERT_ROW_AT_INDEX', { index, row })
     },
-    // updatedExistingRow({}, { view, fields, primary, row, values }) {},
+    /**
+     * When an existing row is updated, the state in the store must also be updated.
+     * Because we always receive the old and new state we can calculate if the row
+     * already existed in store. If it does exist, but the row was not fetched yet,
+     * so in a `null` state, we can still figure out what the index was supposed to
+     * be and take action on that.
+     *
+     * It works very similar to what happens when a row is created. If we can be
+     * sure about the new position then we can update the and keep it's data. If we
+     * can't be 100% sure, the row will be updated as `null`.
+     */
+    async updatedExistingRow(
+      { dispatch, commit },
+      { view, fields, primary, row, values }
+    ) {
+      const oldRow = clone(row)
+      let newRow = Object.assign(clone(row), values)
+      populateRow(oldRow)
+      populateRow(newRow)
+
+      const oldRowMatches = await dispatch('rowMatchesFilters', {
+        view,
+        fields,
+        primary,
+        row: oldRow,
+      })
+      const newRowMatches = await dispatch('rowMatchesFilters', {
+        view,
+        fields,
+        primary,
+        row: newRow,
+      })
+
+      if (oldRowMatches && !newRowMatches) {
+        // If the old row did match the filters, but after the update it does not
+        // anymore, we can safely remove it from the store.
+        await dispatch('deletedExistingRow', { view, fields, primary, row })
+      } else if (!oldRowMatches && newRowMatches) {
+        // If the old row didn't match filters, but the updated one does, we need to
+        // add it to the store.
+        await dispatch('createdNewRow', {
+          view,
+          fields,
+          primary,
+          values: newRow,
+        })
+      } else if (oldRowMatches && newRowMatches) {
+        // If the old and updated row already exists in the store, we need to update is.
+        const { index: oldIndex, isCertain: oldIsCertain } = await dispatch(
+          'findIndexOfExistingRow',
+          {
+            view,
+            fields,
+            primary,
+            row: oldRow,
+          }
+        )
+        const { index: newIndex, isCertain: newIsCertain } = await dispatch(
+          'findIndexOfExistingRow',
+          {
+            view,
+            fields,
+            primary,
+            row: newRow,
+          }
+        )
+
+        if (oldIsCertain && newIsCertain) {
+          // If both the old and updated are certain, we can just update the values
+          // of the row so the original row, including the state, will persist.
+          commit('UPDATE_ROW_AT_INDEX', { index: oldIndex, values })
+
+          if (oldIndex !== newIndex) {
+            // If the index has changed we want to move the row. We're moving it and
+            // not recreating it because we want the state to persist.
+            commit('MOVE_ROW', { oldIndex, newIndex })
+          }
+        } else {
+          // If either the old and updated row is not certain, which means it's in a
+          // `null` state, there is no row to persist to we can easily recreate it
+          // at the right position.
+          if (!newIsCertain) {
+            newRow = null
+          }
+
+          commit('DELETE_ROW_AT_INDEX', { index: oldIndex })
+          commit('INSERT_ROW_AT_INDEX', { index: newIndex, row: newRow })
+        }
+      }
+    },
     /**
      * When a new row deleted and it does exist in the store, it must be deleted
      * removed from is. Based on the provided values of the row we can figure out if
@@ -453,7 +550,9 @@ export default ({
 
       // Check if the row matches the filters. If not, we don't have to do anything
       // because we know this row does not exist in the view.
-      if (!dispatch('rowMatchesFilters', { view, fields, primary, row })) {
+      if (
+        !(await dispatch('rowMatchesFilters', { view, fields, primary, row }))
+      ) {
         return
       }
 
