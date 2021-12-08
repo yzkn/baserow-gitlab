@@ -141,6 +141,9 @@ export default ({
     INSERT_ROW_AT_INDEX(state, { index, row }) {
       state.rows.splice(index, 0, row)
     },
+    DELETE_ROW_AT_INDEX(state, { index }) {
+      state.rows.splice(index, 1)
+    },
   }
 
   const actions = {
@@ -346,6 +349,54 @@ export default ({
           )
     },
     /**
+     * Returns the index that the provided row was supposed to have if it was in the
+     * store. Because some rows haven't been fetched from the backend, we need to
+     * figure out which `null` object could have been the row in the store.
+     */
+    findIndexOfNotExistingRow({ getters }, { view, fields, primary, row }) {
+      const sortFunction = getRowSortFunction(
+        this.$registry,
+        view.sortings,
+        fields,
+        primary
+      )
+      const allRows = getters.getRows
+      let index = allRows.findIndex((existingRow) => {
+        return existingRow !== null && sortFunction(row, existingRow) < 0
+      })
+      let isCertain = true
+
+      if (index === -1 && allRows[allRows.length - 1] !== null) {
+        // If we don't know where to position the new row and the last row is null, we
+        // can safely assume it's the last row because when finding the index we
+        // only check if the new row is before an existing row.
+        index = allRows.length
+      } else if (index === -1) {
+        // If we don't know where to position the new row we can assume near the
+        // end, but we're not sure where exactly. Because of that we'll add it as
+        // null to the end.
+        index = allRows.length
+        isCertain = false
+      } else if (allRows[index - 1] === null) {
+        // If the row must inserted at the beginning of a known chunk of fetched
+        // rows, we can't know for sure it actually has to be inserted directly before.
+        // In that case, we will insert it as null.
+        isCertain = false
+      }
+
+      return { index, isCertain }
+    },
+    /**
+     * Returns the index of the row that's in the store. This also works if the row
+     * hasn't been fetched yet, it will then point to a null object that's within
+     * the range of `null` object in the store.
+     */
+    async findIndexOfExistingRow({ dispatch }, parameters) {
+      const response = await dispatch('findIndexOfNotExistingRow', parameters)
+      response.index -= 1
+      return response
+    },
+    /**
      * When a new row is created and it doesn't yet in exists in this store, it must
      * be added at the right position. Based on the values of the row we can
      * calculate if the row should be added (matches filters) and at which position
@@ -358,51 +409,62 @@ export default ({
      * row representations that are `null` in the array will be fetched automatically
      * when the user wants to see them.
      */
-    createdNewRow(
+    async createdNewRow(
       { dispatch, getters, commit },
       { view, fields, primary, values }
     ) {
       let row = clone(values)
       populateRow(row)
 
-      // Check if the row matches the filters. If not, we don't have to do anything.
+      // Check if the row matches the filters. If not, we don't have to do anything
+      // because we know this row does not exist in the view.
       if (!dispatch('rowMatchesFilters', { view, fields, primary, row })) {
         return
       }
 
-      const sortFunction = getRowSortFunction(
-        this.$registry,
-        view.sortings,
+      const { index, isCertain } = await dispatch('findIndexOfNotExistingRow', {
+        view,
         fields,
-        primary
-      )
-      const allRows = getters.getRows
-      let newIndex = allRows.findIndex((existingRow) => {
-        return existingRow !== null && sortFunction(row, existingRow) < 0
+        primary,
+        row,
       })
 
-      if (newIndex === -1 && allRows[allRows.length - 1] !== null) {
-        // If we don't know where to position the new row and the last row is null, we
-        // can safely assume it's the last row because when finding the index we
-        // only check if the new row is before an existing row.
-        newIndex = allRows.length
-      } else if (newIndex === -1) {
-        // If we don't know where to position the new row we can assume near the
-        // end, but we're not sure where exactly. Because of that we'll add it as
-        // null to the end.
-        newIndex = allRows.length
-        row = null
-      } else if (allRows[newIndex - 1] === null) {
-        // If the row must inserted at the beginning of a known chunk of fetched
-        // rows, we can't know for sure it actually has to be inserted directly before.
-        // In that case, we will insert it as null.
+      // If we're not completely certain about the target index of the new row, we
+      // must add it as `null` to the store because then it will automatically be
+      // fetched when the user looks at it.
+      if (!isCertain) {
         row = null
       }
 
-      commit('INSERT_ROW_AT_INDEX', { index: newIndex, row })
+      commit('INSERT_ROW_AT_INDEX', { index, row })
     },
     // updatedExistingRow({}, { view, fields, primary, row, values }) {},
-    // deletedExistingRow({}, { view, fields, primary, row }) {},
+    /**
+     * When a new row deleted and it does exist in the store, it must be deleted
+     * removed from is. Based on the provided values of the row we can figure out if
+     * it was in the store and we can figure out what index it has.
+     */
+    async deletedExistingRow(
+      { dispatch, commit },
+      { view, fields, primary, row }
+    ) {
+      row = clone(row)
+      populateRow(row)
+
+      // Check if the row matches the filters. If not, we don't have to do anything
+      // because we know this row does not exist in the view.
+      if (!dispatch('rowMatchesFilters', { view, fields, primary, row })) {
+        return
+      }
+
+      const { index } = await dispatch('findIndexOfExistingRow', {
+        view,
+        fields,
+        primary,
+        row,
+      })
+      commit('DELETE_ROW_AT_INDEX', { index })
+    },
   }
 
   const getters = {
