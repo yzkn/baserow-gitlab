@@ -1,6 +1,11 @@
 import Vue from 'vue'
 import axios from 'axios'
 import { RefreshCancelledError } from '@baserow/modules/core/errors'
+import { clone } from '@baserow/modules/core/utils/object'
+import {
+  getRowSortFunction,
+  matchSearchFilters,
+} from '@baserow/modules/database/utils/view'
 
 export default ({
   service,
@@ -132,6 +137,9 @@ export default ({
           Object.assign(state.rows[rowStoreIndex], row)
         }
       }
+    },
+    INSERT_ROW_AT_INDEX(state, { index, row }) {
+      state.rows.splice(index, 0, row)
     },
   }
 
@@ -319,6 +327,82 @@ export default ({
         commit('SET_FETCHING', false)
       }
     },
+    /**
+     * Check if the provided row matches the provided view filters.
+     */
+    rowMatchesFilters(context, { view, fields, primary, row, overrides = {} }) {
+      const values = JSON.parse(JSON.stringify(row))
+      Object.assign(values, overrides)
+
+      // The value is always valid if the filters are disabled.
+      return view.filters_disabled
+        ? true
+        : matchSearchFilters(
+            this.$registry,
+            view.filter_type,
+            view.filters,
+            primary === null ? fields : [primary, ...fields],
+            values
+          )
+    },
+    /**
+     * When a new row is created and it doesn't yet in exists in this store, it must
+     * be added at the right position. Based on the values of the row we can
+     * calculate if the row should be added (matches filters) and at which position
+     * (sortings).
+     *
+     * Because we only fetch the rows from the backend that are actually needed, it
+     * could be that we can't figure out what the exact position of the row should
+     * be. In that case, we add a `null` in the area that is unknown. The store
+     * already has other null values for rows that are un-fetched. So the un-fetched
+     * row representations that are `null` in the array will be fetched automatically
+     * when the user wants to see them.
+     */
+    createdNewRow(
+      { dispatch, getters, commit },
+      { view, fields, primary, values }
+    ) {
+      let row = clone(values)
+      populateRow(row)
+
+      // Check if the row matches the filters. If not, we don't have to do anything.
+      if (!dispatch('rowMatchesFilters', { view, fields, primary, row })) {
+        return
+      }
+
+      const sortFunction = getRowSortFunction(
+        this.$registry,
+        view.sortings,
+        fields,
+        primary
+      )
+      const allRows = getters.getRows
+      let newIndex = allRows.findIndex((existingRow) => {
+        return existingRow !== null && sortFunction(row, existingRow) < 0
+      })
+
+      if (newIndex === -1 && allRows[allRows.length - 1] !== null) {
+        // If we don't know where to position the new row and the last row is null, we
+        // can safely assume it's the last row because when finding the index we
+        // only check if the new row is before an existing row.
+        newIndex = allRows.length
+      } else if (newIndex === -1) {
+        // If we don't know where to position the new row we can assume near the
+        // end, but we're not sure where exactly. Because of that we'll add it as
+        // null to the end.
+        newIndex = allRows.length
+        row = null
+      } else if (allRows[newIndex - 1] === null) {
+        // If the row must inserted at the beginning of a known chunk of fetched
+        // rows, we can't know for sure it actually has to be inserted directly before.
+        // In that case, we will insert it as null.
+        row = null
+      }
+
+      commit('INSERT_ROW_AT_INDEX', { index: newIndex, row })
+    },
+    // updatedExistingRow({}, { view, fields, primary, row, values }) {},
+    // deletedExistingRow({}, { view, fields, primary, row }) {},
   }
 
   const getters = {
