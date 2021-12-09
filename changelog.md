@@ -1,9 +1,14 @@
 # Changelog
 
+## Unreleased
+
+* Fix subtracting date intervals from dates in formulas in some situations not working.
+
 ## Released (2021-11-25)
 
-* Fix trashing tables and related link fields causing the field dependency graph to 
-  become invalid. 
+* Increase Webhook URL max length to 2000.
+* Fix trashing tables and related link fields causing the field dependency graph to
+  become invalid.
 * Fixed not executing premium tests.
 
 ## Released (2021-11-24)
