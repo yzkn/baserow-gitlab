@@ -3,6 +3,7 @@
 ## Unreleased
 
 * Fix subtracting date intervals from dates in formulas in some situations not working.
+* Added gallery view.
 
 ## Released (2021-11-25)
 
