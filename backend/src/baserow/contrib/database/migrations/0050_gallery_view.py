@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("database", "0048_fix_trashed_field_dependencies"),
+        ("database", "0049_urlfield_2_textfield"),
     ]
 
     operations = [
