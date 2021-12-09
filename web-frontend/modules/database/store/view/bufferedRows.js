@@ -150,6 +150,17 @@ export default ({
     UPDATE_ROW_AT_INDEX(state, { index, values }) {
       Object.assign(state.rows[index], values)
     },
+    ADD_FIELD_TO_ALL_ROWS(state, { field, value }) {
+      const name = `field_${field.id}`
+      state.rows.forEach((row) => {
+        if (row !== null && !Object.prototype.hasOwnProperty.call(row, name)) {
+          // We have to use the Vue.set function here to make it reactive immediately.
+          // If we don't do this the value in the field components of the view and modal
+          // don't have the correct value and will act strange.
+          Vue.set(row, name, value)
+        }
+      })
+    },
   }
 
   const actions = {
@@ -335,6 +346,12 @@ export default ({
       } finally {
         commit('SET_FETCHING', false)
       }
+    },
+    /**
+     * Adds a field with a provided value to the rows in the store
+     */
+    addField({ commit }, { field, value = null }) {
+      commit('ADD_FIELD_TO_ALL_ROWS', { field, value })
     },
     /**
      * Check if the provided row matches the provided view filters.
