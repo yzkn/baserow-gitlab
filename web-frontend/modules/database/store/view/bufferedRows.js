@@ -6,6 +6,7 @@ import {
   getRowSortFunction,
   matchSearchFilters,
 } from '@baserow/modules/database/utils/view'
+import RowService from '@baserow/modules/database/services/row'
 
 export default ({
   service,
@@ -418,6 +419,46 @@ export default ({
       const response = await dispatch('findIndexOfNotExistingRow', parameters)
       response.index -= 1
       return response
+    },
+    /**
+     * Creates a new row and adds it to the store if needed.
+     */
+    async createNewRow(
+      { dispatch, commit, getters },
+      { view, table, fields, primary, values }
+    ) {
+      // First prepare an object that we can send to the backend.
+      const allFields = [primary].concat(fields)
+      const preparedValues = {}
+      allFields.forEach((field) => {
+        const name = `field_${field.id}`
+        const fieldType = this.$registry.get('field', field._.type.type)
+
+        if (fieldType.isReadOnly) {
+          return
+        }
+
+        preparedValues[name] = Object.prototype.hasOwnProperty.call(
+          values,
+          name
+        )
+          ? (preparedValues[name] = fieldType.prepareValueForUpdate(
+              field,
+              values[name]
+            ))
+          : fieldType.getEmptyValue(field)
+      })
+
+      const { data } = await RowService(this.$client).create(
+        table.id,
+        preparedValues
+      )
+      return await dispatch('createdNewRow', {
+        view,
+        fields,
+        primary,
+        values: data,
+      })
     },
     /**
      * When a new row is created and it doesn't yet in exists in this store, it must

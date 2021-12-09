@@ -1,6 +1,6 @@
 <template>
   <div class="gallery-view">
-    <a href="#" class="gallery-view__add">
+    <a class="gallery-view__add" @click="$refs.rowCreateModal.show()">
       <i class="fas fa-plus"></i>
     </a>
     <div ref="scroll" class="gallery-view__scroll">
@@ -26,6 +26,15 @@
         ></RowCard>
       </div>
     </div>
+    <RowCreateModal
+      ref="rowCreateModal"
+      :table="table"
+      :fields="fields"
+      :primary="primary"
+      @created="createRow"
+      @field-updated="$emit('refresh', $event)"
+      @field-deleted="$emit('refresh')"
+    ></RowCreateModal>
   </div>
 </template>
 
@@ -37,10 +46,11 @@ import ResizeObserver from 'resize-observer-polyfill'
 import { getCardHeight } from '@baserow/modules/database/utils/card'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
 import RowCard from '@baserow/modules/database/components/card/RowCard'
+import RowCreateModal from '@baserow/modules/database/components/row/RowCreateModal'
 
 export default {
   name: 'GalleryView',
-  components: { RowCard },
+  components: { RowCard, RowCreateModal },
   props: {
     primary: {
       type: Object,
@@ -255,6 +265,23 @@ export default {
           startIndex,
           endIndex,
         })
+      }
+    },
+    async createRow({ row, callback }) {
+      try {
+        await this.$store.dispatch(
+          this.storePrefix + 'view/gallery/createNewRow',
+          {
+            view: this.view,
+            table: this.table,
+            fields: this.fields,
+            primary: this.primary,
+            values: row,
+          }
+        )
+        callback()
+      } catch (error) {
+        callback(error)
       }
     },
   },
