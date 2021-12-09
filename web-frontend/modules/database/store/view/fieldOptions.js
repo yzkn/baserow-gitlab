@@ -2,6 +2,13 @@ import _ from 'lodash'
 import { clone } from '@baserow/modules/core/utils/object'
 import ViewService from '@baserow/modules/database/services/view'
 
+/**
+ * This store mixin can in combination with a view, if it needs to store options per
+ * field. I noticed that we needed exactly the same code for the grid, gallery and
+ * form view, so it made sense to make something reusable.
+ *
+ * @TODO add this mixin to the other view stores.
+ */
 export default () => {
   const state = () => ({
     fieldOptions: {},

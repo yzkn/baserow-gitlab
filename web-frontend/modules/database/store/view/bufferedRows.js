@@ -22,7 +22,7 @@ export default ({
    * we know which rows must be fetched because those values are `null` in the
    * provided `rows` array. If a request must be made, we want to do so in the most
    * efficient manner, so we want to respect the ideal request size by filling up
-   * the request with other before and after the range that must also be fetched.
+   * the request with other rows before and after the range that must also be fetched.
    * This function checks if there are other `null` rows close to the range and if
    * so, it tries to include them in the range.
    *
@@ -166,7 +166,9 @@ export default ({
 
   const actions = {
     /**
-     * This action fetches the initial set of rows via the provided service.
+     * This action fetches the initial set of rows via the provided service. After
+     * that it will fill the state with the newly fetched rows and the rest will be
+     * un-fetched `null` objects.
      */
     async fetchInitial(context, { viewId, fields, primary }) {
       const { commit, getters } = context
@@ -349,7 +351,8 @@ export default ({
       }
     },
     /**
-     * Adds a field with a provided value to the rows in the store
+     * Adds a field with a provided value to the rows in the store. This will for
+     * example be called when a new field has been created.
      */
     addField({ commit }, { field, value = null }) {
       commit('ADD_FIELD_TO_ALL_ROWS', { field, value })
@@ -374,7 +377,7 @@ export default ({
     },
     /**
      * Returns the index that the provided row was supposed to have if it was in the
-     * store. Because some rows haven't been fetched from the backend, we need to
+     * state. Because some rows haven't been fetched from the backend, we need to
      * figure out which `null` object could have been the row in the store.
      */
     findIndexOfNotExistingRow({ getters }, { view, fields, primary, row }) {

@@ -247,6 +247,8 @@ export default {
       const endIndex = startIndex + minimumCardsToRender
       const visibleRows = this.allRows.slice(startIndex, endIndex)
 
+      // Calculate an array containing only the rows that must be displayed and their
+      // position in the gallery as if all the rows are there.
       this.buffer = visibleRows.map((row, positionInVisible) => {
         const positionInAll = startIndex + positionInVisible
         const left =

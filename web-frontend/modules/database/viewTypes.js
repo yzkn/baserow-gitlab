@@ -476,7 +476,7 @@ export class GridViewType extends ViewType {
 /**
  * This class can be used if the view store uses the `bufferedRows` mixin. It will
  * enable real time collaboration and will make sure that the rows are in the store
- * are updated.
+ * are updated properly.
  */
 class BaseBufferedRowView extends ViewType {
   getDefaultFieldOptionValues() {
