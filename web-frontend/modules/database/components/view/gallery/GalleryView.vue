@@ -1,6 +1,10 @@
 <template>
   <div class="gallery-view">
-    <a class="gallery-view__add" @click="$refs.rowCreateModal.show()">
+    <a
+      v-if="!readOnly"
+      class="gallery-view__add"
+      @click="$refs.rowCreateModal.show()"
+    >
       <i class="fas fa-plus"></i>
     </a>
     <div ref="scroll" class="gallery-view__scroll">
@@ -27,6 +31,7 @@
       </div>
     </div>
     <RowCreateModal
+      v-if="!readOnly"
       ref="rowCreateModal"
       :table="table"
       :fields="fields"

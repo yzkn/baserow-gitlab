@@ -22,7 +22,12 @@
         v-for="view in searchAndOrder(views)"
         :ref="'view-' + view.id"
         :key="view.id"
-        v-sortable="{ id: view.id, update: order, marginTop: -1.5 }"
+        v-sortable="{
+          enabled: !readOnly,
+          id: view.id,
+          update: order,
+          marginTop: -1.5,
+        }"
         :view="view"
         :table="table"
         :read-only="readOnly"
