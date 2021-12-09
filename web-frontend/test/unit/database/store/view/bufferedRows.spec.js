@@ -333,6 +333,451 @@ describe('Buffered rows view store helper', () => {
     expect(store.getters['test/getVisible']).toStrictEqual([0, 0])
   })
 
+  test('find index of not existing row', async () => {
+    const view = {
+      id: 1,
+      filters_disabled: false,
+      filter_type: 'AND',
+      filters: [],
+      sortings: [],
+    }
+    const fields = []
+    const primary = {
+      id: 1,
+      name: 'Test 1',
+      type: 'text',
+      primary: true,
+    }
+    const populateRow = (row) => {
+      row._ = {}
+      return row
+    }
+
+    const testStore = bufferedRows({ service: null, populateRow })
+    const state = Object.assign(testStore.state(), {
+      visible: [0, 0],
+      requestSize: 4,
+      viewId: 1,
+      rows: [
+        { id: 1, order: '1.00000000000000000000', field_1: 'Row 1' },
+        { id: 2, order: '2.00000000000000000000', field_1: 'Row 2' },
+        { id: 3, order: '3.00000000000000000000', field_1: 'Row 3' },
+        { id: 4, order: '4.00000000000000000000', field_1: 'Row 4' },
+        null,
+        null,
+        null,
+        null,
+        { id: 10, order: '10.00000000000000000000', field_1: 'Row 10' },
+        { id: 11, order: '11.00000000000000000000', field_1: 'Row 11' },
+        { id: 12, order: '12.00000000000000000000', field_1: 'Row 12' },
+        { id: 14, order: '14.00000000000000000000', field_1: 'Row 14' },
+      ],
+    })
+    testStore.state = () => state
+    store.registerModule('test', testStore)
+
+    let index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 0,
+        order: '0.00000000000000000000',
+        field_1: 'Row 0',
+      },
+    })
+    expect(index).toStrictEqual({ index: 0, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 5,
+        order: '3.50000000000000000000',
+        field_1: 'Row 5',
+      },
+    })
+    expect(index).toStrictEqual({ index: 3, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 5,
+        order: '5.00000000000000000000',
+        field_1: 'Row 5',
+      },
+    })
+    expect(index).toStrictEqual({ index: 8, isCertain: false })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 13,
+        order: '13.50000000000000000000',
+        field_1: 'Row 13',
+      },
+    })
+    expect(index).toStrictEqual({ index: 11, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 100,
+        order: '100.00000000000000000000',
+        field_1: 'Row 100',
+      },
+    })
+    expect(index).toStrictEqual({ index: 12, isCertain: true })
+  })
+
+  test('find index of not existing row with null at beginning and end', async () => {
+    const view = {
+      id: 1,
+      filters_disabled: false,
+      filter_type: 'AND',
+      filters: [],
+      sortings: [],
+    }
+    const fields = []
+    const primary = {
+      id: 1,
+      name: 'Test 1',
+      type: 'text',
+      primary: true,
+    }
+    const populateRow = (row) => {
+      row._ = {}
+      return row
+    }
+
+    const testStore = bufferedRows({ service: null, populateRow })
+    const state = Object.assign(testStore.state(), {
+      visible: [0, 0],
+      requestSize: 4,
+      viewId: 1,
+      rows: [
+        null,
+        null,
+        { id: 3, order: '3.00000000000000000000', field_1: 'Row 3' },
+        { id: 5, order: '5.00000000000000000000', field_1: 'Row 5' },
+        { id: 6, order: '6.00000000000000000000', field_1: 'Row 6' },
+        { id: 7, order: '7.00000000000000000000', field_1: 'Row 7' },
+        null,
+        null,
+        { id: 10, order: '10.00000000000000000000', field_1: 'Row 10' },
+        { id: 11, order: '11.00000000000000000000', field_1: 'Row 11' },
+        { id: 12, order: '12.00000000000000000000', field_1: 'Row 12' },
+        { id: 14, order: '14.00000000000000000000', field_1: 'Row 14' },
+        null,
+        null,
+      ],
+    })
+    testStore.state = () => state
+    store.registerModule('test', testStore)
+
+    let index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 4,
+        order: '4.00000000000000000000',
+        field_1: 'Row 4',
+      },
+    })
+    expect(index).toStrictEqual({ index: 3, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 2,
+        order: '2.00000000000000000000',
+        field_1: 'Row 2',
+      },
+    })
+    expect(index).toStrictEqual({ index: 2, isCertain: false })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 13,
+        order: '13.00000000000000000000',
+        field_1: 'Row 13',
+      },
+    })
+    expect(index).toStrictEqual({ index: 11, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfNotExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 100,
+        order: '100.00000000000000000000',
+        field_1: 'Row 100',
+      },
+    })
+    expect(index).toStrictEqual({ index: 14, isCertain: false })
+  })
+
+  test('find index of existing row', async () => {
+    const view = {
+      id: 1,
+      filters_disabled: false,
+      filter_type: 'AND',
+      filters: [],
+      sortings: [],
+    }
+    const fields = []
+    const primary = {
+      id: 1,
+      name: 'Test 1',
+      type: 'text',
+      primary: true,
+    }
+    const populateRow = (row) => {
+      row._ = {}
+      return row
+    }
+
+    const testStore = bufferedRows({ service: null, populateRow })
+    const state = Object.assign(testStore.state(), {
+      visible: [0, 0],
+      requestSize: 4,
+      viewId: 1,
+      rows: [
+        { id: 1, order: '1.00000000000000000000', field_1: 'Row 1' },
+        { id: 2, order: '2.00000000000000000000', field_1: 'Row 2' },
+        { id: 3, order: '3.00000000000000000000', field_1: 'Row 3' },
+        { id: 4, order: '4.00000000000000000000', field_1: 'Row 4' },
+        null,
+        null,
+        null,
+        null,
+        { id: 10, order: '10.00000000000000000000', field_1: 'Row 10' },
+        { id: 11, order: '11.00000000000000000000', field_1: 'Row 11' },
+        { id: 12, order: '12.00000000000000000000', field_1: 'Row 12' },
+        { id: 14, order: '14.00000000000000000000', field_1: 'Row 14' },
+      ],
+    })
+    testStore.state = () => state
+    store.registerModule('test', testStore)
+
+    let index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 1,
+        order: '1.00000000000000000000',
+        field_1: 'Row 1',
+      },
+    })
+    expect(index).toStrictEqual({ index: 0, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: 'Row 3',
+      },
+    })
+    expect(index).toStrictEqual({ index: 2, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 4,
+        order: '4.00000000000000000000',
+        field_1: 'Row 4',
+      },
+    })
+    expect(index).toStrictEqual({ index: 3, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 5,
+        order: '5.00000000000000000000',
+        field_1: 'Row 5',
+      },
+    })
+    expect(index).toStrictEqual({ index: 7, isCertain: false })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 10,
+        order: '10.00000000000000000000',
+        field_1: 'Row 10',
+      },
+    })
+    expect(index).toStrictEqual({ index: 8, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 14,
+        order: '14.00000000000000000000',
+        field_1: 'Row 14',
+      },
+    })
+    expect(index).toStrictEqual({ index: 11, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 15,
+        order: '15.00000000000000000000',
+        field_1: 'Row 15',
+      },
+    })
+    // This one is for sure not found.
+    expect(index).toStrictEqual({ index: -1, isCertain: false })
+  })
+
+  test('find index of existing row with null at the start and end', async () => {
+    const view = {
+      id: 1,
+      filters_disabled: false,
+      filter_type: 'AND',
+      filters: [],
+      sortings: [],
+    }
+    const fields = []
+    const primary = {
+      id: 1,
+      name: 'Test 1',
+      type: 'text',
+      primary: true,
+    }
+    const populateRow = (row) => {
+      row._ = {}
+      return row
+    }
+
+    const testStore = bufferedRows({ service: null, populateRow })
+    const state = Object.assign(testStore.state(), {
+      visible: [0, 0],
+      requestSize: 4,
+      viewId: 1,
+      rows: [
+        null,
+        null,
+        { id: 1, order: '1.00000000000000000000', field_1: 'Row 1' },
+        { id: 2, order: '2.00000000000000000000', field_1: 'Row 2' },
+        { id: 3, order: '3.00000000000000000000', field_1: 'Row 3' },
+        { id: 4, order: '4.00000000000000000000', field_1: 'Row 4' },
+        null,
+        null,
+        { id: 10, order: '10.00000000000000000000', field_1: 'Row 10' },
+        { id: 11, order: '11.00000000000000000000', field_1: 'Row 11' },
+        { id: 12, order: '12.00000000000000000000', field_1: 'Row 12' },
+        { id: 14, order: '14.00000000000000000000', field_1: 'Row 14' },
+        null,
+        null,
+      ],
+    })
+    testStore.state = () => state
+    store.registerModule('test', testStore)
+
+    let index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 1,
+        order: '1.00000000000000000000',
+        field_1: 'Row 1',
+      },
+    })
+    expect(index).toStrictEqual({ index: 2, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 0,
+        order: '0.00000000000000000000',
+        field_1: 'Row 0',
+      },
+    })
+    expect(index).toStrictEqual({ index: 1, isCertain: false })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 4,
+        order: '4.00000000000000000000',
+        field_1: 'Row 4',
+      },
+    })
+    expect(index).toStrictEqual({ index: 5, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 6,
+        order: '6.00000000000000000000',
+        field_1: 'Row 6',
+      },
+    })
+    expect(index).toStrictEqual({ index: 7, isCertain: false })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 12,
+        order: '12.00000000000000000000',
+        field_1: 'Row 12',
+      },
+    })
+    expect(index).toStrictEqual({ index: 10, isCertain: true })
+
+    index = await store.dispatch('test/findIndexOfExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 15,
+        order: '15.00000000000000000000',
+        field_1: 'Row 15',
+      },
+    })
+    expect(index).toStrictEqual({ index: 13, isCertain: false })
+  })
+
   test('test row matches filters', async () => {
     const view = {
       id: 1,
@@ -1019,6 +1464,246 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[9].id).toBe(11)
     expect(rowsInStore[10].id).toBe(12)
     expect(rowsInStore[11].id).toBe(14)
+  })
+
+  test('test updated existing row with sorting', async () => {
+    const view = {
+      id: 1,
+      filters_disabled: false,
+      filter_type: 'AND',
+      filters: [],
+      sortings: [
+        {
+          id: 1,
+          view: 1,
+          field: 1,
+          order: 'ASC',
+        },
+      ],
+    }
+    const fields = []
+    const primary = {
+      id: 1,
+      name: 'Test 1',
+      type: 'text',
+      primary: true,
+    }
+    const populateRow = (row) => {
+      row._ = {}
+      return row
+    }
+
+    const testStore = bufferedRows({ service: null, populateRow })
+    const state = Object.assign(testStore.state(), {
+      visible: [0, 0],
+      requestSize: 4,
+      viewId: 1,
+      rows: [
+        { id: 1, order: '1.00000000000000000000', field_1: 'A' },
+        { id: 2, order: '2.00000000000000000000', field_1: 'B' },
+        { id: 3, order: '3.00000000000000000000', field_1: 'C' },
+        { id: 4, order: '4.00000000000000000000', field_1: 'D' },
+      ],
+    })
+    testStore.state = () => state
+    store.registerModule('test', testStore)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: 'C',
+      },
+      values: {
+        field_1: 'C2',
+      },
+    })
+    const rowsInStore = store.getters['test/getRows']
+    expect(rowsInStore[0].id).toBe(1)
+    expect(rowsInStore[1].id).toBe(2)
+    expect(rowsInStore[2].id).toBe(3)
+    expect(rowsInStore[3].id).toBe(4)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: 'C2',
+      },
+      values: {
+        field_1: 'C',
+      },
+    })
+    expect(rowsInStore[0].id).toBe(1)
+    expect(rowsInStore[1].id).toBe(2)
+    expect(rowsInStore[2].id).toBe(3)
+    expect(rowsInStore[3].id).toBe(4)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: 'C',
+      },
+      values: {
+        field_1: 'E',
+      },
+    })
+    expect(rowsInStore[0].id).toBe(1)
+    expect(rowsInStore[1].id).toBe(2)
+    expect(rowsInStore[2].id).toBe(4)
+    expect(rowsInStore[3].id).toBe(3)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: 'E',
+      },
+      values: {
+        field_1: '0',
+      },
+    })
+    expect(rowsInStore[0].id).toBe(3)
+    expect(rowsInStore[1].id).toBe(1)
+    expect(rowsInStore[2].id).toBe(2)
+    expect(rowsInStore[3].id).toBe(4)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: '0',
+      },
+      values: {
+        field_1: '0',
+      },
+    })
+    expect(rowsInStore[0].id).toBe(3)
+    expect(rowsInStore[1].id).toBe(1)
+    expect(rowsInStore[2].id).toBe(2)
+    expect(rowsInStore[3].id).toBe(4)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: '0',
+      },
+      values: {
+        field_1: 'A1',
+      },
+    })
+    expect(rowsInStore[0].id).toBe(1)
+    expect(rowsInStore[1].id).toBe(3)
+    expect(rowsInStore[2].id).toBe(2)
+    expect(rowsInStore[3].id).toBe(4)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 3,
+        order: '3.00000000000000000000',
+        field_1: 'A1',
+      },
+      values: {
+        field_1: 'D1',
+      },
+    })
+    expect(rowsInStore[0].id).toBe(1)
+    expect(rowsInStore[1].id).toBe(2)
+    expect(rowsInStore[2].id).toBe(4)
+    expect(rowsInStore[3].id).toBe(3)
+  })
+
+  test('test updated existing with sorting from null', async () => {
+    const view = {
+      id: 1,
+      filters_disabled: false,
+      filter_type: 'AND',
+      filters: [],
+      sortings: [
+        {
+          id: 1,
+          view: 1,
+          field: 1,
+          order: 'ASC',
+        },
+      ],
+    }
+    const fields = []
+    const primary = {
+      id: 1,
+      name: 'Test 1',
+      type: 'text',
+      primary: true,
+    }
+    const populateRow = (row) => {
+      row._ = {}
+      return row
+    }
+
+    const testStore = bufferedRows({ service: null, populateRow })
+    const state = Object.assign(testStore.state(), {
+      visible: [0, 0],
+      requestSize: 4,
+      viewId: 1,
+      rows: [
+        { id: 1, order: '1.00000000000000000000', field_1: '1' },
+        { id: 2, order: '2.00000000000000000000', field_1: '2' },
+        { id: 3, order: '3.00000000000000000000', field_1: '3' },
+        { id: 4, order: '4.00000000000000000000', field_1: '4' },
+        null,
+        null,
+        null,
+        null,
+      ],
+    })
+    testStore.state = () => state
+    store.registerModule('test', testStore)
+
+    await store.dispatch('test/updatedExistingRow', {
+      view,
+      fields,
+      primary,
+      row: {
+        id: 7,
+        order: '7.00000000000000000000',
+        field_1: '7',
+      },
+      values: {
+        field_1: '22',
+      },
+    })
+    const rowsInStore = store.getters['test/getRows']
+    expect(rowsInStore[0].id).toBe(1)
+    expect(rowsInStore[1].id).toBe(2)
+    expect(rowsInStore[2].id).toBe(7)
+    expect(rowsInStore[3].id).toBe(3)
+    expect(rowsInStore[4].id).toBe(4)
+    expect(rowsInStore[5]).toBe(null)
+    expect(rowsInStore[6]).toBe(null)
+    expect(rowsInStore[7]).toBe(null)
   })
 
   test('test deleted existing row', async () => {

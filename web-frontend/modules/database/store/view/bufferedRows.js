@@ -411,14 +411,47 @@ export default ({
       return { index, isCertain }
     },
     /**
-     * Returns the index of the row that's in the store. This also works if the row
-     * hasn't been fetched yet, it will then point to a null object that's within
-     * the range of `null` object in the store.
+     * Returns the index of a row that's in the store. This also works if the row
+     * hasn't been fetched yet, it will then point to the `null` object representing
+     * the row.
      */
-    async findIndexOfExistingRow({ dispatch }, parameters) {
-      const response = await dispatch('findIndexOfNotExistingRow', parameters)
-      response.index -= 1
-      return response
+    findIndexOfExistingRow(
+      { dispatch, getters },
+      { view, fields, primary, row }
+    ) {
+      const sortFunction = getRowSortFunction(
+        this.$registry,
+        view.sortings,
+        fields,
+        primary
+      )
+      const allRows = getters.getRows
+      let index = allRows.findIndex((existingRow) => {
+        return existingRow !== null && existingRow.id === row.id
+      })
+      let isCertain = true
+
+      if (index === -1) {
+        // If the row is not found in the index, we will have to figure out what the
+        // position could be.
+        index = allRows.findIndex((existingRow) => {
+          return existingRow !== null && sortFunction(row, existingRow) < 0
+        })
+        isCertain = false
+
+        if (index === -1 && allRows[allRows.length - 1] === null) {
+          // If we don't know where to position the existing row and the last row is
+          // null, we can safely assume it's the last row because when finding the
+          // index we only check if the new row is before an existing row.
+          index = allRows.length
+        }
+
+        if (index >= 0) {
+          index -= 1
+        }
+      }
+
+      return { index, isCertain }
     },
     /**
      * Creates a new row and adds it to the store if needed.
@@ -561,15 +594,22 @@ export default ({
             row: oldRow,
           }
         )
-        const { index: newIndex, isCertain: newIsCertain } = await dispatch(
-          'findIndexOfExistingRow',
-          {
-            view,
-            fields,
-            primary,
-            row: newRow,
-          }
-        )
+        const findNewRow = await dispatch('findIndexOfNotExistingRow', {
+          view,
+          fields,
+          primary,
+          row: newRow,
+        })
+        let { index: newIndex } = findNewRow
+        const { isCertain: newIsCertain } = findNewRow
+
+        // When finding the new index, the old row still existed in the store. When
+        // the newIndex is higher than the old index, we need to compensate for this
+        // because when figuring out the new position, we expected the existing row
+        // not to be there.
+        if (newIndex > oldIndex) {
+          newIndex -= 1
+        }
 
         if (oldIsCertain && newIsCertain) {
           // If both the old and updated are certain, we can just update the values
