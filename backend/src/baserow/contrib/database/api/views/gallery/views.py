@@ -24,18 +24,13 @@ from baserow.contrib.database.views.handler import ViewHandler
 from baserow.contrib.database.views.models import GalleryView
 from baserow.contrib.database.views.registries import view_type_registry
 from baserow.core.exceptions import UserNotInGroup
+
 from .errors import ERROR_GALLERY_DOES_NOT_EXIST
 from .pagination import GalleryLimitOffsetPagination
 
 
 class GalleryViewView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [AllowAny()]
-
-        return super().get_permissions()
+    permission_classes = (AllowAny,)
 
     @extend_schema(
         parameters=[
@@ -57,12 +52,11 @@ class GalleryViewView(APIView):
                 location=OpenApiParameter.QUERY,
                 type=OpenApiTypes.STR,
                 description=(
-                    "A comma separated list allowing the values of `field_options` and "
-                    "`row_metadata` which will add the object/objects with the same "
-                    "name to the response if included. The `field_options` object "
-                    "contains user defined view settings for each field. For example "
-                    "the field's width is included in here. The `row_metadata` object"
-                    " includes extra row specific data on a per row basis."
+                    "A comma separated list allowing the values of `field_options` "
+                    "which will add the object/objects with the same name to the "
+                    "response if included. The `field_options` object contains user "
+                    "defined view settings for each field. For example the field's "
+                    "width is included in here."
                 ),
             ),
             OpenApiParameter(
@@ -92,7 +86,7 @@ class GalleryViewView(APIView):
         description=(
             "Lists the requested rows of the view's table related to the provided "
             "`view_id` if the authorized user has access to the database's group. "
-            "The response is paginated either by a limit/offset style."
+            "The response is paginated by a limit/offset style."
         ),
         responses={
             200: get_example_pagination_serializer_class(
@@ -117,11 +111,7 @@ class GalleryViewView(APIView):
     )
     @allowed_includes("field_options")
     def get(self, request, view_id, field_options):
-        """
-        @TODO docs
-        @TODO maybe we want to look into some sort of re-usability because this looks
-              a lot like the grid view.
-        """
+        """Lists the rows for the gallery view."""
 
         view_handler = ViewHandler()
         view = view_handler.get_view(view_id, GalleryView)

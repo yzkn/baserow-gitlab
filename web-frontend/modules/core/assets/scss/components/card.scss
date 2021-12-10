@@ -9,11 +9,11 @@
 }
 
 // Some of the properties must be kept in sync with
-// `modules/database/utils/card.js::cardHeight`. This is because the kanban view needs
-// to know the height of each card in order to paginate correctly. If properties that
-// influence the height and added or changed, we most likely need to make a change in
-// the KanbanView.vue::cardHeight method. These are properties like margin-top,
-// margin-bottom, padding-top, padding-bottom, height, line-height, etc
+// `modules/database/utils/card.js::cardHeight`. This is because the kanban and gallery
+// view needs to know the height of each card in order to paginate correctly. If
+// properties that influence the height and added or changed, we most likely need to
+// make a change in the KanbanView.vue::cardHeight method. These are properties like
+// margin-top, margin-bottom, padding-top, padding-bottom, height, line-height, etc
 .card {
   position: relative;
   background-color: $white;

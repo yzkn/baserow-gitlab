@@ -8,6 +8,37 @@ import {
 } from '@baserow/modules/database/utils/view'
 import RowService from '@baserow/modules/database/services/row'
 
+/**
+ * This view store mixin can be used to efficiently keep and maintain the rows of a
+ * table/view without fetching all the rows at once. It first fetches an initial set
+ * of rows and creates an array in the state containing these rows and adds a `null`
+ * object for every un-fetched row.
+ *
+ * It can correctly handle when new rows are created, updated or deleted without
+ * needing every row in the state. Components that make use of this store mixin
+ * just have to dispatch an action telling which rows are currently visible and the
+ * store handles the rest. Rows that are un-fetched, so when they are `null`, must
+ * be shown in a loading state if the user is looking at them.
+ *
+ * Example of how the state of rows could look:
+ *
+ * ```
+ * rows = [
+ *   { id: 1, order: '1.00000000000000000000', field_1: 'Name' },
+ *   { id: 2, order: '2.00000000000000000000', field_1: 'Name' },
+ *   { id: 3, order: '3.00000000000000000000', field_1: 'Name' },
+ *   { id: 4, order: '4.00000000000000000000', field_1: 'Name' },
+ *   null,
+ *   null,
+ *   null,
+ *   null,
+ *   { id: 9, order: '10.00000000000000000000', field_1: 'Name' },
+ *   { id: 10, order: '10.00000000000000000000', field_1: 'Name' },
+ *   null,
+ *   null
+ * ]
+ * ```
+ */
 export default ({
   service,
   populateRow,

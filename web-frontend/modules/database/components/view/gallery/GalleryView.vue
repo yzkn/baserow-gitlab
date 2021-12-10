@@ -212,7 +212,15 @@ export default {
   },
   methods: {
     /**
-     * @TODO make this really virtual
+     * This method makes sure that the correct cards/rows are shown based on the
+     * scroll offset, viewport width, viewport height and card height. Based on these
+     * values we can calculate which how many rows should be visible, which ones are
+     * visible and what their position is without rendering all the rows in the store
+     * at once.
+     *
+     * @TODO make this really virtual scrolling by letting the row persist in the same
+     *   slot, even when it changes position. Currently, it updates all the cards when
+     *   a new row of cards must be displayed.
      *
      * @param dispatchVisibleRows Indicates whether we want to dispatch the visibleRows
      *  action in the store. In some cases, when scrolling really fast through data we
