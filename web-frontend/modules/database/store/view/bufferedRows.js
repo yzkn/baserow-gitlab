@@ -304,7 +304,7 @@ export default ({
       { fields, primary, includeFieldOptions = false }
     ) {
       // If another refresh or fetch request is currently running, we need to cancel
-      // them because the response is most likely going to be outdated and we don't
+      // it because the response is most likely going to be outdated and we don't
       // need it anymore.
       if (lastRequestSource !== null) {
         lastRequestSource.cancel('Cancelled in favor of new request')
@@ -408,7 +408,7 @@ export default ({
     },
     /**
      * Returns the index that the provided row was supposed to have if it was in the
-     * state. Because some rows haven't been fetched from the backend, we need to
+     * store. Because some rows haven't been fetched from the backend, we need to
      * figure out which `null` object could have been the row in the store.
      */
     findIndexOfNotExistingRow({ getters }, { view, fields, primary, row }) {
@@ -528,14 +528,14 @@ export default ({
       })
     },
     /**
-     * When a new row is created and it doesn't yet in exists in this store, it must
-     * be added at the right position. Based on the values of the row we can
+     * When a new row is created and it doesn't yet in exist in this store, so we must
+     * insert it in the right position. Based on the values of the row we can
      * calculate if the row should be added (matches filters) and at which position
      * (sortings).
      *
      * Because we only fetch the rows from the backend that are actually needed, it
-     * could be that we can't figure out what the exact position of the row should
-     * be. In that case, we add a `null` in the area that is unknown. The store
+     * could be that we can't figure out where the row should be inserted. In that
+     * case, we add a `null` in the area that is unknown. The store
      * already has other null values for rows that are un-fetched. So the un-fetched
      * row representations that are `null` in the array will be fetched automatically
      * when the user wants to see them.
