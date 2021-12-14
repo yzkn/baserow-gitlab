@@ -29,7 +29,7 @@
 import modal from '@baserow/modules/core/mixins/modal'
 import error from '@baserow/modules/core/mixins/error'
 import formViewHelpers from '@baserow/modules/database/mixins/formViewHelpers'
-import ViewService from '@baserow/modules/database/services/view/form'
+import ViewService from '@baserow/modules/database/services/view'
 
 export default {
   name: 'FormViewRotateSlugModal',

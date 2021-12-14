@@ -1,9 +1,11 @@
 from django.db import transaction
-from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
+
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
 
 from baserow.api.decorators import (
     validate_body,
@@ -11,23 +13,27 @@ from baserow.api.decorators import (
     map_exceptions,
     allowed_includes,
 )
-from baserow.api.errors import ERROR_USER_NOT_IN_GROUP
-from baserow.api.schemas import get_error_schema
-from baserow.api.utils import (
-    DiscriminatorCustomFieldsMappingSerializer,
-    CustomFieldRegistryMappingSerializer,
-)
 from baserow.api.utils import (
     validate_data_custom_fields,
     validate_data,
     MappingSerializer,
 )
+from baserow.api.errors import ERROR_USER_NOT_IN_GROUP
+from baserow.api.utils import (
+    DiscriminatorCustomFieldsMappingSerializer,
+    CustomFieldRegistryMappingSerializer,
+)
+from baserow.api.schemas import get_error_schema
+from baserow.core.exceptions import UserNotInGroup
 from baserow.contrib.database.api.fields.errors import ERROR_FIELD_NOT_IN_TABLE
 from baserow.contrib.database.api.tables.errors import ERROR_TABLE_DOES_NOT_EXIST
-from baserow.contrib.database.fields.exceptions import FieldNotInTable
 from baserow.contrib.database.fields.models import Field
-from baserow.contrib.database.table.exceptions import TableDoesNotExist
+from baserow.contrib.database.fields.exceptions import FieldNotInTable
 from baserow.contrib.database.table.handler import TableHandler
+from baserow.contrib.database.table.exceptions import TableDoesNotExist
+from baserow.contrib.database.views.registries import view_type_registry
+from baserow.contrib.database.views.models import View, ViewFilter, ViewSort
+from baserow.contrib.database.views.handler import ViewHandler
 from baserow.contrib.database.views.exceptions import (
     ViewDoesNotExist,
     ViewNotInTable,
@@ -42,10 +48,19 @@ from baserow.contrib.database.views.exceptions import (
     ViewDoesNotSupportFieldOptions,
     CannotShareViewTypeError,
 )
-from baserow.contrib.database.views.handler import ViewHandler
-from baserow.contrib.database.views.models import View, ViewFilter, ViewSort
-from baserow.contrib.database.views.registries import view_type_registry
-from baserow.core.exceptions import UserNotInGroup
+
+from .serializers import (
+    ViewSerializer,
+    CreateViewSerializer,
+    UpdateViewSerializer,
+    OrderViewsSerializer,
+    ViewFilterSerializer,
+    CreateViewFilterSerializer,
+    UpdateViewFilterSerializer,
+    ViewSortSerializer,
+    CreateViewSortSerializer,
+    UpdateViewSortSerializer,
+)
 from .errors import (
     ERROR_VIEW_DOES_NOT_EXIST,
     ERROR_VIEW_NOT_IN_TABLE,
@@ -60,18 +75,7 @@ from .errors import (
     ERROR_VIEW_DOES_NOT_SUPPORT_FIELD_OPTIONS,
     ERROR_CANNOT_SHARE_VIEW_TYPE,
 )
-from .serializers import (
-    ViewSerializer,
-    CreateViewSerializer,
-    UpdateViewSerializer,
-    OrderViewsSerializer,
-    ViewFilterSerializer,
-    CreateViewFilterSerializer,
-    UpdateViewFilterSerializer,
-    ViewSortSerializer,
-    CreateViewSortSerializer,
-    UpdateViewSortSerializer,
-)
+
 
 view_field_options_mapping_serializer = MappingSerializer(
     "ViewFieldOptions",

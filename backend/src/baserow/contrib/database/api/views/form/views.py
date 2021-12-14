@@ -1,30 +1,31 @@
-from django.conf import settings
-from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
 from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework.fields import empty
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.fields import empty
+from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
 
 from baserow.api.decorators import map_exceptions
-from baserow.api.pagination import PageNumberPagination
 from baserow.api.schemas import get_error_schema
-from baserow.api.serializers import get_example_pagination_serializer_class
 from baserow.api.utils import validate_data
-from baserow.contrib.database.api.fields.errors import ERROR_FIELD_DOES_NOT_EXIST
-from baserow.contrib.database.api.fields.serializers import LinkRowValueSerializer
+from baserow.api.pagination import PageNumberPagination
+from baserow.api.serializers import get_example_pagination_serializer_class
 from baserow.contrib.database.api.rows.serializers import (
     get_row_serializer_class,
     get_example_row_serializer_class,
 )
-from baserow.contrib.database.fields.exceptions import FieldDoesNotExist
+from baserow.contrib.database.api.fields.errors import ERROR_FIELD_DOES_NOT_EXIST
+from baserow.contrib.database.api.fields.serializers import LinkRowValueSerializer
 from baserow.contrib.database.fields.models import LinkRowField
+from baserow.contrib.database.fields.exceptions import FieldDoesNotExist
 from baserow.contrib.database.views.exceptions import ViewDoesNotExist
 from baserow.contrib.database.views.handler import ViewHandler
 from baserow.contrib.database.views.models import FormViewFieldOptions
 from baserow.contrib.database.views.validators import required_validator
+
 from .errors import ERROR_FORM_DOES_NOT_EXIST
 from .serializers import PublicFormViewSerializer, FormViewSubmittedSerializer
 
