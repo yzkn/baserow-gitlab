@@ -32,6 +32,7 @@ from baserow.contrib.database.views.exceptions import (
     ViewSortFieldNotSupported,
     ViewDoesNotSupportFieldOptions,
     FormViewFieldTypeIsNotSupported,
+    CannotShareViewTypeError,
 )
 from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.fields.handler import FieldHandler
@@ -1263,22 +1264,23 @@ def test_delete_sort(send_mock, data_fixture):
 
 @pytest.mark.django_db
 @patch("baserow.contrib.database.views.signals.view_updated.send")
-def test_rotate_form_view_slug(send_mock, data_fixture):
+def test_rotate_view_slug(send_mock, data_fixture):
     user = data_fixture.create_user()
     user_2 = data_fixture.create_user()
     table = data_fixture.create_database_table(user=user)
     form = data_fixture.create_form_view(table=table)
+    grid = data_fixture.create_grid_view(table=table)
     old_slug = str(form.slug)
 
     handler = ViewHandler()
 
     with pytest.raises(UserNotInGroup):
-        handler.rotate_form_view_slug(user=user_2, form=form)
+        handler.rotate_view_slug(user=user_2, view=form)
 
-    with pytest.raises(ValueError):
-        handler.rotate_form_view_slug(user=user, form=object())
+    with pytest.raises(CannotShareViewTypeError):
+        handler.rotate_view_slug(user=user, view=grid)
 
-    handler.rotate_form_view_slug(user=user, form=form)
+    handler.rotate_view_slug(user=user, view=form)
 
     send_mock.assert_called_once()
     assert send_mock.call_args[1]["view"].id == form.id

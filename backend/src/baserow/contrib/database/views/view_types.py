@@ -117,6 +117,7 @@ class FormViewType(ViewType):
     model_class = FormView
     can_filter = False
     can_sort = False
+    can_share = True
     field_options_model_class = FormViewFieldOptions
     field_options_serializer_class = FormViewFieldOptionsSerializer
     allowed_fields = [

@@ -81,6 +81,11 @@ class ViewType(
     sort to the view.
     """
 
+    can_share = False
+    """
+    Indicates if the view supports being shared via a public link.
+    """
+
     field_options_model_class = None
     """
     The model class of the through table that contains the field options. The model

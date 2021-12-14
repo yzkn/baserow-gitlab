@@ -26,6 +26,7 @@ from .exceptions import (
     ViewSortFieldAlreadyExist,
     ViewSortFieldNotSupported,
     ViewDoesNotSupportFieldOptions,
+    CannotShareViewTypeError,
 )
 from .validators import EMPTY_VALUES
 from .models import View, ViewFilter, ViewSort, FormView
@@ -782,30 +783,33 @@ class ViewHandler:
             queryset = queryset.search_all_fields(search)
         return queryset
 
-    def rotate_form_view_slug(self, user, form):
+    def rotate_view_slug(self, user, view):
         """
-        Rotates the slug of the provided form view.
+        Rotates the slug of the provided view.
 
-        :param user: The user on whose behalf the form view is updated.
+        :param user: The user on whose behalf the view is updated.
         :type user: User
-        :param form: The form view instance that needs to be updated.
-        :type form: View
+        :param view: The form view instance that needs to be updated.
+        :type view: View
         :return: The updated view instance.
         :rtype: View
+        :raises CannotShareViewTypeError: Raised if called for a view which does not
+            support sharing.
         """
 
-        if not isinstance(form, FormView):
-            raise ValueError("The provided form is not an instance of FormView.")
+        view_type = view_type_registry.get_by_model(view.specific_class)
+        if not view_type.can_share:
+            raise CannotShareViewTypeError()
 
-        group = form.table.database.group
+        group = view.table.database.group
         group.has_user(user, raise_error=True)
 
-        form.rotate_slug()
-        form.save()
+        view.rotate_slug()
+        view.save()
 
-        view_updated.send(self, view=form, user=user)
+        view_updated.send(self, view=view, user=user)
 
-        return form
+        return view
 
     def get_public_form_view_by_slug(self, user, slug):
         """
