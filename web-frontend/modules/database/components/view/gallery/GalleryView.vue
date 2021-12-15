@@ -88,6 +88,8 @@ export default {
   },
   data() {
     return {
+      gutterSize: 30,
+      minimumCardWidth: 280,
       height: 0,
       cardWidth: 0,
       buffer: [],
@@ -102,7 +104,6 @@ export default {
      * the card is to correctly position it.
      */
     cardHeight() {
-      // 10 = margin-bottom of kanban.scss.kanban-view__stack-card
       return getCardHeight(this.cardFields, this.$registry)
     },
     /**
@@ -230,12 +231,12 @@ export default {
     updateBuffer(dispatchVisibleRows = true) {
       const el = this.$refs.scroll
 
-      const gutterSize = 30
+      const gutterSize = this.gutterSize
       const containerWidth = el.clientWidth
       const containerHeight = el.clientHeight
 
       const cardsPerRow = Math.min(
-        Math.max(Math.floor(containerWidth / 280), 1),
+        Math.max(Math.floor(containerWidth / this.minimumCardWidth), 1),
         20
       )
       const cardHeight = this.cardHeight

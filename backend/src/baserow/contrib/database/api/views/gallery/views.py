@@ -56,7 +56,7 @@ class GalleryViewView(APIView):
                     "which will add the object/objects with the same name to the "
                     "response if included. The `field_options` object contains user "
                     "defined view settings for each field. For example the field's "
-                    "width is included in here."
+                    "order is included in here."
                 ),
             ),
             OpenApiParameter(

@@ -296,8 +296,8 @@ export default ({
       }
     },
     /**
-     * Refreshes the current visible page by clearing all the rows in the store and
-     * fetching the currently visible rows. This is typically done when a filter has
+     * Refreshes the row buffer by clearing all of the rows in the store and
+     * re-fetching the currently visible rows. This is typically done when a filter has
      * changed and we can't trust what's in the store anymore.
      */
     async refresh(
