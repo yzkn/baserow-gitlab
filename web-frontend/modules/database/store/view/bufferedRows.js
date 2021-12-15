@@ -120,11 +120,15 @@ export default ({
   }
 
   const state = () => ({
-    // If another visible rows action has been dispatched while fetching rows, the
-    // requested is temporarily delayed and the parameters are stored here.
+    // If another visible rows action has been dispatched whilst a previous action
+    // is still fetching rows, the new action is temporarily delayed and its
+    // parameters are stored here.
     delayedRequest: null,
     // Holds the last requested start and end index of the currently visible rows
-    visible: [0, 0],
+    visibleRange: {
+      startIndex: 0,
+      endIndex: 0,
+    },
     // The ideal number of rows to fetch when making a request.
     requestSize: 100,
     // The current view id.
@@ -141,8 +145,8 @@ export default ({
       state.delayedRequest = delayedRequestParameters
     },
     SET_VISIBLE(state, { startIndex, endIndex }) {
-      state.visible[0] = startIndex
-      state.visible[1] = endIndex
+      state.visibleRange.startIndex = startIndex
+      state.visibleRange.endIndex = endIndex
     },
     SET_VIEW_ID(state, viewId) {
       state.viewId = viewId
@@ -223,7 +227,10 @@ export default ({
      * have not been fetched and will make a request with the backend to replace to
      * missing ones if needed.
      */
-    async visibleRows({ dispatch, getters, commit }, parameters) {
+    async fetchMissingRowsInNewRange(
+      { dispatch, getters, commit },
+      parameters
+    ) {
       const { startIndex, endIndex } = parameters
 
       // If the store is already fetching a set of pages, we're temporarily storing
@@ -236,8 +243,11 @@ export default ({
 
       // Check if the currently visible range isn't to same as the provided one
       // because we don't want to do anything in that case.
-      const currentVisible = getters.getVisible
-      if (currentVisible[0] === startIndex && currentVisible[1] === endIndex) {
+      const currentVisible = getters.getVisibleRange
+      if (
+        currentVisible.startIndex === startIndex &&
+        currentVisible.endIndex === endIndex
+      ) {
         return
       }
 
@@ -332,9 +342,9 @@ export default ({
         if (count > 0) {
           // Figure out which range was previous visible and see if that still fits
           // within the new set of rows. Otherwise we're going to fall
-          const currentVisible = getters.getVisible
-          startIndex = currentVisible[0]
-          endIndex = currentVisible[1]
+          const currentVisible = getters.getVisibleRange
+          startIndex = currentVisible.startIndex
+          endIndex = currentVisible.endIndex
           const difference = count - endIndex
 
           if (difference < 0) {
@@ -702,8 +712,8 @@ export default ({
     getDelayedRequest(state) {
       return state.delayedRequest
     },
-    getVisible(state) {
-      return state.visible
+    getVisibleRange(state) {
+      return state.visibleRange
     },
     getRequestSize(state) {
       return state.requestSize

@@ -276,10 +276,13 @@ export default {
       if (dispatchVisibleRows) {
         // Tell the store which rows/cards are visible so that it can fetch the missing
         // ones if needed.
-        this.$store.dispatch(this.storePrefix + 'view/gallery/visibleRows', {
-          startIndex,
-          endIndex,
-        })
+        this.$store.dispatch(
+          this.storePrefix + 'view/gallery/fetchMissingRowsInNewRange',
+          {
+            startIndex,
+            endIndex,
+          }
+        )
       }
     },
     async createRow({ row, callback }) {

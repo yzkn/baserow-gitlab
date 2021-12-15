@@ -15,7 +15,7 @@ describe('Buffered rows view store helper', () => {
     testApp.afterEach()
   })
 
-  test('visibleRows', async () => {
+  test('fetchMissingRowsInNewRange', async () => {
     // A test client that has 100 rows from id 1 through 100. It returns the
     // requested rows they are available.
     const service = () => {
@@ -41,7 +41,10 @@ describe('Buffered rows view store helper', () => {
     const testStore = bufferedRows({ service, populateRow })
 
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -65,7 +68,10 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/visibleRows', { startIndex: 0, endIndex: 1 })
+    await store.dispatch('test/fetchMissingRowsInNewRange', {
+      startIndex: 0,
+      endIndex: 1,
+    })
     const rowsInStore = store.getters['test/getRows']
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
@@ -82,7 +88,10 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12]).toBe(null)
     expect(rowsInStore[13]).toBe(null)
 
-    await store.dispatch('test/visibleRows', { startIndex: 1, endIndex: 2 })
+    await store.dispatch('test/fetchMissingRowsInNewRange', {
+      startIndex: 1,
+      endIndex: 2,
+    })
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
     expect(rowsInStore[2].id).toBe(3)
@@ -98,7 +107,10 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12]).toBe(null)
     expect(rowsInStore[13]).toBe(null)
 
-    await store.dispatch('test/visibleRows', { startIndex: 10, endIndex: 11 })
+    await store.dispatch('test/fetchMissingRowsInNewRange', {
+      startIndex: 10,
+      endIndex: 11,
+    })
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
     expect(rowsInStore[2].id).toBe(3)
@@ -114,7 +126,10 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12].id).toBe(13)
     expect(rowsInStore[13]).toBe(null)
 
-    await store.dispatch('test/visibleRows', { startIndex: 8, endIndex: 11 })
+    await store.dispatch('test/fetchMissingRowsInNewRange', {
+      startIndex: 8,
+      endIndex: 11,
+    })
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
     expect(rowsInStore[2].id).toBe(3)
@@ -131,7 +146,10 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[13]).toBe(null)
 
     store.state.test.rows[12]._ = { tmp: true }
-    await store.dispatch('test/visibleRows', { startIndex: 12, endIndex: 14 })
+    await store.dispatch('test/fetchMissingRowsInNewRange', {
+      startIndex: 12,
+      endIndex: 14,
+    })
     expect(rowsInStore[0].id).toBe(1)
     expect(rowsInStore[1].id).toBe(2)
     expect(rowsInStore[2].id).toBe(3)
@@ -178,7 +196,10 @@ describe('Buffered rows view store helper', () => {
     const testStore = bufferedRows({ service, populateRow })
 
     const state = Object.assign(testStore.state(), {
-      visible: [10, 13],
+      visibleRange: {
+        startIndex: 10,
+        endIndex: 13,
+      },
       requestSize: 8,
       viewId: 1,
       rows: [
@@ -259,7 +280,10 @@ describe('Buffered rows view store helper', () => {
     const testStore = bufferedRows({ service, populateRow })
 
     const state = Object.assign(testStore.state(), {
-      visible: [9, 12],
+      visibleRange: {
+        startIndex: 9,
+        endIndex: 12,
+      },
       requestSize: 8,
       viewId: 1,
       rows: [
@@ -320,7 +344,10 @@ describe('Buffered rows view store helper', () => {
     const testStore = bufferedRows({ service, populateRow })
 
     const state = Object.assign(testStore.state(), {
-      visible: [0, 1],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 1,
+      },
       requestSize: 2,
       viewId: 1,
       rows: [{ id: 1 }, { id: 2 }, null, null],
@@ -330,7 +357,10 @@ describe('Buffered rows view store helper', () => {
 
     await store.dispatch('test/refresh', {})
     expect(store.getters['test/getRows'].length).toBe(0)
-    expect(store.getters['test/getVisible']).toStrictEqual([0, 0])
+    expect(store.getters['test/getVisibleRange']).toStrictEqual({
+      startIndex: 0,
+      endIndex: 0,
+    })
   })
 
   test('find index of not existing row', async () => {
@@ -355,7 +385,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -459,7 +492,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -553,7 +589,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -682,7 +721,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -875,7 +917,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1104,7 +1149,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1170,7 +1218,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1335,7 +1386,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1495,7 +1549,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1665,7 +1722,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1728,7 +1788,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
@@ -1881,7 +1944,10 @@ describe('Buffered rows view store helper', () => {
 
     const testStore = bufferedRows({ service: null, populateRow })
     const state = Object.assign(testStore.state(), {
-      visible: [0, 0],
+      visibleRange: {
+        startIndex: 0,
+        endIndex: 0,
+      },
       requestSize: 4,
       viewId: 1,
       rows: [
