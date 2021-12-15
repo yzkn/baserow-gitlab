@@ -1058,18 +1058,19 @@ class RotateViewSlugView(APIView):
                 "value.",
             )
         ],
-        tags=["Database table view"],
+        tags=["Database table views"],
         operation_id="rotate_database_view_slug",
         description=(
             "Rotates the unique slug of the view by replacing it with a new "
             "value. This would mean that the publicly shared URL of the view will "
             "change. Anyone with the old URL won't be able to access the view"
-            "anymore."
+            "anymore. Only view types which are sharable can have their slugs rotated."
         ),
         request=None,
         responses={
             200: DiscriminatorCustomFieldsMappingSerializer(
-                view_type_registry, ViewSerializer
+                view_type_registry,
+                ViewSerializer,
             ),
             400: get_error_schema(
                 ["ERROR_USER_NOT_IN_GROUP", "ERROR_CANNOT_SHARE_VIEW_TYPE"]
