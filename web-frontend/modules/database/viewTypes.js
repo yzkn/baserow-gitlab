@@ -3,7 +3,6 @@ import ViewForm from '@baserow/modules/database/components/view/ViewForm'
 import GridView from '@baserow/modules/database/components/view/grid/GridView'
 import GridViewHeader from '@baserow/modules/database/components/view/grid/GridViewHeader'
 import FormView from '@baserow/modules/database/components/view/form/FormView'
-import FormViewHeader from '@baserow/modules/database/components/view/form/FormViewHeader'
 
 export const maxPossibleOrderValue = 32767
 
@@ -48,6 +47,13 @@ export class ViewType extends Registerable {
     return true
   }
 
+  /**
+   * Indicates whether it is possible to share this view via an url publically.
+   */
+  canShare() {
+    return false
+  }
+
   constructor(...args) {
     super(...args)
     this.type = this.getType()
@@ -55,6 +61,7 @@ export class ViewType extends Registerable {
     this.colorClass = this.getColorClass()
     this.canFilter = this.canFilter()
     this.canSort = this.canSort()
+    this.canShare = this.canShare()
 
     if (this.type === null) {
       throw new Error('The type name of a view type must be set.')
@@ -243,6 +250,7 @@ export class ViewType extends Registerable {
       name: this.getName(),
       canFilter: this.canFilter,
       canSort: this.canSort,
+      canShare: this.canShare,
     }
   }
 
@@ -497,8 +505,8 @@ export class FormViewType extends ViewType {
     return false
   }
 
-  getHeaderComponent() {
-    return FormViewHeader
+  canShare() {
+    return true
   }
 
   getComponent() {
