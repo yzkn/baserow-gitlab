@@ -140,31 +140,56 @@ export const registerRealtimeEvents = (realtime) => {
   realtime.registerEvent('row_created', (context, data) => {
     const { app, store } = context
     for (const viewType of Object.values(app.$registry.getAll('view'))) {
-      viewType.rowCreated(
-        context,
-        data.table_id,
-        store.getters['field/getAll'],
-        store.getters['field/getPrimary'],
-        data.row,
-        data.metadata,
-        'page/'
-      )
+      if (data.table_id) {
+        viewType.rowCreated(
+          context,
+          data.table_id,
+          store.getters['field/getAll'],
+          store.getters['field/getPrimary'],
+          data.row,
+          data.metadata,
+          'page/'
+        )
+      } else {
+        viewType.rowCreated(
+          context,
+          data.slug,
+          store.getters['field/getAll'],
+          store.getters['field/getPrimary'],
+          data.row,
+          {},
+          'public/'
+        )
+      }
     }
   })
 
   realtime.registerEvent('row_updated', async (context, data) => {
     const { app, store } = context
     for (const viewType of Object.values(app.$registry.getAll('view'))) {
-      await viewType.rowUpdated(
-        context,
-        data.table_id,
-        store.getters['field/getAll'],
-        store.getters['field/getPrimary'],
-        data.row_before_update,
-        data.row,
-        data.metadata,
-        'page/'
-      )
+      if (data.table_id) {
+        await viewType.rowUpdated(
+          context,
+          data.table_id,
+          store.getters['field/getAll'],
+          store.getters['field/getPrimary'],
+          data.row_before_update,
+          data.row,
+          data.metadata,
+          'page/'
+        )
+      } else {
+        await viewType.rowUpdated(
+          context,
+          data.slug,
+          store.getters['field/getAll'],
+          store.getters['field/getPrimary'],
+          data.row_before_update,
+          data.row,
+          {},
+          'public/'
+        )
+      }
     }
 
     store.dispatch('rowModal/updated', { values: data.row })

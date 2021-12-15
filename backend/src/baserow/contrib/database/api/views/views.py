@@ -1094,3 +1094,59 @@ class RotateViewSlugView(APIView):
         view = handler.rotate_view_slug(request.user, view)
         serializer = view_type_registry.get_serializer(view, ViewSerializer)
         return Response(serializer.data)
+
+
+class PublicViewInfoView(APIView):
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="view_slug",
+                location=OpenApiParameter.PATH,
+                type=OpenApiTypes.STR,
+                required=True,
+                description="The slug of the view to get public information about.",
+            )
+        ],
+        tags=["Database table views"],
+        operation_id="get_public_view_info",
+        description=(),
+        request=None,
+        responses={},
+    )
+    @map_exceptions(
+        {
+            UserNotInGroup: ERROR_USER_NOT_IN_GROUP,
+            ViewDoesNotExist: ERROR_VIEW_DOES_NOT_EXIST,
+        }
+    )
+    @transaction.atomic
+    def get(self, request, slug):
+
+        handler = ViewHandler()
+        view = handler.get_public_view_by_slug(request.user, slug)
+        view = view.specific
+        view_type = view_type_registry.get_by_model(view)
+        fields, model = view_type.get_fields_and_model(view)
+
+        from baserow.contrib.database.fields.registries import field_type_registry
+        from baserow.contrib.database.api.fields.serializers import FieldSerializer
+
+        fields_data = [
+            field_type_registry.get_serializer(field["field"], FieldSerializer).data
+            for field in fields
+        ]
+
+        # todo pvp change the serializers to be public versions without these things
+        for f in fields_data:
+            f.pop("table_id")
+
+        serializer = view_type_registry.get_serializer(
+            view, ViewSerializer, sortings=True
+        )
+        view_data = dict(serializer.data)
+        view_data["id"] = view.slug
+        view_data.pop("table_id")
+        view_data.pop("table")
+        return Response({"view": view_data, "fields": fields_data})

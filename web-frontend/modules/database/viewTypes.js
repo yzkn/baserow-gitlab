@@ -116,8 +116,12 @@ export class ViewType extends Registerable {
    * check if the state of that store has to be updated.
    */
   isCurrentView(store, tableId) {
+    console.log(tableId)
     const table = store.getters['table/getSelected']
+    console.log(table.id)
     const view = store.getters['view/getSelected']
+    console.log(JSON.stringify(view))
+    console.log(this.getType())
     return (
       table.id === tableId &&
       Object.prototype.hasOwnProperty.call(view, 'type') &&
@@ -289,6 +293,10 @@ export class GridViewType extends ViewType {
     return GridView
   }
 
+  canShare() {
+    return true
+  }
+
   async fetch({ store }, view, fields, primary, storePrefix = '') {
     await store.dispatch(storePrefix + 'view/grid/fetchInitial', {
       gridId: view.id,
@@ -402,6 +410,7 @@ export class GridViewType extends ViewType {
     storePrefix = ''
   ) {
     if (this.isCurrentView(store, tableId)) {
+      console.log('was current, creating row')
       await store.dispatch(storePrefix + 'view/grid/createdNewRow', {
         view: store.getters['view/getSelected'],
         fields,

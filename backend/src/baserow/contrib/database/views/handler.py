@@ -112,6 +112,7 @@ class ViewHandler:
             "name",
             "filter_type",
             "filters_disabled",
+            "public",
         ] + view_type.allowed_fields
         view_values = extract_allowed(view_values, allowed_fields)
         last_order = model_class.get_last_order(table)
@@ -152,6 +153,7 @@ class ViewHandler:
             "name",
             "filter_type",
             "filters_disabled",
+            "public",
         ] + view_type.allowed_fields
         view = set_allowed_attrs(view_values, allowed_fields, view)
         view.save()
@@ -811,30 +813,36 @@ class ViewHandler:
 
         return view
 
-    def get_public_form_view_by_slug(self, user, slug):
+    def get_public_view_by_slug(self, user, slug, view_model=None):
         """
-        Returns the form view related to the provided slug if the form related to the
+        Returns the view related to the provided slug if the view related to the
         slug is public or if the user has access to the related group.
 
-        :param user: The user on whose behalf the form is requested.
+        :param user: The user on whose behalf the view is requested.
         :type user: User
-        :param slug: The slug of the form view.
+        :param slug: The slug of the view.
         :type slug: str
-        :return: The requested form view that belongs to the form with the slug.
+        :param view_model: If provided that models objects are used to select the
+            view. This can for example be useful when you want to select a GridView or
+            other child of the View model.
+        :return: The requested public view that has the slug.
         :rtype: FormView
         """
 
+        if view_model is None:
+            view_model = View
+
         try:
-            form = FormView.objects.get(slug=slug)
-        except (FormView.DoesNotExist, ValidationError):
-            raise ViewDoesNotExist("The form does not exist.")
+            view = view_model.objects.get(slug=slug)
+        except (view_model.DoesNotExist, ValidationError):
+            raise ViewDoesNotExist("The view does not exist.")
 
-        if not form.public and (
-            not user or not form.table.database.group.has_user(user)
+        if not view.public and (
+            not user or not view.table.database.group.has_user(user)
         ):
-            raise ViewDoesNotExist("The form does not exist.")
+            raise ViewDoesNotExist("The view does not exist.")
 
-        return form
+        return view
 
     def submit_form_view(self, form, values, model=None, enabled_field_options=None):
         """

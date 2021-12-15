@@ -45,4 +45,9 @@ export const routes = [
     path: '/form/:slug',
     component: path.resolve(__dirname, 'pages/form.vue'),
   },
+  {
+    name: 'database-table-grid',
+    path: '/grid/:slug',
+    component: path.resolve(__dirname, 'pages/grid.vue'),
+  },
 ]

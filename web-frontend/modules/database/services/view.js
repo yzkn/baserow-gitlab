@@ -61,5 +61,8 @@ export default (client) => {
     rotateSlug(viewId) {
       return client.post(`/database/views/${viewId}/rotate-slug/`)
     },
+    fetchPublic(viewSlug) {
+      return client.get(`/database/views/${viewSlug}/public/`)
+    },
   }
 }

@@ -170,8 +170,14 @@ class ViewSerializer(serializers.ModelSerializer):
             "filters",
             "sortings",
             "filters_disabled",
+            "public",
+            "slug",
         )
-        extra_kwargs = {"id": {"read_only": True}, "table_id": {"read_only": True}}
+        extra_kwargs = {
+            "id": {"read_only": True},
+            "table_id": {"read_only": True},
+            "slug": {"read_only": True},
+        }
 
     def __init__(self, *args, **kwargs):
         context = kwargs.setdefault("context", {})
@@ -217,11 +223,12 @@ class UpdateViewSerializer(serializers.ModelSerializer):
     class Meta:
         ref_name = "view update"
         model = View
-        fields = ("name", "filter_type", "filters_disabled")
+        fields = ("name", "filter_type", "filters_disabled", "public")
         extra_kwargs = {
             "name": {"required": False},
             "filter_type": {"required": False},
             "filters_disabled": {"required": False},
+            "public": {"required": False},
         }
 
 

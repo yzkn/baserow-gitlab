@@ -21,10 +21,12 @@ export class RealTimeHandler {
    * Creates a new connection with to the web socket so that real time updates can be
    * received.
    */
-  connect(reconnect = true) {
+  connect(reconnect = true, anonymous = false) {
     this.reconnect = reconnect
 
-    const token = this.context.store.getters['auth/token']
+    const token = anonymous
+      ? 'anonymous'
+      : this.context.store.getters['auth/token']
 
     // If the user is already connected to the web socket, we don't have to do
     // anything.

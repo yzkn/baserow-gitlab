@@ -26,6 +26,7 @@ class GridViewType(ViewType):
     model_class = GridView
     field_options_model_class = GridViewFieldOptions
     field_options_serializer_class = GridViewFieldOptionsSerializer
+    can_share = True
 
     def get_api_urls(self):
         from baserow.contrib.database.api.views.grid import urls as api_urls
@@ -121,7 +122,6 @@ class FormViewType(ViewType):
     field_options_model_class = FormViewFieldOptions
     field_options_serializer_class = FormViewFieldOptionsSerializer
     allowed_fields = [
-        "public",
         "title",
         "description",
         "cover_image",
@@ -131,8 +131,6 @@ class FormViewType(ViewType):
         "submit_action_redirect_url",
     ]
     serializer_field_names = [
-        "slug",
-        "public",
         "title",
         "description",
         "cover_image",
@@ -142,10 +140,6 @@ class FormViewType(ViewType):
         "submit_action_redirect_url",
     ]
     serializer_field_overrides = {
-        "slug": CharField(
-            read_only=True,
-            help_text="The unique slug that can be used to construct a public URL.",
-        ),
         "cover_image": UserFileField(
             required=False,
             help_text="The cover image that must be displayed at the top of the form.",

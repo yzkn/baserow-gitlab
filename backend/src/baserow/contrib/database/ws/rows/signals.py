@@ -2,6 +2,7 @@ from django.dispatch import receiver
 from django.db import transaction
 
 from baserow.contrib.database.rows.registries import row_metadata_registry
+from baserow.contrib.database.views.handler import ViewHandler
 from baserow.ws.registries import page_registry
 
 from baserow.contrib.database.rows import signals as row_signals
@@ -31,6 +32,29 @@ def row_created(sender, row, before, user, table, model, **kwargs):
             table_id=table.id,
         )
     )
+    public_view_page_table = page_registry.get("view")
+
+    def do_it():
+        for view in table.view_set.filter(public=True).all():
+            if (
+                ViewHandler()
+                .apply_filters(view, model.objects.filter(id=row.id))
+                .exists()
+            ):
+                public_view_page_table.broadcast(
+                    {
+                        "type": "row_created",
+                        "slug": view.slug,
+                        "row": get_row_serializer_class(
+                            model, RowSerializer, is_response=True
+                        )(row).data,
+                        "before_row_id": before.id if before else None,
+                    },
+                    None,
+                    slug=view.slug,
+                )
+
+    transaction.on_commit(do_it)
 
 
 @receiver(row_signals.before_row_update)
@@ -64,6 +88,33 @@ def row_updated(sender, row, user, table, model, before_return, **kwargs):
             table_id=table.id,
         )
     )
+    public_view_page_table = page_registry.get("view")
+
+    def do_it():
+        for view in table.view_set.filter(public=True).all():
+            if (
+                ViewHandler()
+                .apply_filters(view, model.objects.filter(id=row.id))
+                .exists()
+            ):
+                public_view_page_table.broadcast(
+                    {
+                        "type": "row_updated",
+                        "slug": view.slug,
+                        # The web-frontend expects a serialized version of the row
+                        # before it was updated in order the estimate what position
+                        # the row had in the view.
+                        "row_before_update": dict(before_return)[before_row_update],
+                        "row": get_row_serializer_class(
+                            model, RowSerializer, is_response=True
+                        )(row).data,
+                        "metadata": {},
+                    },
+                    None,
+                    slug=view.slug,
+                )
+
+    transaction.on_commit(do_it)
 
 
 @receiver(row_signals.before_row_delete)

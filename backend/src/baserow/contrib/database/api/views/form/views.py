@@ -61,7 +61,7 @@ class SubmitFormViewView(APIView):
         }
     )
     def get(self, request, slug):
-        form = ViewHandler().get_public_form_view_by_slug(request.user, slug)
+        form = ViewHandler().get_public_view_by_slug(request.user, slug)
         serializer = PublicFormViewSerializer(form)
         return Response(serializer.data)
 
@@ -97,7 +97,7 @@ class SubmitFormViewView(APIView):
     @transaction.atomic
     def post(self, request, slug):
         handler = ViewHandler()
-        form = handler.get_public_form_view_by_slug(request.user, slug)
+        form = handler.get_public_view_by_slug(request.user, slug)
         model = form.table.get_model()
 
         options = form.active_field_options
@@ -165,7 +165,7 @@ class FormViewLinkRowFieldLookupView(APIView):
     )
     def get(self, request, slug, field_id):
         handler = ViewHandler()
-        form = handler.get_public_form_view_by_slug(request.user, slug)
+        form = handler.get_public_view_by_slug(request.user, slug)
         link_row_field_content_type = ContentType.objects.get_for_model(LinkRowField)
 
         try:

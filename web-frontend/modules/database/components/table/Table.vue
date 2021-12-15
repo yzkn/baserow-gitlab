@@ -93,7 +93,7 @@
           ></ViewSort>
         </li>
         <li
-          v-if="hasSelectedView && view._.type.canShare"
+          v-if="hasSelectedView && view._.type.canShare && !readOnly"
           class="header__filter-item"
         >
           <ShareViewLink :view="view" :read-only="readOnly"></ShareViewLink>
@@ -203,6 +203,11 @@ export default {
       type: String,
       required: false,
       default: '',
+    },
+    public: {
+      type: Boolean,
+      required: false,
+      default: false,
     },
   },
   data() {
