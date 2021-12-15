@@ -125,7 +125,7 @@ export default ({
     delayedRequest: null,
     // Holds the last requested start and end index of the currently visible rows
     visible: [0, 0],
-    // Contains the ideal size of rows that's being fetched when making a request.
+    // The ideal number of rows to fetch when making a request.
     requestSize: 100,
     // The current view id.
     viewId: -1,
