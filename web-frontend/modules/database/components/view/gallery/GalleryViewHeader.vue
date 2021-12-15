@@ -14,7 +14,9 @@
         "
       >
         <i class="header__filter-icon fas fa-cog"></i>
-        <span class="header__filter-name">Customize cards</span>
+        <span class="header__filter-name">{{
+          $t('galleryViewHeader.customizeCards')
+        }}</span>
       </a>
       <ViewFieldsContext
         ref="customizeContext"
@@ -129,3 +131,18 @@ export default {
   },
 }
 </script>
+
+<i18n>
+{
+  "en":{
+    "galleryViewHeader":{
+      "customizeCards": "Customize cards"
+    }
+  },
+  "fr":{
+    "settings":{
+      "customizeCards": "@TODO"
+    }
+  }
+}
+</i18n>
