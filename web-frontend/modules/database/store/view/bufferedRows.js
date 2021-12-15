@@ -284,14 +284,14 @@ export default ({
           throw error
         }
       } finally {
-        // Check if another `visibleRows` action has been dispatched while we were
-        // fetching the rows. If so, we need to dispatch the same action again with
-        // the latest parameters.
+        // Check if another `fetchMissingRowsInNewRange` action has been dispatched
+        // while we were fetching the rows. If so, we need to dispatch the same
+        // action again with the latest parameters.
         commit('SET_FETCHING', false)
         const delayedRequestParameters = getters.getDelayedRequest
         if (delayedRequestParameters !== null) {
           commit('SET_DELAYED_REQUEST', null)
-          await dispatch('visibleRows', delayedRequestParameters)
+          await dispatch('fetchMissingRowsInNewRange', delayedRequestParameters)
         }
       }
     },
