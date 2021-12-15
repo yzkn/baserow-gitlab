@@ -82,7 +82,6 @@ export default ({
     // The initial offset can be the first `null` found in the range.
     let offset = startIndex + firstNullIndex
     let limit = lastNullIndex - firstNullIndex + 1
-    let check = 'next'
 
     // Because we have an ideal request size and this is often higher than the
     // visible rows, we want to efficiently fetch additional rows that are close
@@ -97,26 +96,18 @@ export default ({
       if (previous !== null && next !== null) {
         break
       }
-
-      if (check === 'next') {
-        check = 'previous'
-        // If the next element is null, we want to include that in the range to be
-        // fetched.
-        if (next === null) {
-          limit += 1
-        }
-      } else if (check === 'previous') {
-        check = 'next'
-        // If the previous element is null, we want to include that in the range to
-        // be fetched.
-        if (previous === null) {
-          offset -= 1
-          limit += 1
-        }
+      if (previous === null) {
+        offset -= 1
+        limit += 1
+      }
+      if (next === null) {
+        limit += 1
       }
     }
 
-    return { offset, limit }
+    // The `limit` could exceed the `maxRequestSize` if it's an odd number because it
+    // checks if there is an un-fetched row before and after in one loop.
+    return { offset, limit: Math.min(limit, maxRequestSize) }
   }
 
   const state = () => ({
