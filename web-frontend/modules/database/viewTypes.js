@@ -676,7 +676,7 @@ export class GalleryViewType extends BaseBufferedRowView {
 
   fieldUpdated(context, field, oldField, fieldType, storePrefix) {
     // If the field type has changed from a file field to something else, it could
-    // be that there are kanban views that depending on that field. So we need to
+    // be that there are gallery views that depending on that field. So we need to
     // change to type to null if that's the case.
     const type = FileFieldType.getType()
     if (oldField.type === type && field.type !== type) {
