@@ -164,7 +164,10 @@ export default {
     })
     this.$el.resizeObserver.observe(this.$el)
 
-    let lastScrollTop = this.$refs.scroll.scrollTop
+    const fireUpdateBuffer = {
+      last: Date.now(),
+      distance: 0,
+    }
 
     // Debounce function that's called when the user scrolls really fast. This is to
     // make sure that the `updateBuffer` method is called with the
@@ -172,27 +175,38 @@ export default {
     // scrolling fast.
     const updateBufferDebounced = debounce(() => {
       this.updateBuffer(true)
-    }, 50)
+    }, 100)
 
     this.$el.scrollEvent = (event) => {
-      // Check if the user is scrolling super fast because in that case we don't fetch
-      // the rows when they're not needed.
-      const scrollTop = event.target.scrollTop
-      const difference = Math.abs(scrollTop - lastScrollTop)
-      lastScrollTop = scrollTop
-      const isScrollingSlow = difference < 100
+      const now = Date.now()
+      const { scrollTop } = event.target
 
-      // When not scrolling slow, we trigger the debounce to make sure that when the
-      // user immediately stops scrolling, the visible rows are still fetched.
-      if (!isScrollingSlow) {
-        updateBufferDebounced()
+      const distance = Math.abs(scrollTop - fireUpdateBuffer.distance)
+      const timeDelta = now - fireUpdateBuffer.last
+
+      if (timeDelta > 100) {
+        const velocity = distance / timeDelta
+
+        fireUpdateBuffer.last = now
+        fireUpdateBuffer.distance = scrollTop
+
+        if (velocity < 2.5) {
+          // When scrolling "slow", the dispatchVisibleRows parameter is true so that
+          // the visible rows are fetched if needed.
+          updateBufferDebounced.cancel()
+          this.updateBuffer(true)
+        } else {
+          // Check if the user is scrolling super fast because in that case we don't
+          // fetch the rows when they're not needed.
+          updateBufferDebounced()
+        }
       } else {
-        updateBufferDebounced.cancel()
-      }
+        // If scroll stopped within the 100ms we still want to have a last
+        // updateBuffer(true) call.
+        updateBufferDebounced()
 
-      // When scrolling "slow", the dispatchVisibleRows parameter is true so that the
-      // visible rows are fetched if needed.
-      this.updateBuffer(isScrollingSlow)
+        this.updateBuffer(false)
+      }
     }
     this.$refs.scroll.addEventListener('scroll', this.$el.scrollEvent)
   },
@@ -229,6 +243,8 @@ export default {
      *  request to the backend if needed.
      */
     updateBuffer(dispatchVisibleRows = true) {
+      console.log(dispatchVisibleRows)
+
       const el = this.$refs.scroll
 
       const gutterSize = this.gutterSize
