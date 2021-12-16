@@ -39,12 +39,7 @@ import RowService from '@baserow/modules/database/services/row'
  * ]
  * ```
  */
-export default ({
-  service,
-  populateRow,
-  fetchInitialRowsArguments = {},
-  fetchedInitialCallback = function () {},
-}) => {
+export default ({ service, populateRow }) => {
   let lastRequestSource = null
 
   /**
@@ -196,21 +191,24 @@ export default ({
      * that it will fill the state with the newly fetched rows and the rest will be
      * un-fetched `null` objects.
      */
-    async fetchInitial(context, { viewId, fields, primary }) {
+    async fetchInitialRows(
+      context,
+      { viewId, fields, primary, initialRowArguments = {} }
+    ) {
       const { commit, getters } = context
       commit('SET_VIEW_ID', viewId)
       const { data } = await service(this.$client).fetchRows({
         viewId,
         offset: 0,
         limit: getters.getRequestSize,
-        ...fetchInitialRowsArguments,
+        ...initialRowArguments,
       })
       const rows = Array(data.count).fill(null)
       data.results.forEach((row, index) => {
         rows[index] = populateRow(row)
       })
       commit('SET_ROWS', rows)
-      fetchedInitialCallback(context, data)
+      return data
     },
     /**
      * Should be called when the different rows are displayed to the user. This
@@ -521,7 +519,7 @@ export default ({
         table.id,
         preparedValues
       )
-      return await dispatch('createdNewRow', {
+      return await dispatch('afterNewRowCreated', {
         view,
         fields,
         primary,
@@ -541,7 +539,7 @@ export default ({
      * row representations that are `null` in the array will be fetched automatically
      * when the user wants to see them.
      */
-    async createdNewRow(
+    async afterNewRowCreated(
       { dispatch, getters, commit },
       { view, fields, primary, values }
     ) {
@@ -583,7 +581,7 @@ export default ({
      * sure about the new position then we can update the and keep it's data. If we
      * can't be 100% sure, the row will be updated as `null`.
      */
-    async updatedExistingRow(
+    async afterExistingRowUpdated(
       { dispatch, commit },
       { view, fields, primary, row, values }
     ) {
@@ -608,11 +606,16 @@ export default ({
       if (oldRowMatches && !newRowMatches) {
         // If the old row did match the filters, but after the update it does not
         // anymore, we can safely remove it from the store.
-        await dispatch('deletedExistingRow', { view, fields, primary, row })
+        await dispatch('afterExistingRowDeleted', {
+          view,
+          fields,
+          primary,
+          row,
+        })
       } else if (!oldRowMatches && newRowMatches) {
         // If the old row didn't match filters, but the updated one does, we need to
         // add it to the store.
-        await dispatch('createdNewRow', {
+        await dispatch('afterNewRowCreated', {
           view,
           fields,
           primary,
@@ -674,7 +677,7 @@ export default ({
      * removed from is. Based on the provided values of the row we can figure out if
      * it was in the store and we can figure out what index it has.
      */
-    async deletedExistingRow(
+    async afterExistingRowDeleted(
       { dispatch, commit },
       { view, fields, primary, row }
     ) {
@@ -700,6 +703,9 @@ export default ({
   }
 
   const getters = {
+    getViewId(state) {
+      return state.viewId
+    },
     getDelayedRequest(state) {
       return state.delayedRequest
     },

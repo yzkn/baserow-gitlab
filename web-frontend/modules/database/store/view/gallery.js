@@ -10,10 +10,6 @@ export function populateRow(row) {
 const galleryBufferedRows = bufferedRows({
   service: GalleryService,
   populateRow,
-  fetchInitialRowsArguments: { includeFieldOptions: true },
-  fetchedInitialCallback({ commit }, data) {
-    commit('REPLACE_ALL_FIELD_OPTIONS', data.field_options)
-  },
 })
 
 const galleryFieldOptions = fieldOptions()
@@ -29,6 +25,15 @@ export const mutations = {
 }
 
 export const actions = {
+  async fetchInitial({ dispatch, commit }, { viewId, fields, primary }) {
+    const data = await dispatch('fetchInitialRows', {
+      viewId,
+      fields,
+      primary,
+      initialRowArguments: { includeFieldOptions: true },
+    })
+    await dispatch('forceUpdateAllFieldOptions', data.field_options)
+  },
   ...galleryBufferedRows.actions,
   ...galleryFieldOptions.actions,
 }

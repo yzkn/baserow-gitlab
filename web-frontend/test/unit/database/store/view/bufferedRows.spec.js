@@ -940,7 +940,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -966,7 +966,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[10].id).toBe(14)
     expect(rowsInStore[11]).toBe(null)
 
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -993,7 +993,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[11].id).toBe(14)
     expect(rowsInStore[12]).toBe(null)
 
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -1020,7 +1020,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12].id).toBe(14)
     expect(rowsInStore[13]).toBe(null)
 
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -1054,7 +1054,7 @@ describe('Buffered rows view store helper', () => {
       order: '16.00000000000000000000',
       field_1: 'Row 16',
     }
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -1088,7 +1088,7 @@ describe('Buffered rows view store helper', () => {
       order: '1.00000000000000000000',
       field_1: 'Row 1',
     }
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -1172,7 +1172,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/createdNewRow', {
+    await store.dispatch('test/afterNewRowCreated', {
       view,
       fields,
       primary,
@@ -1247,7 +1247,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1276,7 +1276,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[10].id).toBe(14)
     expect(rowsInStore[11]).toBe(null)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1303,7 +1303,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[10].id).toBe(14)
     expect(rowsInStore[11]).toBe(null)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1329,7 +1329,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[10].id).toBe(14)
     expect(rowsInStore[11]).toBe(null)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1410,7 +1410,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1438,7 +1438,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[11].id).toBe(14)
     expect(rowsInStore[12]).toBe(null)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1466,7 +1466,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[12].id).toBe(14)
     expect(rowsInStore[13]).toBe(null)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1493,7 +1493,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[11].id).toBe(14)
     expect(rowsInStore[12]).toBe(null)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1565,7 +1565,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1584,7 +1584,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[2].id).toBe(3)
     expect(rowsInStore[3].id).toBe(4)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1602,7 +1602,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[2].id).toBe(3)
     expect(rowsInStore[3].id).toBe(4)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1620,7 +1620,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[2].id).toBe(4)
     expect(rowsInStore[3].id).toBe(3)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1638,7 +1638,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[2].id).toBe(2)
     expect(rowsInStore[3].id).toBe(4)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1656,7 +1656,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[2].id).toBe(2)
     expect(rowsInStore[3].id).toBe(4)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1674,7 +1674,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[2].id).toBe(2)
     expect(rowsInStore[3].id).toBe(4)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1742,7 +1742,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/updatedExistingRow', {
+    await store.dispatch('test/afterExistingRowUpdated', {
       view,
       fields,
       primary,
@@ -1812,7 +1812,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/deletedExistingRow', {
+    await store.dispatch('test/afterExistingRowDeleted', {
       view,
       fields,
       primary,
@@ -1835,7 +1835,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[9].id).toBe(14)
     expect(rowsInStore[10]).toBe(null)
 
-    await store.dispatch('test/deletedExistingRow', {
+    await store.dispatch('test/afterExistingRowDeleted', {
       view,
       fields,
       primary,
@@ -1856,7 +1856,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[8].id).toBe(12)
     expect(rowsInStore[9].id).toBe(14)
 
-    await store.dispatch('test/deletedExistingRow', {
+    await store.dispatch('test/afterExistingRowDeleted', {
       view,
       fields,
       primary,
@@ -1876,7 +1876,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[7].id).toBe(12)
     expect(rowsInStore[8].id).toBe(14)
 
-    await store.dispatch('test/deletedExistingRow', {
+    await store.dispatch('test/afterExistingRowDeleted', {
       view,
       fields,
       primary,
@@ -1895,7 +1895,7 @@ describe('Buffered rows view store helper', () => {
     expect(rowsInStore[6].id).toBe(12)
     expect(rowsInStore[7].id).toBe(14)
 
-    await store.dispatch('test/deletedExistingRow', {
+    await store.dispatch('test/afterExistingRowDeleted', {
       view,
       fields,
       primary,
@@ -1968,7 +1968,7 @@ describe('Buffered rows view store helper', () => {
     testStore.state = () => state
     store.registerModule('test', testStore)
 
-    await store.dispatch('test/deletedExistingRow', {
+    await store.dispatch('test/afterExistingRowDeleted', {
       view,
       fields,
       primary,

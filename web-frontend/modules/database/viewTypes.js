@@ -571,7 +571,7 @@ class BaseBufferedRowView extends ViewType {
   ) {
     if (this.isCurrentView(store, tableId)) {
       await store.dispatch(
-        storePrefix + 'view/' + this.getType() + '/createdNewRow',
+        storePrefix + 'view/' + this.getType() + '/afterNewRowCreated',
         {
           view: store.getters['view/getSelected'],
           fields,
@@ -594,7 +594,7 @@ class BaseBufferedRowView extends ViewType {
   ) {
     if (this.isCurrentView(store, tableId)) {
       await store.dispatch(
-        storePrefix + 'view/' + this.getType() + '/updatedExistingRow',
+        storePrefix + 'view/' + this.getType() + '/afterExistingRowUpdated',
         {
           view: store.getters['view/getSelected'],
           fields,
@@ -609,7 +609,7 @@ class BaseBufferedRowView extends ViewType {
   async rowDeleted({ store }, tableId, fields, primary, row, storePrefix = '') {
     if (this.isCurrentView(store, tableId)) {
       await store.dispatch(
-        storePrefix + 'view/' + this.getType() + '/deletedExistingRow',
+        storePrefix + 'view/' + this.getType() + '/afterExistingRowDeleted',
         {
           view: store.getters['view/getSelected'],
           fields,

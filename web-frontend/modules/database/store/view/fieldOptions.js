@@ -7,8 +7,8 @@ import ViewService from '@baserow/modules/database/services/view'
  * field. I noticed that we needed exactly the same code for the grid, gallery and
  * form view, so it made sense to make something reusable.
  *
- * @TODO add this mixin to the other view stores. Currenly it's only used by the
- *  gallery view.
+ * @TODO add this mixin to the other view stores. Currently it's only used by the
+ *       gallery view.
  */
 export default () => {
   const state = () => ({
@@ -146,9 +146,6 @@ export default () => {
   }
 
   const getters = {
-    getViewId(state) {
-      return state.viewId
-    },
     getAllFieldOptions(state) {
       return state.fieldOptions
     },
