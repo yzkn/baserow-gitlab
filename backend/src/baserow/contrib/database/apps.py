@@ -153,6 +153,7 @@ class DatabaseConfig(AppConfig):
             LinkRowHasNotViewFilterType,
             MultipleSelectHasViewFilterType,
             MultipleSelectHasNotViewFilterType,
+            LengthIsLowerThanViewFilterType,
         )
 
         view_filter_type_registry.register(EqualViewFilterType())
@@ -161,6 +162,7 @@ class DatabaseConfig(AppConfig):
         view_filter_type_registry.register(HasFileTypeViewFilterType())
         view_filter_type_registry.register(ContainsViewFilterType())
         view_filter_type_registry.register(ContainsNotViewFilterType())
+        view_filter_type_registry.register(LengthIsLowerThanViewFilterType())
         view_filter_type_registry.register(HigherThanViewFilterType())
         view_filter_type_registry.register(LowerThanViewFilterType())
         view_filter_type_registry.register(DateEqualViewFilterType())
