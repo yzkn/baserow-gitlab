@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("database", "0049_urlfield_2_textfield"),
+        ("database", "0050_remove_multiselect_missing_options"),
     ]
 
     operations = [
