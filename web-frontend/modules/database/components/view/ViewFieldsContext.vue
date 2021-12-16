@@ -1,6 +1,29 @@
 <template>
   <Context ref="context" class="hidings" @shown="shown()">
     <div class="hidings__head">
+      <div v-if="allowCoverImageField" class="control hidings__cover">
+        <label class="control__label control__label--small">{{
+          $t('viewFieldsContext.coverField')
+        }}</label>
+        <div class="control__elements">
+          <Dropdown
+            :value="coverImageField"
+            @input="
+              coverImageField !== $event &&
+                $emit('update-cover-image-field', $event)
+            "
+          >
+            <DropdownItem name="No cover" :value="null"></DropdownItem>
+            <DropdownItem
+              v-for="fileField in fileFields"
+              :key="fileField.id"
+              :icon="fileField._.type.iconClass"
+              :name="fileField.name"
+              :value="fileField.id"
+            ></DropdownItem>
+          </Dropdown>
+        </div>
+      </div>
       <div class="hidings__search">
         <i class="hidings__search-icon fas fa-search"></i>
         <input
@@ -49,13 +72,13 @@
         class="button button--ghost hidings__footer-button"
         @click="!noneSelected && updateAllFieldOptions({ hidden: true })"
       >
-        {{ $t('gridViewHideContext.hideAll') }}
+        {{ $t('viewFieldsContext.hideAll') }}
       </button>
       <button
         class="button button--ghost"
         @click="!allSelected && updateAllFieldOptions({ hidden: false })"
       >
-        {{ $t('gridViewHideContext.showAll') }}
+        {{ $t('viewFieldsContext.showAll') }}
       </button>
     </div>
   </Context>
@@ -66,6 +89,7 @@ import { escapeRegExp } from '@baserow/modules/core/utils/string'
 import context from '@baserow/modules/core/mixins/context'
 import { clone } from '@baserow/modules/core/utils/object'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
+import { FileFieldType } from '@baserow/modules/database/fieldTypes'
 
 export default {
   name: 'ViewFieldsContext',
@@ -82,6 +106,16 @@ export default {
     fieldOptions: {
       type: Object,
       required: true,
+    },
+    coverImageField: {
+      required: false,
+      default: null,
+      validator: (prop) => typeof prop === 'number' || prop === null,
+    },
+    allowCoverImageField: {
+      type: Boolean,
+      required: false,
+      default: false,
     },
   },
   data() {
@@ -139,6 +173,10 @@ export default {
           }
         })
     },
+    fileFields() {
+      const type = FileFieldType.getType()
+      return this.fields.filter((field) => field.type === type)
+    },
   },
   methods: {
     order(order, oldOrder) {
@@ -183,13 +221,15 @@ export default {
 <i18n>
 {
   "en":{
-    "gridViewHideContext": {
+    "viewFieldsContext": {
+      "coverField": "Cover field",
       "hideAll": "Hide all",
       "showAll": "Show all"
     }
   },
   "fr":{
-    "gridViewHideContext": {
+    "viewFieldsContext": {
+      "coverField": "@TODO",
       "hideAll": "Masquer tout",
       "showAll": "Afficher tout"
     }
