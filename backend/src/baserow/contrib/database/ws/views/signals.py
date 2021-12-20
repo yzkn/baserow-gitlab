@@ -1,6 +1,9 @@
 from django.dispatch import receiver
 from django.db import transaction
 
+from baserow.contrib.database.ws.public import (
+    broadcast_event_to_view_if_public,
+)
 from baserow.ws.registries import page_registry
 
 from baserow.contrib.database.views import signals as view_signals
@@ -80,49 +83,55 @@ def views_reordered(sender, table, order, user, **kwargs):
     )
 
 
+def _broadcast_to_users_and_public_views(data, user, view):
+    table_page_type = page_registry.get("table")
+    table_page_type.broadcast(
+        data, getattr(user, "web_socket_id", None), table_id=view.table_id
+    )
+
+    broadcast_event_to_view_if_public(view, {"type": "view_changed"})
+
+
 @receiver(view_signals.view_filter_created)
 def view_filter_created(sender, view_filter, user, **kwargs):
-    table_page_type = page_registry.get("table")
     transaction.on_commit(
-        lambda: table_page_type.broadcast(
+        lambda: _broadcast_to_users_and_public_views(
             {
                 "type": "view_filter_created",
                 "view_filter": ViewFilterSerializer(view_filter).data,
             },
-            getattr(user, "web_socket_id", None),
-            table_id=view_filter.view.table_id,
+            user,
+            view_filter.view,
         )
     )
 
 
 @receiver(view_signals.view_filter_updated)
 def view_filter_updated(sender, view_filter, user, **kwargs):
-    table_page_type = page_registry.get("table")
     transaction.on_commit(
-        lambda: table_page_type.broadcast(
+        lambda: _broadcast_to_users_and_public_views(
             {
                 "type": "view_filter_updated",
                 "view_filter_id": view_filter.id,
                 "view_filter": ViewFilterSerializer(view_filter).data,
             },
-            getattr(user, "web_socket_id", None),
-            table_id=view_filter.view.table_id,
+            user,
+            view_filter.view,
         )
     )
 
 
 @receiver(view_signals.view_filter_deleted)
 def view_filter_deleted(sender, view_filter_id, view_filter, user, **kwargs):
-    table_page_type = page_registry.get("table")
     transaction.on_commit(
-        lambda: table_page_type.broadcast(
+        lambda: _broadcast_to_users_and_public_views(
             {
                 "type": "view_filter_deleted",
                 "view_id": view_filter.view_id,
                 "view_filter_id": view_filter_id,
             },
-            getattr(user, "web_socket_id", None),
-            table_id=view_filter.view.table_id,
+            user,
+            view_filter.view,
         )
     )
 
@@ -179,14 +188,25 @@ def view_field_options_updated(sender, view, user, **kwargs):
     table_page_type = page_registry.get("table")
     view_type = view_type_registry.get_by_model(view.specific_class)
     serializer_class = view_type.get_field_options_serializer_class()
-    transaction.on_commit(
-        lambda: table_page_type.broadcast(
+
+    def _also_update_public_view():
+        serialized_field_options = serializer_class(view).data["field_options"]
+        table_page_type.broadcast(
             {
                 "type": "view_field_options_updated",
                 "view_id": view.id,
-                "field_options": serializer_class(view).data["field_options"],
+                "field_options": serialized_field_options,
             },
             getattr(user, "web_socket_id", None),
             table_id=view.table_id,
         )
-    )
+        broadcast_event_to_view_if_public(
+            view,
+            {
+                "type": "view_field_options_updated",
+                "field_options": serialized_field_options,
+                "view_id": view.slug,
+            },
+        )
+
+    transaction.on_commit(_also_update_public_view)

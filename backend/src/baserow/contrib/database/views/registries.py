@@ -217,6 +217,19 @@ class ViewType(
 
         return view
 
+    def includes_field(self, view, field):
+        """
+        Returns if the view displays/includes/uses the field
+
+        :param view: The view to check.
+        :type view: View
+        :param field: The field to check.
+        :type field: Field
+        :return: True if the field is in the view.
+        """
+
+        return view.table.field_set.filter(id=field.id).exists()
+
     def get_fields_and_model(self, view):
         """
         Returns the field objects for the provided view. Depending on the view type this

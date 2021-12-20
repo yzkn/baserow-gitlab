@@ -3,6 +3,7 @@
     <Notifications></Notifications>
     <div class="form-view__page">
       <Table
+        v-if="!tableLoading"
         :database="database"
         :table="table"
         :fields="fields"
@@ -11,8 +12,7 @@
         :view="view"
         :table-loading="tableLoading"
         :read-only="true"
-        :public="true"
-        store-prefix="public/"
+        :store-prefix="'page/'"
       ></Table>
     </div>
   </div>
@@ -20,9 +20,9 @@
 
 <script>
 import Notifications from '@baserow/modules/core/components/notifications/Notifications'
+import { mapGetters } from 'vuex'
 import Table from '@baserow/modules/database/components/table/Table'
 
-import { populateField } from '@baserow/modules/database/store/field'
 import ViewService from '@baserow/modules/database/services/view'
 export default {
   components: { Notifications, Table },
@@ -30,11 +30,15 @@ export default {
     return {
       database: {},
       table: {},
-      fields: [],
-      primary: {},
       view: {},
       tableLoading: true,
     }
+  },
+  computed: {
+    ...mapGetters({
+      primary: 'field/getPrimary',
+      fields: 'field/getAll',
+    }),
   },
   mounted() {
     this.$realtime.connect(true, true)
@@ -57,6 +61,7 @@ export default {
       // the `Table` components expects.
       const { data } = await ViewService(this.$client).fetchPublic(viewSlug)
       this.database = { id: viewSlug, type: 'database', tables: [] }
+      await this.$store.dispatch('page/view/grid/setPublic', true)
       await this.$store.dispatch('application/forceCreate', this.database)
       this.table = { id: viewSlug, database: this.database }
       await this.$store.dispatch('table/forceCreate', {
@@ -67,16 +72,10 @@ export default {
         databaseId: viewSlug,
         tableId: viewSlug,
       })
-      data.fields.forEach((part, index, d) => {
-        populateField(data.fields[index], this.$registry)
+      await this.$store.dispatch('field/forceCreateFields', {
+        table: this.table,
+        fields: data.fields,
       })
-      const primaryIndex = data.fields.findIndex(
-        (item) => item.primary === true
-      )
-      const primary =
-        primaryIndex !== -1 ? data.fields.splice(primaryIndex, 1)[0] : null
-      this.fields = data.fields
-      this.primary = primary
 
       await this.$store.dispatch('view/forceCreate', {
         data: data.view,
@@ -105,7 +104,7 @@ export default {
         view,
         this.fields,
         this.primary,
-        'public/'
+        'page/'
       )
       this.tableLoading = false
     },

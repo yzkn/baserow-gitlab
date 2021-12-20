@@ -3,6 +3,7 @@ from django.db import transaction
 
 from baserow.contrib.database.table import signals as table_signals
 from baserow.contrib.database.api.tables.serializers import TableSerializer
+from baserow.contrib.database.ws.public import broadcast_event_to_a_tables_public_views
 
 from baserow.ws.tasks import broadcast_to_group
 
@@ -35,17 +36,20 @@ def table_updated(sender, table, user, **kwargs):
 
 @receiver(table_signals.table_deleted)
 def table_deleted(sender, table_id, table, user, **kwargs):
-    transaction.on_commit(
-        lambda: broadcast_to_group.delay(
+    def broadcast_to_group_and_public_views():
+        deleted_event_data = {
+            "type": "table_deleted",
+            "database_id": table.database_id,
+            "table_id": table_id,
+        }
+        broadcast_to_group.delay(
             table.database.group_id,
-            {
-                "type": "table_deleted",
-                "database_id": table.database_id,
-                "table_id": table_id,
-            },
+            deleted_event_data,
             getattr(user, "web_socket_id", None),
         )
-    )
+        broadcast_event_to_a_tables_public_views(table, deleted_event_data)
+
+    transaction.on_commit(broadcast_to_group_and_public_views)
 
 
 @receiver(table_signals.tables_reordered)

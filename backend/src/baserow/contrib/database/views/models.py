@@ -92,7 +92,9 @@ class View(
         queryset = View.objects.filter(table=table)
         return cls.get_highest_order_of_queryset(queryset) + 1
 
-    def get_field_options(self, create_if_not_exists=False, fields=None):
+    def get_field_options(
+        self, create_if_not_exists=False, fields=None, field_ids=None
+    ):
         """
         Each field can have unique options per view. This method returns those
         options per field type and can optionally create the missing ones. This method
@@ -129,12 +131,17 @@ class View(
                 "any descendants."
             )
 
-        field_options = through_model.objects.filter(**{field_name: self})
+        through_model_filter_dict = {field_name: self}
+        if field_ids is not None:
+            through_model_filter_dict["field__id__in"] = field_ids
+        field_options = through_model.objects.filter(**through_model_filter_dict)
 
         if create_if_not_exists:
             field_options = list(field_options)
             if not fields:
                 fields = Field.objects.filter(table=self.table)
+                if field_ids is not None:
+                    fields = fields.filter(id__in=field_ids)
 
             existing_field_ids = [options.field_id for options in field_options]
             for field in fields:

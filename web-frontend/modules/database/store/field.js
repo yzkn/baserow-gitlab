@@ -172,7 +172,11 @@ export const actions = {
     const { commit, dispatch } = context
     const fieldType = this.$registry.get('field', values.type)
     const data = populateField(values, this.$registry)
-    commit('ADD_ITEM', data)
+    if (data.primary) {
+      commit('SET_PRIMARY', data)
+    } else {
+      commit('ADD_ITEM', data)
+    }
 
     // Call the field created event on all the registered views because they might
     // need to change things in loaded data. For example the grid field will add the
@@ -249,6 +253,17 @@ export const actions = {
     await dispatch('forceUpdateFields', {
       fields: relatedFields,
     })
+  },
+  /**
+   * Forcefully creates a list of fields.
+   */
+  async forceCreateFields({ getters, dispatch }, { table, fields }) {
+    for (const field of fields) {
+      await dispatch('forceCreate', {
+        table,
+        values: field,
+      })
+    }
   },
   /**
    * Forcefully updates a list of fields.

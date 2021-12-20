@@ -88,6 +88,12 @@ class GridViewType(ViewType):
 
         return grid_view
 
+    def includes_field(self, view, field):
+        grid_view = ViewHandler().get_view(view.id, view_model=GridView)
+
+        existing_options = grid_view.get_field_options().filter(id=field.id)
+        return not existing_options.exists() or not existing_options.first().hidden
+
     def get_fields_and_model(self, view):
         """
         Returns the model and the field options in the correct order for exporting

@@ -204,11 +204,6 @@ export default {
       required: false,
       default: '',
     },
-    public: {
-      type: Boolean,
-      required: false,
-      default: false,
-    },
   },
   data() {
     return {

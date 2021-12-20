@@ -359,7 +359,7 @@ export default {
     getHorizontalScrollbarElement() {
       return this.$refs.right.$el
     },
-    /**
+    /* grid.v*
      * This method is called by the Scrollbars component and should return the element
      * that handles the the vertical scrolling.
      */

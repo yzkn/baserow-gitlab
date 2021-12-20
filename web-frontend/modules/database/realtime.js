@@ -7,6 +7,10 @@ import { anyFieldsNeedRefresh } from '@baserow/modules/database/store/field'
  * cases some other events like refreshing all the data needs to be triggered.
  */
 export const registerRealtimeEvents = (realtime) => {
+  function _getTableId(data) {
+    return data.table_id != null ? data.table_id : data.view_slug
+  }
+
   realtime.registerEvent('table_created', ({ store }, data) => {
     const database = store.getters['application/get'](data.table.database_id)
     if (database !== undefined) {
@@ -49,7 +53,7 @@ export const registerRealtimeEvents = (realtime) => {
     const table = store.getters['table/getSelected']
     const registry = app.$registry
     const fieldType = registry.get('field', data.field.type)
-    if (table !== undefined && table.id === data.field.table_id) {
+    if (table !== undefined && table.id === _getTableId(data)) {
       const relatedFields = data.related_fields
       const callback = async () => {
         await store.dispatch('field/forceCreate', {
@@ -75,7 +79,7 @@ export const registerRealtimeEvents = (realtime) => {
 
   realtime.registerEvent('field_restored', async ({ store, app }, data) => {
     const table = store.getters['table/getSelected']
-    if (table !== undefined && table.id === data.field.table_id) {
+    if (table !== undefined && table.id === _getTableId(data)) {
       // Trigger a table refresh to get the row data for the field including field
       // options to get those also.
       await store.dispatch('field/forceUpdateFields', {
@@ -109,7 +113,7 @@ export const registerRealtimeEvents = (realtime) => {
           relatedFields: data.related_fields,
         })
       }
-      if (store.getters['table/getSelectedId'] === data.field.table_id) {
+      if (store.getters['table/getSelectedId'] === _getTableId(data)) {
         app.$bus.$emit('table-refresh', {
           callback,
           tableId: store.getters['table/getSelectedId'],
@@ -126,7 +130,7 @@ export const registerRealtimeEvents = (realtime) => {
     const field = store.getters['field/get'](data.field_id)
     if (field !== undefined) {
       await store.dispatch('field/forceDelete', field)
-      if (store.getters['table/getSelectedId'] === data.table_id) {
+      if (store.getters['table/getSelectedId'] === _getTableId(data)) {
         await store.dispatch('field/forceUpdateFields', {
           fields: data.related_fields,
         })
@@ -140,56 +144,31 @@ export const registerRealtimeEvents = (realtime) => {
   realtime.registerEvent('row_created', (context, data) => {
     const { app, store } = context
     for (const viewType of Object.values(app.$registry.getAll('view'))) {
-      if (data.table_id) {
-        viewType.rowCreated(
-          context,
-          data.table_id,
-          store.getters['field/getAll'],
-          store.getters['field/getPrimary'],
-          data.row,
-          data.metadata,
-          'page/'
-        )
-      } else {
-        viewType.rowCreated(
-          context,
-          data.slug,
-          store.getters['field/getAll'],
-          store.getters['field/getPrimary'],
-          data.row,
-          {},
-          'public/'
-        )
-      }
+      viewType.rowCreated(
+        context,
+        _getTableId(data),
+        store.getters['field/getAll'],
+        store.getters['field/getPrimary'],
+        data.row,
+        data.metadata,
+        'page/'
+      )
     }
   })
 
   realtime.registerEvent('row_updated', async (context, data) => {
     const { app, store } = context
     for (const viewType of Object.values(app.$registry.getAll('view'))) {
-      if (data.table_id) {
-        await viewType.rowUpdated(
-          context,
-          data.table_id,
-          store.getters['field/getAll'],
-          store.getters['field/getPrimary'],
-          data.row_before_update,
-          data.row,
-          data.metadata,
-          'page/'
-        )
-      } else {
-        await viewType.rowUpdated(
-          context,
-          data.slug,
-          store.getters['field/getAll'],
-          store.getters['field/getPrimary'],
-          data.row_before_update,
-          data.row,
-          {},
-          'public/'
-        )
-      }
+      await viewType.rowUpdated(
+        context,
+        data.view_slug || data.table_id,
+        store.getters['field/getAll'],
+        store.getters['field/getPrimary'],
+        data.row_before_update,
+        data.row,
+        data.metadata,
+        'page/'
+      )
     }
 
     store.dispatch('rowModal/updated', { values: data.row })
@@ -200,7 +179,7 @@ export const registerRealtimeEvents = (realtime) => {
     for (const viewType of Object.values(app.$registry.getAll('view'))) {
       viewType.rowDeleted(
         context,
-        data.table_id,
+        data.view_slug || data.table_id,
         store.getters['field/getAll'],
         store.getters['field/getPrimary'],
         data.row,
@@ -249,6 +228,17 @@ export const registerRealtimeEvents = (realtime) => {
     const view = store.getters['view/get'](data.view_id)
     if (view !== undefined) {
       store.dispatch('view/forceDelete', view)
+    }
+  })
+
+  realtime.registerEvent('view_changed', ({ store, app }, data) => {
+    const view = store.getters['view/get'](data.view_slug)
+    if (view !== undefined) {
+      if (store.getters['view/getSelectedId'] === view.id) {
+        app.$bus.$emit('table-refresh', {
+          tableId: store.getters['table/getSelectedId'],
+        })
+      }
     }
   })
 

@@ -76,9 +76,6 @@ class PageType(Instance):
         """
 
         name = self.get_group_name(**kwargs)
-        print(f"broadcasting to channel grou {name}")
-        print(payload)
-        print(ignore_web_socket_id)
         broadcast_to_channel_group.delay(name, payload, ignore_web_socket_id)
 
 
