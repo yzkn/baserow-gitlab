@@ -19,13 +19,13 @@
           v-show="slot.left != -1"
           :key="'card-' + slot.id"
           :fields="cardFields"
-          :row="slot.row === null ? {} : slot.row"
-          :loading="slot.row === null"
+          :row="slot.item === null ? {} : slot.item"
+          :loading="slot.item === null"
           class="gallery-view__card"
           :style="{
             width: cardWidth + 'px',
-            height: slot.row === null ? cardHeight + 'px' : undefined,
-            transform: `translateX(${slot.left}px) translateY(${slot.top}px)`,
+            height: slot.item === null ? cardHeight + 'px' : undefined,
+            transform: `translateX(${slot.position.left}px) translateY(${slot.position.top}px)`,
           }"
         ></RowCard>
       </div>
@@ -49,6 +49,7 @@ import { mapGetters } from 'vuex'
 import ResizeObserver from 'resize-observer-polyfill'
 
 import { getCardHeight } from '@baserow/modules/database/utils/card'
+import { recycleSlots } from '@baserow/modules/database/utils/virtualScrolling'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
 import RowCard from '@baserow/modules/database/components/card/RowCard'
 import RowCreateModal from '@baserow/modules/database/components/row/RowCreateModal'
@@ -270,23 +271,38 @@ export default {
       const endIndex = startIndex + minimumCardsToRender
       const visibleRows = this.allRows.slice(startIndex, endIndex)
 
-      // Calculate an array containing only the rows that must be displayed and their
-      // position in the gallery as if all the rows are there.
-      this.buffer = visibleRows.map((row, positionInVisible) => {
+      const getPosition = (row, positionInVisible) => {
         const positionInAll = startIndex + positionInVisible
-        const left =
-          gutterSize + (positionInAll % cardsPerRow) * (gutterSize + cardWidth)
-        const top =
-          gutterSize +
-          Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight)
-
         return {
-          id: positionInVisible,
-          row,
-          left,
-          top,
+          left:
+            gutterSize +
+            (positionInAll % cardsPerRow) * (gutterSize + cardWidth),
+          top:
+            gutterSize +
+            Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight),
         }
-      })
+      }
+      recycleSlots(this.buffer, visibleRows, getPosition)
+
+      // // Calculate an array containing only the rows that must be displayed and their
+      // // position in the gallery as if all the rows are there.
+      // this.buffer = visibleRows.map((row, positionInVisible) => {
+      //   const positionInAll = startIndex + positionInVisible
+      //   const left =
+      //     gutterSize + (positionInAll % cardsPerRow) * (gutterSize + cardWidth)
+      //   const top =
+      //     gutterSize +
+      //     Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight)
+      //
+      //   return {
+      //     id: positionInVisible,
+      //     item: row,
+      //     position: {
+      //       left,
+      //       top,
+      //     },
+      //   }
+      // })
 
       if (dispatchVisibleRows) {
         // Tell the store which rows/cards are visible so that it can fetch the missing
