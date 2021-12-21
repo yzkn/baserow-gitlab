@@ -43,6 +43,7 @@ from .signals import (
     view_sort_updated,
     view_sort_deleted,
     view_field_options_updated,
+    before_view_field_options_updated,
 )
 
 
@@ -255,6 +256,9 @@ class ViewHandler:
         field_options = view_type.before_field_options_update(
             view, field_options, fields
         )
+        before_return = before_view_field_options_updated.send(
+            self, view=view, user=user
+        )
 
         allowed_field_ids = [field.id for field in fields]
         for field_id, options in field_options.items():
@@ -266,7 +270,9 @@ class ViewHandler:
                 field_id=field_id, defaults=options, **{field_name: view}
             )
 
-        view_field_options_updated.send(self, view=view, user=user)
+        view_field_options_updated.send(
+            self, view=view, user=user, before_return=before_return
+        )
 
     def field_type_changed(self, field):
         """

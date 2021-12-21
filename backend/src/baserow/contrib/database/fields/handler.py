@@ -28,7 +28,13 @@ from .exceptions import (
 )
 from .models import Field, SelectOption
 from .registries import field_type_registry, field_converter_registry
-from .signals import field_created, field_updated, field_deleted, field_restored
+from .signals import (
+    field_created,
+    field_updated,
+    field_deleted,
+    field_restored,
+    before_field_deleted,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -490,6 +496,12 @@ class FieldHandler:
             field_cache=update_collector
         )
 
+        before_return = before_field_deleted.send(
+            self,
+            field=field,
+            user=user,
+        )
+
         TrashHandler.trash(
             user,
             group,
@@ -505,7 +517,6 @@ class FieldHandler:
             dependant_field_type,
             via_path_to_starting_table,
         ) in dependant_fields:
-            print(f"Telling {dependant_field.name} that {field.name} was deleted")
             dependant_field_type.field_dependency_deleted(
                 dependant_field,
                 field,
@@ -521,6 +532,7 @@ class FieldHandler:
                 field=field,
                 related_fields=updated_fields,
                 user=user,
+                before_return=before_return,
             )
             update_collector.send_additional_field_updated_signals()
             return updated_fields

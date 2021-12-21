@@ -16,6 +16,18 @@ def find_public_views_row_is_in(table, model, row):
     return view_slugs
 
 
+def find_public_views_field_is_in(field):
+    view_slugs = []
+    view_handler = ViewHandler()
+    from baserow.contrib.database.views.registries import view_type_registry
+
+    for view in field.table.view_set.filter(public=True).all():
+        view_type = view_type_registry.get_by_model(view.specific_class)
+        if view_type.includes_field(view, field):
+            view_slugs.append(view.slug)
+    return view_slugs
+
+
 def broadcast_event_to_a_tables_public_views(
     table: Table,
     event_data: Dict[str, Any],
@@ -62,15 +74,12 @@ def broadcast_event_to_a_tables_public_views(
 
         if broadcast:
             if view.slug in must_send:
-                print(f"must send matched {view.slug}")
                 must_send.remove(view.slug)
             elif must_send_mutator is not None:
-                print(f"must send created matched {view.slug}")
                 must_send_mutator(event_data, "created")
             public_view_page_table.broadcast(event_data, None, slug=view.slug)
     for view_slug in must_send:
         if must_send_mutator is not None:
-            print(f"must send deleted matched {view_slug}")
             must_send_mutator(event_data, "deleted")
         public_view_page_table.broadcast(event_data, None, slug=view_slug)
 
