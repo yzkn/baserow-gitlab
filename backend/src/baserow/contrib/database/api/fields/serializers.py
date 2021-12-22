@@ -51,6 +51,15 @@ class RelatedFieldsSerializer(serializers.Serializer):
         ]
 
 
+class PublicFieldSerializer(FieldSerializer):
+    class Meta:
+        model = Field
+        fields = ("id", "name", "order", "type", "primary")
+        extra_kwargs = {
+            "id": {"read_only": True},
+        }
+
+
 class FieldSerializerWithRelatedFields(FieldSerializer, RelatedFieldsSerializer):
     class Meta(FieldSerializer.Meta):
         fields = FieldSerializer.Meta.fields + ("related_fields",)

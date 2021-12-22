@@ -129,11 +129,14 @@ class View(
                 "any descendants."
             )
 
-        field_options = through_model.objects.filter(**{field_name: self})
+        field_options_filters = {field_name: self}
+        if fields is not None:
+            field_options_filters["field__in"] = fields
+        field_options = through_model.objects.filter(**field_options_filters)
 
         if create_if_not_exists:
             field_options = list(field_options)
-            if not fields:
+            if fields is None:
                 fields = Field.objects.filter(table=self.table)
 
             existing_field_ids = [options.field_id for options in field_options]

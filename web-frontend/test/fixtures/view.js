@@ -2,7 +2,7 @@ export function createGridView(
   mock,
   application,
   table,
-  { viewType = 'grid', viewId = 1, filters = [] }
+  { viewType = 'grid', viewId = 1, filters = [], publicView = false }
 ) {
   const tableId = table.id
   const gridView = {
@@ -19,8 +19,12 @@ export function createGridView(
     },
     filter_type: 'AND',
     filters_disabled: false,
+    public: publicView,
     filters,
   }
   mock.onGet(`/database/views/table/${tableId}/`).reply(200, [gridView])
+  if (publicView) {
+    mock.onGet(`/database/views/table/${tableId}/`).reply(200, [gridView])
+  }
   return gridView
 }

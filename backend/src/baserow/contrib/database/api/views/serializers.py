@@ -77,13 +77,17 @@ class FieldOptionsField(serializers.Field):
         """
 
         if isinstance(value, View):
-            # If the fields are in the context we can pass them into the
-            # `get_field_options` call so that they don't have to be fetched from the
-            # database again.
-            fields = self.context.get("fields")
+            field_options = self.context.get("field_options", None)
+            if field_options is None:
+                # If the fields are in the context we can pass them into the
+                # `get_field_options` call so that they don't have to be fetched from
+                # the database again.
+                field_options = value.get_field_options(
+                    True, self.context.get("fields")
+                )
             return {
                 field_options.field_id: self.serializer_class(field_options).data
-                for field_options in value.get_field_options(True, fields)
+                for field_options in field_options
             }
         else:
             return value
@@ -171,10 +175,7 @@ class ViewSerializer(serializers.ModelSerializer):
             "sortings",
             "filters_disabled",
         )
-        extra_kwargs = {
-            "id": {"read_only": True},
-            "table_id": {"read_only": True},
-        }
+        extra_kwargs = {"id": {"read_only": True}, "table_id": {"read_only": True}}
 
     def __init__(self, *args, **kwargs):
         context = kwargs.setdefault("context", {})

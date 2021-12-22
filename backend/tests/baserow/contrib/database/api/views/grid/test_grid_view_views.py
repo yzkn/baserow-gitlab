@@ -757,3 +757,331 @@ def test_update_grid_view(api_client, data_fixture):
     assert response.status_code == HTTP_200_OK
     assert "public" not in response_json
     assert "slug" not in response_json
+
+
+@pytest.mark.django_db
+def test_get_public_grid_view(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+
+    # Only information related the public field should be returned
+    public_field = data_fixture.create_text_field(table=table, name="public")
+    hidden_field = data_fixture.create_text_field(table=table, name="hidden")
+
+    grid_view = data_fixture.create_grid_view(
+        table=table, user=user, public=True, create_options=False
+    )
+
+    data_fixture.create_grid_view_field_option(grid_view, public_field, hidden=False)
+    data_fixture.create_grid_view_field_option(grid_view, hidden_field, hidden=True)
+
+    # This view sort shouldn't be exposed as it is for a hidden field
+    data_fixture.create_view_sort(view=grid_view, field=hidden_field, order="ASC")
+    visible_sort = data_fixture.create_view_sort(
+        view=grid_view, field=public_field, order="DESC"
+    )
+
+    # View filters should not be returned at all for any and all fields regardless of
+    # if they are hidden.
+    data_fixture.create_view_filter(
+        view=grid_view, field=hidden_field, type="contains", value="hidden"
+    )
+    data_fixture.create_view_filter(
+        view=grid_view, field=public_field, type="contains", value="public"
+    )
+
+    # Can access as an anonymous user
+    s = reverse("api:database:views:grid:public_info", kwargs={"slug": grid_view.slug})
+    print("querying")
+    print(s)
+    response = api_client.get(s)
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK, response_json
+    assert response_json == {
+        "fields": [
+            {
+                "id": public_field.id,
+                "name": "public",
+                "order": 0,
+                "primary": False,
+                "text_default": "",
+                "type": "text",
+            }
+        ],
+        "view": {
+            "name": grid_view.name,
+            "order": 0,
+            "public": True,
+            "slug": grid_view.slug,
+            "sortings": [
+                # Note the sorting for the hidden field is not returned
+                {
+                    "field": visible_sort.field.id,
+                    "id": visible_sort.id,
+                    "order": "DESC",
+                    "view": grid_view.slug,
+                }
+            ],
+            "type": "grid",
+        },
+    }
+
+
+@pytest.mark.django_db
+def test_anon_user_cant_get_info_about_a_non_public_grid_view(api_client, data_fixture):
+    user = data_fixture.create_user()
+    grid_view = data_fixture.create_grid_view(user=user, public=False)
+
+    # Get access as an anonymous user
+    response = api_client.get(
+        reverse("api:database:views:grid:public_info", kwargs={"slug": grid_view.slug})
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response_json == {
+        "detail": "The requested view does not exist.",
+        "error": "ERROR_VIEW_DOES_NOT_EXIST",
+    }
+
+
+@pytest.mark.django_db
+def test_user_in_wrong_group_cant_get_info_about_a_non_public_grid_view(
+    api_client, data_fixture
+):
+    user = data_fixture.create_user()
+    other_user, other_user_token = data_fixture.create_user_and_token()
+    grid_view = data_fixture.create_grid_view(user=user, public=False)
+
+    response = api_client.get(
+        reverse(
+            "api:database:views:grid:public_info",
+            kwargs={"slug": grid_view.slug},
+        ),
+        HTTP_AUTHORIZATION=f"JWT {other_user_token}",
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response_json == {
+        "detail": "The requested view does not exist.",
+        "error": "ERROR_VIEW_DOES_NOT_EXIST",
+    }
+
+
+@pytest.mark.django_db
+def test_user_in_same_group_can_get_info_about_a_non_public_grid_view(
+    api_client, data_fixture
+):
+    user, token = data_fixture.create_user_and_token()
+    grid_view = data_fixture.create_grid_view(user=user, public=False)
+
+    response = api_client.get(
+        reverse(
+            "api:database:views:grid:public_info",
+            kwargs={"slug": grid_view.slug},
+        ),
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK, response_json
+    assert "fields" in response_json
+    assert "view" in response_json
+
+
+@pytest.mark.django_db
+def test_cannot_get_info_about_non_grid_view(api_client, data_fixture):
+    user = data_fixture.create_user()
+    form_view = data_fixture.create_form_view(user=user, public=True)
+
+    # Get access as an anonymous user
+    response = api_client.get(
+        reverse(
+            "api:database:views:grid:public_info",
+            kwargs={"slug": form_view.slug},
+        ),
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response_json == {
+        "detail": "The requested view does not exist.",
+        "error": "ERROR_VIEW_DOES_NOT_EXIST",
+    }
+
+
+@pytest.mark.django_db
+def test_list_rows_public_doesnt_show_hidden_columns(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+
+    # Only information related the public field should be returned
+    public_field = data_fixture.create_text_field(table=table, name="public")
+    hidden_field = data_fixture.create_text_field(table=table, name="hidden")
+
+    grid_view = data_fixture.create_grid_view(
+        table=table, user=user, public=True, create_options=False
+    )
+
+    public_field_option = data_fixture.create_grid_view_field_option(
+        grid_view, public_field, hidden=False
+    )
+    data_fixture.create_grid_view_field_option(grid_view, hidden_field, hidden=True)
+
+    RowHandler().create_row(user, table, values={})
+
+    # Get access as an anonymous user
+    response = api_client.get(
+        reverse("api:database:views:grid:public_rows", kwargs={"slug": grid_view.slug})
+        + "?include=field_options"
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+    assert response_json == {
+        "count": 1,
+        "next": None,
+        "previous": None,
+        "results": [
+            {
+                f"field_{public_field.id}": None,
+                "id": 1,
+                "order": "1.00000000000000000000",
+            }
+        ],
+        "field_options": {
+            f"{public_field.id}": {
+                "hidden": False,
+                "order": public_field_option.order,
+                "width": public_field_option.width,
+            },
+        },
+    }
+
+
+@pytest.mark.django_db
+def test_list_rows_public_doesnt_sort_by_hidden_columns(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+
+    # Only information related the public field should be returned
+    public_field = data_fixture.create_text_field(table=table, name="public")
+    hidden_field = data_fixture.create_text_field(table=table, name="hidden")
+
+    grid_view = data_fixture.create_grid_view(
+        table=table, user=user, public=True, create_options=False
+    )
+
+    data_fixture.create_grid_view_field_option(grid_view, public_field, hidden=False)
+    data_fixture.create_grid_view_field_option(grid_view, hidden_field, hidden=True)
+
+    second_row = RowHandler().create_row(
+        user, table, values={"public": "a", "hidden": "y"}, user_field_names=True
+    )
+    first_row = RowHandler().create_row(
+        user, table, values={"public": "b", "hidden": "z"}, user_field_names=True
+    )
+
+    data_fixture.create_view_sort(view=grid_view, field=hidden_field, order="ASC")
+    data_fixture.create_view_sort(view=grid_view, field=public_field, order="DESC")
+
+    # Get access as an anonymous user
+    response = api_client.get(
+        reverse("api:database:views:grid:public_rows", kwargs={"slug": grid_view.slug})
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK, response_json
+    assert response_json["results"][0]["id"] == first_row.id
+    assert response_json["results"][1]["id"] == second_row.id
+
+
+@pytest.mark.django_db
+def test_list_rows_public_filters_by_visible_and_hidden_columns(
+    api_client, data_fixture
+):
+    user, token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+
+    # Only information related the public field should be returned
+    public_field = data_fixture.create_text_field(table=table, name="public")
+    hidden_field = data_fixture.create_text_field(table=table, name="hidden")
+
+    grid_view = data_fixture.create_grid_view(
+        table=table, user=user, public=True, create_options=False
+    )
+
+    data_fixture.create_grid_view_field_option(grid_view, public_field, hidden=False)
+    data_fixture.create_grid_view_field_option(grid_view, hidden_field, hidden=True)
+
+    data_fixture.create_view_filter(
+        view=grid_view, field=hidden_field, type="equal", value="y"
+    )
+    data_fixture.create_view_filter(
+        view=grid_view, field=public_field, type="equal", value="a"
+    )
+    # A row whose hidden column doesn't match the first filter
+    RowHandler().create_row(
+        user, table, values={"public": "a", "hidden": "not y"}, user_field_names=True
+    )
+    # A row whose public column doesn't match the second filter
+    RowHandler().create_row(
+        user, table, values={"public": "not a", "hidden": "y"}, user_field_names=True
+    )
+    # A row which matches all filters
+    visible_row = RowHandler().create_row(
+        user, table, values={"public": "a", "hidden": "y"}, user_field_names=True
+    )
+
+    # Get access as an anonymous user
+    response = api_client.get(
+        reverse("api:database:views:grid:public_rows", kwargs={"slug": grid_view.slug})
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK, response_json
+    assert len(response_json["results"]) == 1
+    assert response_json["count"] == 1
+    assert response_json["results"][0]["id"] == visible_row.id
+
+
+@pytest.mark.django_db
+def test_list_rows_public_only_searches_by_visible_columns(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+
+    # Only information related the public field should be returned
+    public_field = data_fixture.create_text_field(table=table, name="public")
+    hidden_field = data_fixture.create_text_field(table=table, name="hidden")
+
+    grid_view = data_fixture.create_grid_view(
+        table=table, user=user, public=True, create_options=False
+    )
+
+    data_fixture.create_grid_view_field_option(grid_view, public_field, hidden=False)
+    data_fixture.create_grid_view_field_option(grid_view, hidden_field, hidden=True)
+
+    search_term = "search_term"
+    RowHandler().create_row(
+        user,
+        table,
+        values={"public": "other", "hidden": search_term},
+        user_field_names=True,
+    )
+    RowHandler().create_row(
+        user,
+        table,
+        values={"public": "other", "hidden": "other"},
+        user_field_names=True,
+    )
+    visible_row = RowHandler().create_row(
+        user,
+        table,
+        values={"public": search_term, "hidden": "other"},
+        user_field_names=True,
+    )
+
+    # Get access as an anonymous user
+    response = api_client.get(
+        reverse("api:database:views:grid:public_rows", kwargs={"slug": grid_view.slug})
+        + f"?search={search_term}"
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK, response_json
+    assert len(response_json["results"]) == 1
+    assert response_json["count"] == 1
+    assert response_json["results"][0]["id"] == visible_row.id

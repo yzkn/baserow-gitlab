@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from typing import Dict, Union, Tuple, Callable, Optional, Type
 
 from django.utils.encoding import force_str
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.exceptions import APIException
 from rest_framework.request import Request
 from rest_framework.serializers import ModelSerializer
@@ -332,14 +332,21 @@ class CustomFieldRegistryMappingSerializer:
         self.many = many
 
 
-class DiscriminatorCustomFieldsMappingSerializer:
+class DiscriminatorCustomFieldsMappingSerializer(serializers.Field):
     """
     A placeholder class for the `DiscriminatorCustomFieldsMappingSerializerExtension`
     extension class.
     """
 
     def __init__(
-        self, registry, base_class, type_field_name="type", many=False, help_text=None
+        self,
+        registry,
+        base_class,
+        type_field_name="type",
+        many=False,
+        help_text=None,
+        *args,
+        **kwargs,
     ):
         self.read_only = False
         self.registry = registry
@@ -347,6 +354,7 @@ class DiscriminatorCustomFieldsMappingSerializer:
         self.type_field_name = type_field_name
         self.many = many
         self.help_text = help_text
+        super().__init__(*args, **kwargs)
 
 
 class DiscriminatorMappingSerializer:

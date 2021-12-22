@@ -6,8 +6,8 @@
       <p>
         Are you sure that you want to refresh the URL of {{ view.name }}? After
         refreshing, a new URL will be generated and it will not be possible to
-        access the form via the old URL. Everyone that you have shared the URL
-        with, won't be able to access the form.
+        access the {{ view.type }} via the old URL. Everyone that you have
+        shared the URL with, won't be able to access the {{ view.type }}.
       </p>
       <div class="actions">
         <div class="align-right">
@@ -28,12 +28,11 @@
 <script>
 import modal from '@baserow/modules/core/mixins/modal'
 import error from '@baserow/modules/core/mixins/error'
-import formViewHelpers from '@baserow/modules/database/mixins/formViewHelpers'
 import ViewService from '@baserow/modules/database/services/view'
 
 export default {
-  name: 'FormViewRotateSlugModal',
-  mixins: [modal, error, formViewHelpers],
+  name: 'ViewRotateSlugModal',
+  mixins: [modal, error],
   props: {
     view: {
       type: Object,

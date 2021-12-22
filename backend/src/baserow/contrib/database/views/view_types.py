@@ -33,6 +33,7 @@ class GridViewType(ViewType):
     model_class = GridView
     field_options_model_class = GridViewFieldOptions
     field_options_serializer_class = GridViewFieldOptionsSerializer
+    can_share = True
 
     def get_api_urls(self):
         from baserow.contrib.database.api.views.grid import urls as api_urls
@@ -102,21 +103,24 @@ class GridViewType(ViewType):
 
         grid_view = ViewHandler().get_view(view.id, view_model=GridView)
 
+        ordered_visible_field_ids = self.get_visible_field_options_in_order(
+            grid_view
+        ).values_list("field__id", flat=True)
+        model = view.table.get_model(field_ids=ordered_visible_field_ids)
+        ordered_field_objects = []
+        for field_id in ordered_visible_field_ids:
+            ordered_field_objects.append(model._field_objects[field_id])
+        return ordered_field_objects, model
+
+    def get_visible_field_options_in_order(self, grid_view):
         # Ensure all fields have options created before we then query directly off the
         # options table below.
         grid_view.get_field_options(create_if_not_exists=True)
-
-        ordered_field_objects = []
-        ordered_visible_fields = (
+        return (
             grid_view.get_field_options()
             .filter(hidden=False)
             .order_by("-field__primary", "order", "field__id")
-            .values_list("field__id", flat=True)
         )
-        model = view.table.get_model(field_ids=ordered_visible_fields)
-        for field_id in ordered_visible_fields:
-            ordered_field_objects.append(model._field_objects[field_id])
-        return ordered_field_objects, model
 
 
 class GalleryViewType(ViewType):
