@@ -54,7 +54,6 @@ describe('test virtualScrolling utils', () => {
     ])
 
     recycleSlots(slots, ...getRowsAndPosition(2, 4))
-    console.log(slots)
     expect(slots).toStrictEqual([
       { id: 2, position: 2, item: { id: 3 } },
       { id: 3, position: 3, item: { id: 4 } },
@@ -114,45 +113,45 @@ describe('test virtualScrolling utils', () => {
 
     recycleSlots(slots, ...getRowsAndPosition(13, 5))
     expect(slots).toStrictEqual([
-      { id: 0, position: 13, item: null },
-      { id: 3, position: 14, item: null },
-      { id: 4, position: 15, item: null },
+      { id: 3, position: 13, item: null },
+      { id: 4, position: 14, item: null },
+      { id: 0, position: 15, item: null },
       { id: 1, position: 16, item: { id: 17 } },
       { id: 2, position: 17, item: { id: 18 } },
     ])
 
     recycleSlots(slots, ...getRowsAndPosition(12, 5))
     expect(slots).toStrictEqual([
-      { id: 0, position: 12, item: null },
-      { id: 3, position: 13, item: null },
-      { id: 4, position: 14, item: null },
+      { id: 3, position: 12, item: null },
+      { id: 4, position: 13, item: null },
+      { id: 0, position: 14, item: null },
       { id: 2, position: 15, item: null },
       { id: 1, position: 16, item: { id: 17 } },
     ])
 
     recycleSlots(slots, ...getRowsAndPosition(12, 5))
     expect(slots).toStrictEqual([
-      { id: 0, position: 12, item: null },
-      { id: 3, position: 13, item: null },
-      { id: 4, position: 14, item: null },
+      { id: 3, position: 12, item: null },
+      { id: 4, position: 13, item: null },
+      { id: 0, position: 14, item: null },
       { id: 2, position: 15, item: null },
       { id: 1, position: 16, item: { id: 17 } },
     ])
 
     recycleSlots(slots, ...getRowsAndPosition(0, 4))
     expect(slots).toStrictEqual([
-      { id: 0, position: 0, item: { id: 1 } },
-      { id: 3, position: 1, item: { id: 2 } },
-      { id: 4, position: 2, item: { id: 3 } },
+      { id: 3, position: 0, item: { id: 1 } },
+      { id: 4, position: 1, item: { id: 2 } },
+      { id: 0, position: 2, item: { id: 3 } },
       { id: 2, position: 3, item: { id: 4 } },
     ])
 
     recycleSlots(slots, ...getRowsAndPosition(1, 5))
     expect(slots).toStrictEqual([
-      { id: 3, position: 1, item: { id: 2 } },
-      { id: 4, position: 2, item: { id: 3 } },
+      { id: 4, position: 1, item: { id: 2 } },
+      { id: 0, position: 2, item: { id: 3 } },
       { id: 2, position: 3, item: { id: 4 } },
-      { id: 0, position: 4, item: { id: 5 } },
+      { id: 3, position: 4, item: { id: 5 } },
       { id: 1, position: 5, item: { id: 6 } },
     ])
   })
