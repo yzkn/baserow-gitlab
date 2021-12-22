@@ -234,10 +234,6 @@ export default {
      * visible and what their position is without rendering all the rows in the store
      * at once.
      *
-     * @TODO make this really virtual scrolling by letting the row persist in the same
-     *   slot, even when it changes position. Currently, it updates all the cards when
-     *   a new row of cards must be displayed.
-     *
      * @param dispatchVisibleRows Indicates whether we want to dispatch the visibleRows
      *  action in the store. In some cases, when scrolling really fast through data we
      *  might want to wait a small moment before calling the action, which will make a
@@ -283,26 +279,6 @@ export default {
         }
       }
       recycleSlots(this.buffer, visibleRows, getPosition)
-
-      // // Calculate an array containing only the rows that must be displayed and their
-      // // position in the gallery as if all the rows are there.
-      // this.buffer = visibleRows.map((row, positionInVisible) => {
-      //   const positionInAll = startIndex + positionInVisible
-      //   const left =
-      //     gutterSize + (positionInAll % cardsPerRow) * (gutterSize + cardWidth)
-      //   const top =
-      //     gutterSize +
-      //     Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight)
-      //
-      //   return {
-      //     id: positionInVisible,
-      //     item: row,
-      //     position: {
-      //       left,
-      //       top,
-      //     },
-      //   }
-      // })
 
       if (dispatchVisibleRows) {
         // Tell the store which rows/cards are visible so that it can fetch the missing
