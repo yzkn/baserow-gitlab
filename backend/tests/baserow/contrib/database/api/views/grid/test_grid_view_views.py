@@ -667,6 +667,7 @@ def test_update_grid_view(api_client, data_fixture):
     table_2 = data_fixture.create_database_table(user=user_2)
     view = data_fixture.create_grid_view(table=table)
     view_2 = data_fixture.create_grid_view(table=table_2)
+    not_sharable_view = data_fixture.create_gallery_view(table=table)
 
     url = reverse("api:database:views:item", kwargs={"view_id": view_2.id})
     response = api_client.patch(
@@ -748,13 +749,13 @@ def test_update_grid_view(api_client, data_fixture):
 
     # Can't make a non sharable view public.
     response = api_client.patch(
-        reverse("api:database:views:item", kwargs={"view_id": view.id}),
+        reverse("api:database:views:item", kwargs={"view_id": not_sharable_view.id}),
         {"public": True},
         format="json",
         HTTP_AUTHORIZATION=f"JWT {token}",
     )
     response_json = response.json()
-    assert response.status_code == HTTP_200_OK
+    assert response.status_code == HTTP_200_OK, response_json
     assert "public" not in response_json
     assert "slug" not in response_json
 

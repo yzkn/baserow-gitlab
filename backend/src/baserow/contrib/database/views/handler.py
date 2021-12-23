@@ -112,7 +112,6 @@ class ViewHandler:
             "name",
             "filter_type",
             "filters_disabled",
-            "public",
         ] + view_type.allowed_fields
         view_values = extract_allowed(view_values, allowed_fields)
         last_order = model_class.get_last_order(table)
@@ -153,7 +152,6 @@ class ViewHandler:
             "name",
             "filter_type",
             "filters_disabled",
-            "public",
         ] + view_type.allowed_fields
         view = set_allowed_attrs(view_values, allowed_fields, view)
         view.save()
