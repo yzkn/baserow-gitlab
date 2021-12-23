@@ -1,6 +1,6 @@
 /**
  * This helper method will create an array of slots, where every entry contains the
- * provided provided `items` entry in the right order. Every slot has a unique `id` and
+ * provided `items` entry in the right order. Every slot has a unique `id` and
  * when the order of the the item changes, it will make sure that it will use the same
  * slot ID without recreating the slots array.
  *
