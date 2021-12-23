@@ -42,70 +42,121 @@
  * ]
  */
 export const recycleSlots = (slots, items, getPosition) => {
-  // First fill up the buffer with the minimum amount of slots.
-  for (let i = slots.length; i < items.length; i++) {
-    // Find the first available id base on the length of the array. This is needed
-    // because we don't want to have id outside of the items length range.
-    const id = [...Array(items.length).keys()].find(
-      (id) => slots.findIndex((slot) => slot.id === id) < 0
-    )
+  const min = items.length
+
+  for (let i = slots.length; i < min; i++) {
     slots.push({
-      id,
+      id: i,
+      item: undefined,
       position: undefined,
-      item: null,
     })
   }
 
-  // Remove not needed slots.
-  if (slots.length > items.length) {
-    slots.splice(items.length, slots.length)
-  }
+  slots.slice(0, min)
 
-  // This loop will make sure that the existing items in the slots array are at the
-  // right position by moving them. The slots array will not be recreated to prevent
-  // re-rendering.
-  let i = 0
-  while (i < items.length) {
-    const item = items[i]
+  slots.forEach((slot) => {
+    const exists =
+      slot.item !== null &&
+      slot.item !== undefined &&
+      items.findIndex((item) => item !== null && item.id === slot.item.id) >= 0
+    if (!exists) {
+      slot.item = undefined
+      slot.position = undefined
+    }
+  })
 
-    if (item === null) {
-      i++
-      continue
+  items.forEach((item, position) => {
+    // Check if the row is already in the buffer
+    let index =
+      item === null
+        ? -1
+        : slots.findIndex(
+            (slot) =>
+              slot.item !== null &&
+              slot.item !== undefined &&
+              slot.item.id === item.id
+          )
+
+    const slotPosition = getPosition(item, position)
+
+    if (index < 0) {
+      index = slots.findIndex((slot) => slot.item === undefined)
     }
 
-    const existingIndex = slots.findIndex(
-      (slot) => slot.item !== null && slot.item.id === item.id
-    )
-
-    if (existingIndex > -1 && existingIndex !== i) {
-      // If the item already exists in the slots array, but the position match yet,
-      // we need to move it.
-      if (existingIndex < i) {
-        // In this case, the existing index is lower than the new index, so in order
-        // avoid conflicts with already moved items we just swap them.
-        slots.splice(i, 0, slots.splice(existingIndex, 1)[0])
-        slots.splice(existingIndex, 0, slots.splice(i - 1, 1)[0])
-        i++
-      } else if (existingIndex > i) {
-        // If the existing index is higher than the expected index, we need to move
-        // it one by one to avoid conflicts with already moved items.
-        slots.splice(existingIndex - 1, 0, slots.splice(existingIndex, 1)[0])
-      }
-    } else {
-      i++
-    }
-  }
-
-  // Because the slots are already in the desired order, we can loop over the items
-  // and update and position if they have changed. The properties are only updated
-  // if they have actually changed to avoid re-renders.
-  items.forEach((item, index) => {
     if (slots[index].item !== item) {
       slots[index].item = item
     }
-    const position = getPosition(item, index)
-    if (JSON.stringify(position) !== JSON.stringify(slots[index].position)) {
-      slots[index].position = position
+    if (
+      JSON.stringify(slotPosition) !== JSON.stringify(slots[index].position)
+    ) {
+      slots[index].position = slotPosition
     }
   })
+
+  // // First fill up the buffer with the minimum amount of slots.
+  // for (let i = slots.length; i < items.length; i++) {
+  //   // Find the first available id base on the length of the array. This is needed
+  //   // because we don't want to have id outside of the items length range.
+  //   const id = [...Array(items.length).keys()].find(
+  //     (id) => slots.findIndex((slot) => slot.id === id) < 0
+  //   )
+  //   slots.push({
+  //     id,
+  //     position: undefined,
+  //     item: null,
+  //   })
+  // }
+  //
+  // // Remove not needed slots.
+  // if (slots.length > items.length) {
+  //   slots.splice(items.length, slots.length)
+  // }
+  //
+  // // This loop will make sure that the existing items in the slots array are at the
+  // // right position by moving them. The slots array will not be recreated to prevent
+  // // re-rendering.
+  // let i = 0
+  // while (i < items.length) {
+  //   const item = items[i]
+  //
+  //   if (item === null) {
+  //     i++
+  //     continue
+  //   }
+  //
+  //   const existingIndex = slots.findIndex(
+  //     (slot) => slot.item !== null && slot.item.id === item.id
+  //   )
+  //
+  //   if (existingIndex > -1 && existingIndex !== i) {
+  //     // If the item already exists in the slots array, but the position match yet,
+  //     // we need to move it.
+  //     if (existingIndex < i) {
+  //       // In this case, the existing index is lower than the new index, so in order
+  //       // avoid conflicts with already moved items we just swap them.
+  //       slots.splice(i, 0, slots.splice(existingIndex, 1)[0])
+  //       slots.splice(existingIndex, 0, slots.splice(i - 1, 1)[0])
+  //       i++
+  //     } else if (existingIndex > i) {
+  //       // If the existing index is higher than the expected index, we need to move
+  //       // it one by one to avoid conflicts with already moved items.
+  //       slots.splice(existingIndex - 1, 0, slots.splice(existingIndex, 1)[0])
+  //     }
+  //   } else {
+  //     i++
+  //   }
+  // }
+  //
+  // // Because the slots are already in the desired order, we can loop over the items
+  // // and update and position if they have changed. The properties are only updated
+  // // if they have actually changed to avoid re-renders.
+  // items.forEach((item, index) => {
+  //   if (slots[index].item !== item) {
+  //     slots[index].item = item
+  //   }
+  //   const position = getPosition(item, index)
+  //   if (JSON.stringify(position) !== JSON.stringify(slots[index].position)) {
+  //     slots[index].position = position
+  //   }
+  // })
 }

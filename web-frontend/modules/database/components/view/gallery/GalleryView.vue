@@ -16,16 +16,19 @@
       >
         <RowCard
           v-for="slot in buffer"
-          v-show="slot.left != -1"
+          v-show="slot.position !== undefined"
           :key="'card-' + slot.id"
           :fields="cardFields"
-          :row="slot.item === null ? {} : slot.item"
+          :row="slot.item === null || slot.item === undefined ? {} : slot.item"
           :loading="slot.item === null"
           class="gallery-view__card"
           :style="{
             width: cardWidth + 'px',
             height: slot.item === null ? cardHeight + 'px' : undefined,
-            transform: `translateX(${slot.position.left}px) translateY(${slot.position.top}px)`,
+            transform:
+              slot.position !== undefined
+                ? `translateX(${slot.position.left}px) translateY(${slot.position.top}px)`
+                : false,
           }"
         ></RowCard>
       </div>
