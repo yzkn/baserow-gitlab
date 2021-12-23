@@ -41,14 +41,16 @@
  *   { id: 0, position: undefined, item: { id: 3, name: "Item 3" } }
  * ]
  */
-export const recycleSlots = (slots, items, getPosition) => {
-  const min = items.length
+export const recycleSlots = (slots, items, getPosition, min = items.length) => {
+  if (min < items.length) {
+    min = items.length
+  }
 
   for (let i = slots.length; i < min; i++) {
     slots.push({
       id: i,
-      item: undefined,
       position: undefined,
+      item: undefined,
     })
   }
 
