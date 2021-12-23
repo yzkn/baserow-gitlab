@@ -52,7 +52,10 @@ import { mapGetters } from 'vuex'
 import ResizeObserver from 'resize-observer-polyfill'
 
 import { getCardHeight } from '@baserow/modules/database/utils/card'
-import { recycleSlots } from '@baserow/modules/database/utils/virtualScrolling'
+import {
+  recycleSlots,
+  orderSlots,
+} from '@baserow/modules/database/utils/virtualScrolling'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
 import RowCard from '@baserow/modules/database/components/card/RowCard'
 import RowCreateModal from '@baserow/modules/database/components/row/RowCreateModal'
@@ -178,10 +181,18 @@ export default {
     // `dispatchVisibleRows` parameter to true when the user immediately stops
     // scrolling fast.
     const updateBufferDebounced = debounce(() => {
-      this.updateBuffer(true)
+      this.updateBuffer(true, false)
     }, 100)
 
+    // This debounced function is called when the user stops scrolling.
+    const updateOrderDebounced = debounce(() => {
+      this.updateBuffer(false, true)
+    }, 110)
+
     this.$el.scrollEvent = (event) => {
+      // Call the update order debounce function to simulate a stop scrolling event.
+      updateOrderDebounced()
+
       const now = Date.now()
       const { scrollTop } = event.target
 
@@ -198,18 +209,18 @@ export default {
           // When scrolling "slow", the dispatchVisibleRows parameter is true so that
           // the visible rows are fetched if needed.
           updateBufferDebounced.cancel()
-          this.updateBuffer(true)
+          this.updateBuffer(true, false)
         } else {
           // Check if the user is scrolling super fast because in that case we don't
           // fetch the rows when they're not needed.
           updateBufferDebounced()
-          this.updateBuffer(false)
+          this.updateBuffer(false, false)
         }
       } else {
         // If scroll stopped within the 100ms we still want to have a last
         // updateBuffer(true) call.
         updateBufferDebounced()
-        this.updateBuffer(false)
+        this.updateBuffer(false, false)
       }
     }
     this.$refs.scroll.addEventListener('scroll', this.$el.scrollEvent)
@@ -242,7 +253,7 @@ export default {
      *  might want to wait a small moment before calling the action, which will make a
      *  request to the backend if needed.
      */
-    updateBuffer(dispatchVisibleRows = true) {
+    updateBuffer(dispatchVisibleRows = true, updateOrder = true) {
       const el = this.$refs.scroll
 
       const gutterSize = this.gutterSize
@@ -281,7 +292,11 @@ export default {
             Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight),
         }
       }
-      recycleSlots(this.buffer, visibleRows, getPosition)
+      recycleSlots(this.buffer, visibleRows, getPosition, minimumCardsToRender)
+
+      if (updateOrder) {
+        orderSlots(this.buffer, visibleRows)
+      }
 
       if (dispatchVisibleRows) {
         // Tell the store which rows/cards are visible so that it can fetch the missing

@@ -1,4 +1,7 @@
-import { recycleSlots } from '@baserow/modules/database/utils/virtualScrolling'
+import {
+  recycleSlots,
+  orderSlots,
+} from '@baserow/modules/database/utils/virtualScrolling'
 
 describe('test virtualScrolling utils', () => {
   test('test recycle slots', () => {
@@ -53,6 +56,8 @@ describe('test virtualScrolling utils', () => {
       { id: 3, position: 3, item: { id: 4 } },
     ])
 
+    slots[4] = { id: 4, position: undefined, item: undefined }
+    slots[5] = { id: 5, position: undefined, item: undefined }
     recycleSlots(slots, ...getRowsAndPosition(2, 4))
     expect(slots).toStrictEqual([
       { id: 0, position: 4, item: { id: 5 } },
@@ -87,7 +92,7 @@ describe('test virtualScrolling utils', () => {
       { id: 4, position: 12, item: null },
     ])
 
-    recycleSlots(slots, ...getRowsAndPosition(15, 4))
+    recycleSlots(slots, ...getRowsAndPosition(15, 4), 5)
     expect(slots).toStrictEqual([
       { id: 0, position: 15, item: null },
       { id: 1, position: 16, item: { id: 17 } },
@@ -146,7 +151,6 @@ describe('test virtualScrolling utils', () => {
       { id: 1, position: 1, item: { id: 2 } },
       { id: 2, position: 2, item: { id: 3 } },
       { id: 3, position: 3, item: { id: 4 } },
-      { id: 4, position: undefined, item: undefined },
     ])
 
     recycleSlots(slots, ...getRowsAndPosition(1, 5))
@@ -156,6 +160,38 @@ describe('test virtualScrolling utils', () => {
       { id: 2, position: 2, item: { id: 3 } },
       { id: 3, position: 3, item: { id: 4 } },
       { id: 4, position: 5, item: { id: 6 } },
+    ])
+  })
+
+  test('test order slots', () => {
+    const slots = [
+      { id: 0, position: 19, item: { id: 20 } },
+      { id: 1, position: 20, item: null },
+      { id: 2, position: 21, item: null },
+      { id: 3, position: 18, item: { id: 19 } },
+    ]
+    orderSlots(slots, [{ id: 19 }, { id: 20 }, null, null])
+    expect(slots).toStrictEqual([
+      { id: 3, position: 18, item: { id: 19 } },
+      { id: 0, position: 19, item: { id: 20 } },
+      { id: 1, position: 20, item: null },
+      { id: 2, position: 21, item: null },
+    ])
+
+    orderSlots(slots, [null, null, { id: 20 }, { id: 19 }])
+    expect(slots).toStrictEqual([
+      { id: 2, position: 21, item: null },
+      { id: 1, position: 20, item: null },
+      { id: 0, position: 19, item: { id: 20 } },
+      { id: 3, position: 18, item: { id: 19 } },
+    ])
+
+    orderSlots(slots, [{ id: 19 }, null, { id: 20 }, null])
+    expect(slots).toStrictEqual([
+      { id: 3, position: 18, item: { id: 19 } },
+      { id: 2, position: 21, item: null },
+      { id: 0, position: 19, item: { id: 20 } },
+      { id: 1, position: 20, item: null },
     ])
   })
 })
