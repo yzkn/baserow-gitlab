@@ -122,7 +122,10 @@ export const orderSlots = (slots, items) => {
     }
 
     const existingIndex = slots.findIndex(
-      (slot) => slot.item !== null && slot.item.id === item.id
+      (slot) =>
+        slot.item !== null &&
+        slot.item !== undefined &&
+        slot.item.id === item.id
     )
 
     if (existingIndex > -1 && existingIndex !== i) {

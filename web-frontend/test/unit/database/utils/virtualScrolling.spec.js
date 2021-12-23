@@ -193,5 +193,17 @@ describe('test virtualScrolling utils', () => {
       { id: 0, position: 19, item: { id: 20 } },
       { id: 1, position: 20, item: null },
     ])
+
+    slots[0].position = undefined
+    slots[0].item = undefined
+    slots[1].position = undefined
+    slots[1].item = undefined
+    orderSlots(slots, [{ id: 19 }, null, { id: 20 }, null])
+    expect(slots).toStrictEqual([
+      { id: 3, position: undefined, item: undefined },
+      { id: 2, position: undefined, item: undefined },
+      { id: 0, position: 19, item: { id: 20 } },
+      { id: 1, position: 20, item: null },
+    ])
   })
 })
