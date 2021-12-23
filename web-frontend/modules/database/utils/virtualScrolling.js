@@ -1,7 +1,7 @@
 /**
  * This helper method will create an array of slots, where every entry contains the
- * provided provided `items` entry in the right order. Every slot has a unique `id` and
- * when the order of the the item changes, it will make sure that it will use the same
+ * provided `items` entry in the right order. Every slot has a unique `id` and
+ * when the order of the item changes, it will make sure that it will use the same
  * slot ID without recreating the slots array.
  *
  * This is useful when virtual scrolling must be implemented. The `id` of the slot
