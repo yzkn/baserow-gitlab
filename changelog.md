@@ -15,6 +15,7 @@
   `/database/views/${viewId}/rotate-slug/`.
 * Increased maximum length of application name to 160 characters.
 * Fixed copying/pasting for date field.
+* Added ability to share grid views publicly.
 
 ## Released (2021-11-25)
 
