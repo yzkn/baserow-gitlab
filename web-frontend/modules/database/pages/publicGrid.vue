@@ -33,17 +33,19 @@ export default {
   async asyncData({ store, params, error, app }) {
     try {
       const viewSlug = params.slug
-      // Fetch and prepare the fields of the given table. The primary field is
-      // extracted from the array and moved to a separate object because that is what
-      // the `Table` components expects.
-      const { data } = await GridService(app.$client).fetchPublic(viewSlug)
+
+      await store.dispatch('page/view/grid/setPublic', true)
+
+      const { data } = await GridService(app.$client).fetchPublicViewInfo(
+        viewSlug
+      )
       const database = {
         id: PUBLIC_PLACEHOLDER_ENTITY_ID,
         type: 'database',
         tables: [],
       }
-      await store.dispatch('page/view/grid/setPublic', true)
       await store.dispatch('application/forceCreate', database)
+
       const table = { id: PUBLIC_PLACEHOLDER_ENTITY_ID, database }
       await store.dispatch('table/forceCreate', {
         database,
@@ -53,17 +55,19 @@ export default {
         databaseId: PUBLIC_PLACEHOLDER_ENTITY_ID,
         tableId: PUBLIC_PLACEHOLDER_ENTITY_ID,
       })
+
       await store.dispatch('field/forceCreateFields', {
         table,
         fields: data.fields,
       })
 
-      await store.dispatch('view/forceCreate', {
-        data: data.view,
-      })
       const view = data.view
+      await store.dispatch('view/forceCreate', {
+        data: view,
+      })
 
       await store.dispatch('view/select', view)
+
       const fields = store.getters['field/getAll']
       const primary = store.getters['field/getPrimary']
 

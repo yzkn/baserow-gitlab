@@ -859,6 +859,9 @@ class ViewHandler:
         except (view_model.DoesNotExist, ValidationError):
             raise ViewDoesNotExist("The view does not exist.")
 
+        if TrashHandler.item_has_a_trashed_parent(view.table, check_item_also=True):
+            raise ViewDoesNotExist("The view does not exist.")
+
         if not view.public and (
             not user or not view.table.database.group.has_user(user)
         ):

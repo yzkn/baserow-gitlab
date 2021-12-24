@@ -11,11 +11,14 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND,
 )
 
+from baserow.contrib.database.api.constants import PUBLIC_PLACEHOLDER_ENTITY_ID
+from baserow.contrib.database.rows.handler import RowHandler
 from baserow.contrib.database.rows.registries import (
     RowMetadataType,
     row_metadata_registry,
 )
 from baserow.contrib.database.views.models import GridView
+from baserow.core.trash.handler import TrashHandler
 from baserow.test_utils.helpers import register_instance_temporarily
 
 
@@ -649,7 +652,7 @@ def test_create_grid_view(api_client, data_fixture):
     # Can't create a public non sharable view.
     response = api_client.post(
         reverse("api:database:views:list", kwargs={"table_id": table.id}),
-        {"name": "Test 1", "type": "grid", "public": True},
+        {"name": "Test 1", "type": "gallery", "public": True},
         format="json",
         HTTP_AUTHORIZATION=f"JWT {token}",
     )
@@ -810,6 +813,7 @@ def test_get_public_grid_view(api_client, data_fixture):
             }
         ],
         "view": {
+            "id": grid_view.slug,
             "name": grid_view.name,
             "order": 0,
             "public": True,
@@ -823,6 +827,10 @@ def test_get_public_grid_view(api_client, data_fixture):
                     "view": grid_view.slug,
                 }
             ],
+            "table": {
+                "database_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
+                "id": PUBLIC_PLACEHOLDER_ENTITY_ID,
+            },
             "type": "grid",
         },
     }
@@ -898,6 +906,29 @@ def test_cannot_get_info_about_non_grid_view(api_client, data_fixture):
         reverse(
             "api:database:views:grid:public_info",
             kwargs={"slug": form_view.slug},
+        ),
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response_json == {
+        "detail": "The requested view does not exist.",
+        "error": "ERROR_VIEW_DOES_NOT_EXIST",
+    }
+
+
+@pytest.mark.django_db
+def test_cannot_get_info_about_trashed_grid_view(api_client, data_fixture):
+    user = data_fixture.create_user()
+    grid_view = data_fixture.create_grid_view(user=user, public=True)
+
+    TrashHandler.trash(
+        user, grid_view.table.database.group, None, grid_view.table.database.group
+    )
+
+    response = api_client.get(
+        reverse(
+            "api:database:views:grid:public_info",
+            kwargs={"slug": grid_view.slug},
         ),
     )
     response_json = response.json()

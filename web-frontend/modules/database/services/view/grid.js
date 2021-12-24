@@ -72,7 +72,7 @@ export default (client) => {
 
       return client.post(`/database/views/grid/${gridId}/`, data)
     },
-    fetchPublic(viewSlug) {
+    fetchPublicViewInfo(viewSlug) {
       return client.get(`/database/views/grid/${viewSlug}/public/info/`)
     },
   }
