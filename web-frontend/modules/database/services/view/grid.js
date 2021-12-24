@@ -59,7 +59,7 @@ export default (client) => {
         config.params.search = search
       }
 
-      const url = publicUrl ? 'public/' : ''
+      const url = publicUrl ? 'public/rows/' : ''
 
       return client.get(`/database/views/grid/${gridId}/${url}`, config)
     },

@@ -28,6 +28,7 @@ describe('Public View Page Tests', () => {
     })
 
     expect(publicGridViewPage.html()).toContain(gridViewName)
+    expect(publicGridViewPage.element).toMatchSnapshot()
   })
 
   function givenAPubliclySharedGridViewWithSlug(name, slug) {
