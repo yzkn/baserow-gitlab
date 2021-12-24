@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from typing import Dict, Union, Tuple, Callable, Optional, Type
 
 from django.utils.encoding import force_str
-from rest_framework import status, serializers
+from rest_framework import status
 from rest_framework.exceptions import APIException
 from rest_framework.request import Request
 from rest_framework.serializers import ModelSerializer
