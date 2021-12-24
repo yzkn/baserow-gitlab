@@ -1,3 +1,31 @@
+import { PUBLIC_PLACEHOLDER_ENTITY_ID } from '@baserow/modules/database/utils/constants'
+
+export function createPublicGridView(
+  mock,
+  viewSlug,
+  { name, fields = [], sortings = [] }
+) {
+  if (name === undefined) {
+    name = `public_mock_view_${viewSlug}`
+  }
+  const publicGridView = {
+    id: viewSlug,
+    table: {
+      id: PUBLIC_PLACEHOLDER_ENTITY_ID,
+      database_id: PUBLIC_PLACEHOLDER_ENTITY_ID,
+    },
+    order: 0,
+    name,
+    type: 'grid',
+    public: true,
+    slug: viewSlug,
+    sortings,
+  }
+  mock
+    .onGet(`/database/views/grid/${viewSlug}/public/info/`)
+    .reply(200, { view: publicGridView, fields })
+}
+
 export function createGridView(
   mock,
   application,
@@ -23,8 +51,5 @@ export function createGridView(
     filters,
   }
   mock.onGet(`/database/views/table/${tableId}/`).reply(200, [gridView])
-  if (publicView) {
-    mock.onGet(`/database/views/table/${tableId}/`).reply(200, [gridView])
-  }
   return gridView
 }

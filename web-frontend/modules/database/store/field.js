@@ -89,6 +89,7 @@ export const actions = {
       const primaryIndex = data.findIndex((item) => item.primary === true)
       const primary =
         primaryIndex !== -1 ? data.splice(primaryIndex, 1)[0] : null
+      console.log('setting primary in fetch all')
       commit('SET_PRIMARY', primary)
 
       commit('SET_ITEMS', data)
@@ -231,6 +232,7 @@ export const actions = {
     data = populateField(data, this.$registry)
 
     if (field.primary) {
+      console.log('setting primary in force update')
       commit('SET_PRIMARY', data)
     } else {
       commit('UPDATE_ITEM', { id: field.id, values: data })

@@ -2,6 +2,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from baserow.contrib.database.api.constants import PUBLIC_PLACEHOLDER_ENTITY_ID
 from baserow.contrib.database.api.fields.serializers import (
     PublicFieldSerializer,
 )
@@ -41,7 +42,22 @@ class PublicViewSortSerializer(serializers.ModelSerializer):
         extra_kwargs = {"id": {"read_only": True}}
 
 
+class PublicGridViewTableSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    database_id = serializers.SerializerMethodField()
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_id(self, instance):
+        return PUBLIC_PLACEHOLDER_ENTITY_ID
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_database_id(self, instance):
+        return PUBLIC_PLACEHOLDER_ENTITY_ID
+
+
 class PublicGridViewSerializer(serializers.ModelSerializer):
+    id = serializers.SlugField(source="slug")
+    table = PublicGridViewTableSerializer()
     type = serializers.SerializerMethodField()
     sortings = serializers.SerializerMethodField()
 
@@ -66,6 +82,8 @@ class PublicGridViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = View
         fields = (
+            "id",
+            "table",
             "name",
             "order",
             "type",
@@ -74,6 +92,7 @@ class PublicGridViewSerializer(serializers.ModelSerializer):
             "slug",
         )
         extra_kwargs = {
+            "id": {"read_only": True},
             "slug": {"read_only": True},
         }
 

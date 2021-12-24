@@ -791,10 +791,9 @@ def test_get_public_grid_view(api_client, data_fixture):
     )
 
     # Can access as an anonymous user
-    s = reverse("api:database:views:grid:public_info", kwargs={"slug": grid_view.slug})
-    print("querying")
-    print(s)
-    response = api_client.get(s)
+    response = api_client.get(
+        reverse("api:database:views:grid:public_info", kwargs={"slug": grid_view.slug})
+    )
     response_json = response.json()
     assert response.status_code == HTTP_200_OK, response_json
     assert response_json == {

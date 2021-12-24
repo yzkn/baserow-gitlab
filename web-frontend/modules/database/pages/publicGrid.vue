@@ -19,10 +19,11 @@
 
 <script>
 import Notifications from '@baserow/modules/core/components/notifications/Notifications'
-import { mapGetters } from 'vuex'
+import { mapState } from 'vuex'
 import Table from '@baserow/modules/database/components/table/Table'
 
 import GridService from '@baserow/modules/database/services/view/grid'
+import { PUBLIC_PLACEHOLDER_ENTITY_ID } from '@baserow/modules/database/utils/constants'
 export default {
   components: { Notifications, Table },
   /**
@@ -36,17 +37,21 @@ export default {
       // extracted from the array and moved to a separate object because that is what
       // the `Table` components expects.
       const { data } = await GridService(app.$client).fetchPublic(viewSlug)
-      const database = { id: viewSlug, type: 'database', tables: [] }
+      const database = {
+        id: PUBLIC_PLACEHOLDER_ENTITY_ID,
+        type: 'database',
+        tables: [],
+      }
       await store.dispatch('page/view/grid/setPublic', true)
       await store.dispatch('application/forceCreate', database)
-      const table = { id: viewSlug, database }
+      const table = { id: PUBLIC_PLACEHOLDER_ENTITY_ID, database }
       await store.dispatch('table/forceCreate', {
         database,
         data: table,
       })
       await store.dispatch('table/forceSelect', {
-        databaseId: viewSlug,
-        tableId: viewSlug,
+        databaseId: PUBLIC_PLACEHOLDER_ENTITY_ID,
+        tableId: PUBLIC_PLACEHOLDER_ENTITY_ID,
       })
       await store.dispatch('field/forceCreateFields', {
         table,
@@ -67,26 +72,23 @@ export default {
       const type = app.$registry.get('view', view.type)
       await type.fetch({ store }, view, fields, primary, 'page/')
       return {
+        primary,
+        fields,
         database,
         table,
         view,
       }
     } catch (e) {
-      throw e
-      /*
       if (e.response && e.response.status === 404) {
         return error({ statusCode: 404, message: 'View not found.' })
       } else {
         console.log(e)
         return error({ statusCode: 500, message: 'Error loading view.' })
       }
-*/
     }
   },
   computed: {
-    ...mapGetters({
-      primary: 'field/getPrimary',
-      fields: 'field/getAll',
+    ...mapState({
       tableLoading: (state) => state.table.loading,
     }),
   },
