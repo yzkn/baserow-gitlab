@@ -800,6 +800,7 @@ def test_get_public_grid_view(api_client, data_fixture):
         "fields": [
             {
                 "id": public_field.id,
+                "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
                 "name": "public",
                 "order": 0,
                 "primary": False,
