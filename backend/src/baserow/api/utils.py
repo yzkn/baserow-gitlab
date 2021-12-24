@@ -332,21 +332,14 @@ class CustomFieldRegistryMappingSerializer:
         self.many = many
 
 
-class DiscriminatorCustomFieldsMappingSerializer(serializers.Field):
+class DiscriminatorCustomFieldsMappingSerializer:
     """
     A placeholder class for the `DiscriminatorCustomFieldsMappingSerializerExtension`
     extension class.
     """
 
     def __init__(
-        self,
-        registry,
-        base_class,
-        type_field_name="type",
-        many=False,
-        help_text=None,
-        *args,
-        **kwargs,
+        self, registry, base_class, type_field_name="type", many=False, help_text=None
     ):
         self.read_only = False
         self.registry = registry
@@ -354,7 +347,6 @@ class DiscriminatorCustomFieldsMappingSerializer(serializers.Field):
         self.type_field_name = type_field_name
         self.many = many
         self.help_text = help_text
-        super().__init__(*args, **kwargs)
 
 
 class DiscriminatorMappingSerializer:
