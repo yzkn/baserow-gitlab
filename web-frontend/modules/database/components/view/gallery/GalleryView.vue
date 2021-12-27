@@ -30,6 +30,11 @@
                 ? `translateX(${slot.position.left}px) translateY(${slot.position.top}px)`
                 : false,
           }"
+          @click="
+            slot.item !== undefined &&
+              slot.item !== null &&
+              $refs.rowEditModal.show(slot.item.id)
+          "
         ></RowCard>
       </div>
     </div>
@@ -43,6 +48,17 @@
       @field-updated="$emit('refresh', $event)"
       @field-deleted="$emit('refresh')"
     ></RowCreateModal>
+    <RowEditModal
+      ref="rowEditModal"
+      :table="table"
+      :fields="fields"
+      :primary="primary"
+      :rows="allRows"
+      :read-only="false"
+      @update="updateValue"
+      @field-updated="$emit('refresh', $event)"
+      @field-deleted="$emit('refresh')"
+    ></RowEditModal>
   </div>
 </template>
 
@@ -59,10 +75,12 @@ import {
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
 import RowCard from '@baserow/modules/database/components/card/RowCard'
 import RowCreateModal from '@baserow/modules/database/components/row/RowCreateModal'
+import RowEditModal from '@baserow/modules/database/components/row/RowEditModal'
+import { notifyIf } from '@baserow/modules/core/utils/error'
 
 export default {
   name: 'GalleryView',
-  components: { RowCard, RowCreateModal },
+  components: { RowCard, RowCreateModal, RowEditModal },
   props: {
     primary: {
       type: Object,
@@ -325,6 +343,25 @@ export default {
         callback()
       } catch (error) {
         callback(error)
+      }
+    },
+    async updateValue({ field, row, value, oldValue }) {
+      try {
+        await this.$store.dispatch(
+          this.storePrefix + 'view/gallery/updateRowValue',
+          {
+            table: this.table,
+            view: this.view,
+            fields: this.fields,
+            primary: this.primary,
+            row,
+            field,
+            value,
+            oldValue,
+          }
+        )
+      } catch (error) {
+        notifyIf(error, 'field')
       }
     },
   },
