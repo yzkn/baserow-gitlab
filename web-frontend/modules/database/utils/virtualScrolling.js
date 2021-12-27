@@ -62,35 +62,39 @@ export const recycleSlots = (slots, items, getPosition, min = items.length) => {
     slots.splice(items.length, min)
   }
 
+  // Emtpy slot id list
+  const emptySlots = []
+  const itemSlotIndexMap = {}
   // Loop over the slots and clear the items that must not be rendered anymore.
-  slots.forEach((slot) => {
-    const exists =
-      slot.item !== null &&
-      slot.item !== undefined &&
-      items.findIndex((item) => item !== null && item.id === slot.item.id) >= 0
-    if (!exists) {
+  slots.forEach((slot, index) => {
+    if (!slot.item) {
+      // The slot has no item associated
+      emptySlots.push(index)
+      return
+    }
+
+    const itemIndex = items.findIndex(
+      (item) => item !== null && item.id === slot.item.id
+    )
+
+    if (itemIndex < 0) {
+      // Slot item is not visible anymore
       slot.item = undefined
       slot.position = undefined
+      emptySlots.push(index)
+    } else {
+      // Item is found in slot array
+      itemSlotIndexMap[items[itemIndex].id] = index
     }
   })
 
   // Loop over the items and assign them to a slot if they don't yet exist.
   items.forEach((item, position) => {
-    // Check if the row is already in the buffer
-    let index =
-      item === null
-        ? -1
-        : slots.findIndex(
-            (slot) =>
-              slot.item !== null &&
-              slot.item !== undefined &&
-              slot.item.id === item.id
-          )
+    let index = itemSlotIndexMap[item?.id]
 
-    const slotPosition = getPosition(item, position)
-
-    if (index < 0) {
-      index = slots.findIndex((slot) => slot.item === undefined)
+    // If item isn't in a slot yet we use the first emtpy slot index
+    if (index === undefined) {
+      index = emptySlots.shift()
     }
 
     // Only update the item and position if it has changed in the slot to avoid
@@ -98,11 +102,11 @@ export const recycleSlots = (slots, items, getPosition, min = items.length) => {
     if (slots[index].item !== item) {
       slots[index].item = item
     }
-    if (
-      JSON.stringify(slotPosition) !== JSON.stringify(slots[index].position)
-    ) {
-      slots[index].position = slotPosition
+    if (!slots[index].position) {
+      slots[index].position = {}
     }
+    const slotPosition = getPosition(item, position)
+    Object.assign(slots[index].position, slotPosition)
   })
 }
 
