@@ -454,6 +454,27 @@ class BaserowFormulaArrayType(BaserowFormulaValidType):
             }
         )
 
+    def fast_serialize(self, instance, value):
+        (
+            instance,
+            field_type,
+        ) = self.sub_type.get_baserow_field_instance_and_type()
+
+        results = []
+        for lookup_value in value:
+            id = lookup_value.get("id")
+            ids = lookup_value.get("ids")
+            result = {
+                "value": field_type.fast_serialize(instance, lookup_value["value"])
+            }
+            if id:
+                result["id"] = id
+            if ids:
+                result["ids"] = ids
+            results.append(result)
+
+        return results
+
     def get_export_value(self, value, field_object) -> Any:
         if value is None:
             return []

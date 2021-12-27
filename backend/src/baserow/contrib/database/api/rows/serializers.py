@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 
 from rest_framework import serializers
 
@@ -17,6 +18,30 @@ class RowSerializer(serializers.ModelSerializer):
             "order",
         )
         extra_kwargs = {"id": {"read_only": True}, "order": {"read_only": True}}
+
+
+def serialize_row_fast(row, many=False, user_field_names=False):
+    """
+    @TODO docs
+
+    :param row:
+    :param many:
+    :param user_field_names:
+    :return:
+    """
+
+    if many:
+        return [serialize_row_fast(r, user_field_names=user_field_names) for r in row]
+
+    serialized = OrderedDict({"id": row.id, "order": str(row.order)})
+
+    for field_id, field_object in row._field_objects.items():
+        name = field_object["field"].name if user_field_names else field_object["name"]
+        serialized[name] = field_object["type"].fast_serialize(
+            field_object["field"], getattr(row, field_object["name"])
+        )
+
+    return serialized
 
 
 def get_row_serializer_class(

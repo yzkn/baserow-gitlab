@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, date
-from decimal import Decimal
+from decimal import Decimal, getcontext
 from random import randrange, randint, sample
 from typing import Any, Callable, Dict, List, Tuple
 
@@ -13,6 +13,7 @@ from django.contrib.postgres.aggregates import StringAgg
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
+from django.conf import settings
 from django.db import models, OperationalError
 from django.db.models import Case, When, Q, F, Func, Value, CharField
 from django.db.models.expressions import RawSQL
@@ -149,6 +150,12 @@ class TextFieldMatchingRegexFieldType(FieldType, ABC):
             }
         )
 
+    def fast_serialize(self, instance, value):
+        if value is None:
+            return value
+
+        return str(value)
+
     def get_model_field(self, instance, **kwargs):
         return models.TextField(
             default="",
@@ -238,6 +245,12 @@ class TextFieldType(FieldType):
             }
         )
 
+    def fast_serialize(self, instance, value):
+        if value is None:
+            return value
+
+        return str(value)
+
     def get_model_field(self, instance, **kwargs):
         return models.TextField(
             default=instance.text_default or None, blank=True, null=True, **kwargs
@@ -272,6 +285,12 @@ class LongTextFieldType(FieldType):
                 **kwargs,
             }
         )
+
+    def fast_serialize(self, instance, value):
+        if value is None:
+            return value
+
+        return str(value)
 
     def get_model_field(self, instance, **kwargs):
         return models.TextField(blank=True, null=True, **kwargs)
@@ -344,6 +363,26 @@ class NumberFieldType(FieldType):
                 **kwargs,
             }
         )
+
+    def fast_serialize(self, instance, value):
+        if value is None:
+            return None
+
+        if not isinstance(value, Decimal):
+            value = Decimal(str(value).strip())
+
+        decimal_places = (
+            0
+            if instance.number_type == NUMBER_TYPE_INTEGER
+            else instance.number_decimal_places
+        )
+        max_digits = self.MAX_DIGITS + decimal_places
+
+        context = getcontext().copy()
+        context.prec = max_digits
+        quantized = value.quantize(Decimal(".1") ** decimal_places, context=context)
+
+        return "{:f}".format(quantized)
 
     def get_export_value(self, value, field_object):
         if value is None:
@@ -445,6 +484,9 @@ class BooleanFieldType(FieldType):
             **{"required": False, "default": False, **kwargs}
         )
 
+    def fast_serialize(self, instance, value):
+        return bool(value)
+
     def get_model_field(self, instance, **kwargs):
         return models.BooleanField(default=False, **kwargs)
 
@@ -534,6 +576,18 @@ class DateFieldType(FieldType):
             return serializers.DateField(
                 **{"required": required, "allow_null": not required, **kwargs}
             )
+
+    def fast_serialize(self, instance, value):
+        if value is None:
+            return value
+
+        if instance.date_include_time:
+            value = value.isoformat()
+            if value.endswith("+00:00"):
+                value = value[:-6] + "Z"
+            return value
+        else:
+            return value.strftime("%Y-%m-%d")
 
     def get_model_field(self, instance, **kwargs):
         kwargs["null"] = True
@@ -970,6 +1024,15 @@ class LinkRowFieldType(FieldType):
         return serializers.ListSerializer(
             child=LinkRowValueSerializer(), **{"required": False, **kwargs}
         )
+
+    def fast_serialize(self, instance, value):
+        return [
+            {
+                "id": relation.id,
+                "value": str(relation),
+            }
+            for relation in value.all()
+        ]
 
     def get_serializer_help_text(self, instance):
         return (
@@ -1424,6 +1487,31 @@ class FileFieldType(FieldType):
             **{"many": True, "required": False, **kwargs}
         )
 
+    def fast_serialize(self, instance, value):
+        files = []
+        for file in value:
+            path = UserFileHandler().user_file_path(file["name"])
+            file["url"] = default_storage.url(path)
+            file["thumbnails"] = (
+                None
+                if not file["is_image"]
+                else {
+                    thumbnail_name: {
+                        "url": default_storage.url(
+                            UserFileHandler().user_file_thumbnail_path(
+                                file["name"], thumbnail_name
+                            )
+                        ),
+                        "width": size[0],
+                        "height": size[1],
+                    }
+                    for thumbnail_name, size in settings.USER_THUMBNAILS.items()
+                }
+            )
+            files.append(file)
+
+        return files
+
     def get_export_value(self, value, field_object):
         files = []
         for file in value:
@@ -1592,6 +1680,11 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
                 **kwargs,
             }
         )
+
+    def fast_serialize(self, instance, value):
+        if value is None:
+            return value
+        return {"id": value.id, "value": value.value, "color": value.color}
 
     def enhance_queryset(self, queryset, field, name):
         return queryset.prefetch_related(
@@ -1840,6 +1933,12 @@ class MultipleSelectFieldType(SelectOptionBaseFieldType):
                 **kwargs,
             }
         )
+
+    def fast_serialize(self, instance, value):
+        return [
+            {"id": option.id, "value": option.value, "color": option.color}
+            for option in value.all()
+        ]
 
     def enhance_queryset(self, queryset, field, name):
         remote_field = queryset.model._meta.get_field(name).remote_field
@@ -2164,6 +2263,13 @@ class FormulaFieldType(FieldType):
             field_type,
         ) = self._get_field_instance_and_type_from_formula_field(instance)
         return field_type.get_response_serializer_field(field_instance, **kwargs)
+
+    def fast_serialize(self, instance, value):
+        (
+            field_instance,
+            field_type,
+        ) = self._get_field_instance_and_type_from_formula_field(instance)
+        return field_type.fast_serialize(field_instance, value)
 
     def get_model_field(self, instance: FormulaField, **kwargs):
         # When typed_table is False we are constructing a table model without

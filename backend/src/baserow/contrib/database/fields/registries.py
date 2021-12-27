@@ -167,6 +167,19 @@ class FieldType(
 
         return self.get_serializer_field(instance, **kwargs)
 
+    def fast_serialize(self, instance, value):
+        """
+        @TODO docs
+
+        :param instance:
+        :param value:
+        :return:
+        """
+
+        raise NotImplementedError(
+            f"This field type {self.type} doesn't support fast serialization."
+        )
+
     def get_serializer_help_text(self, instance):
         """
         If some additional information in the documentation related to the field's type

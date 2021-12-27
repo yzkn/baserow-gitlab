@@ -237,7 +237,7 @@ def test_can_export_every_interesting_different_field_to_csv(
         '"visible_name=name.txt url=http://localhost:8000/media/user_files/test_hash'
         '.txt,unnamed row 2",'
         '"visible_name=a.txt url=http://localhost:8000/media/user_files/hashed_name.txt'
-        ',visible_name=b.txt url=http://localhost:8000/media/user_files/other_name.txt"'
+        ',visible_name=b.jpg url=http://localhost:8000/media/user_files/other_name.jpg"'
         ',A,"D,C,E",+4412345678,test FORMULA,"linked_row_1,linked_row_2,"\r\n'
     )
 
@@ -621,7 +621,7 @@ def test_adding_more_rows_doesnt_increase_number_of_queries_run(
         -10.2,
         [
             {"name": "hashed_name.txt", "visible_name": "a.txt"},
-            {"name": "hashed_name2.txt", "visible_name": "b.txt"},
+            {"name": "hashed_name2.jpg", "visible_name": "b.jpg"},
         ],
         [linked_row_1.id],
     )
@@ -636,7 +636,7 @@ def test_adding_more_rows_doesnt_increase_number_of_queries_run(
         -10.2,
         [
             {"name": "hashed_name.txt", "visible_name": "a.txt"},
-            {"name": "hashed_name2.txt", "visible_name": "b.txt"},
+            {"name": "hashed_name2.jpg", "visible_name": "b.jpg"},
         ],
         [linked_row_1.id],
     )

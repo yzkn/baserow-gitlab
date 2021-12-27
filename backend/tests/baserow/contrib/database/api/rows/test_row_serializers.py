@@ -4,6 +4,7 @@ import pytest
 from rest_framework import serializers
 
 from baserow.contrib.database.api.rows.serializers import (
+    serialize_row_fast,
     get_row_serializer_class,
     get_example_row_serializer_class,
     RowSerializer,
@@ -250,16 +251,23 @@ def test_get_row_serializer_with_user_field_names(data_fixture):
                 "visible_name": "a.txt",
             },
             {
-                "image_height": 0,
-                "image_width": 0,
-                "is_image": False,
-                "mime_type": "text/plain",
-                "name": "other_name.txt",
+                "url": "http://localhost:8000/media/user_files/other_name.jpg",
+                "thumbnails": {
+                    "tiny": {
+                        "url": "http://localhost:8000/media/thumbnails/tiny/other_name"
+                        ".jpg",
+                        "width": 21,
+                        "height": 21,
+                    }
+                },
+                "visible_name": "b.jpg",
+                "name": "other_name.jpg",
                 "size": 0,
-                "thumbnails": None,
+                "mime_type": "image/jpeg",
+                "is_image": True,
+                "image_width": 0,
+                "image_height": 0,
                 "uploaded_at": "2020-02-01 01:23",
-                "url": "http://localhost:8000/media/user_files/other_name.txt",
-                "visible_name": "b.txt",
             },
         ],
         "file_link_row": [
@@ -310,3 +318,31 @@ def test_get_row_serializer_with_user_field_names(data_fixture):
             {"id": 3, "value": None},
         ],
     }
+
+
+@pytest.mark.django_db
+def test_fast_serialize_has_the_same_results(data_fixture):
+    table, user, row, _ = setup_interesting_test_table(data_fixture)
+    model = table.get_model()
+    queryset = model.objects.all().enhance_by_fields()
+    serializer_class = get_row_serializer_class(
+        model, RowSerializer, is_response=True, user_field_names=False
+    )
+    serializer_instance = serializer_class(queryset, many=True)
+
+    assert serializer_instance.data == serialize_row_fast(queryset, many=True)
+
+
+@pytest.mark.django_db
+def test_fast_serialize_with_user_field_names_has_the_same_results(data_fixture):
+    table, user, row, _ = setup_interesting_test_table(data_fixture)
+    model = table.get_model()
+    queryset = model.objects.all().enhance_by_fields()
+    serializer_class = get_row_serializer_class(
+        model, RowSerializer, is_response=True, user_field_names=True
+    )
+    serializer_instance = serializer_class(queryset, many=True)
+
+    assert serializer_instance.data == serialize_row_fast(
+        queryset, many=True, user_field_names=True
+    )

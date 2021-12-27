@@ -12,6 +12,7 @@ from baserow.contrib.database.fields.models import (
     URLField,
     EmailField,
     PhoneNumberField,
+    SelectOption,
 )
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.rows.handler import RowHandler
@@ -564,7 +565,7 @@ def test_human_readable_values(data_fixture):
         "created_on_datetime_us": "01/02/2021 13:00",
         "decimal_link_row": "1.234, -123.456, unnamed row 3",
         "email": "test@example.com",
-        "file": "a.txt, b.txt",
+        "file": "a.txt, b.jpg",
         "file_link_row": "name.txt, unnamed row 2",
         "link_row": "linked_row_1, linked_row_2, unnamed row 3",
         "long_text": "long_text",
@@ -633,3 +634,112 @@ def test_import_export_lookup_field(data_fixture, api_client):
     assert lookup_field_imported.target_field_name == lookup.target_field_name
 
     assert id_mapping["database_fields"][lookup.id] == lookup_field_imported.id
+
+
+@pytest.mark.django_db
+def test_fast_serialize_of_all_fields(data_fixture):
+    table, user, row, blank_row = setup_interesting_test_table(data_fixture)
+    model = table.get_model()
+    results = {}
+    for field in model._field_objects.values():
+        value = field["type"].fast_serialize(
+            field["field"], getattr(row, field["name"])
+        )
+        results[field["field"].name] = value
+
+    assert results == {
+        "text": "text",
+        "long_text": "long_text",
+        "url": "https://www.google.com",
+        "email": "test@example.com",
+        "negative_int": "-1",
+        "positive_int": "1",
+        "negative_decimal": "-1.2",
+        "positive_decimal": "1.2",
+        "boolean": True,
+        "datetime_us": "2020-02-01T01:23:00Z",
+        "date_us": "2020-02-01",
+        "datetime_eu": "2020-02-01T01:23:00Z",
+        "date_eu": "2020-02-01",
+        "last_modified_datetime_us": "2021-01-02T12:00:00Z",
+        "last_modified_date_us": "2021-01-02",
+        "last_modified_datetime_eu": "2021-01-02T12:00:00Z",
+        "last_modified_date_eu": "2021-01-02",
+        "created_on_datetime_us": "2021-01-02T12:00:00Z",
+        "created_on_date_us": "2021-01-02",
+        "created_on_datetime_eu": "2021-01-02T12:00:00Z",
+        "created_on_date_eu": "2021-01-02",
+        "link_row": [
+            {"id": 1, "value": "linked_row_1"},
+            {"id": 2, "value": "linked_row_2"},
+            {"id": 3, "value": ""},
+        ],
+        "decimal_link_row": [
+            {"id": 1, "value": "1.234"},
+            {"id": 2, "value": "-123.456"},
+            {"id": 3, "value": ""},
+        ],
+        "file_link_row": [{"id": 1, "value": "name.txt"}, {"id": 2, "value": ""}],
+        "file": [
+            {
+                "name": "hashed_name.txt",
+                "size": 0,
+                "is_image": False,
+                "mime_type": "text/plain",
+                "image_width": 0,
+                "uploaded_at": "2020-02-01 01:23",
+                "image_height": 0,
+                "visible_name": "a.txt",
+                "url": "http://localhost:8000/media/user_files/hashed_name.txt",
+                "thumbnails": None,
+            },
+            {
+                "name": "other_name.jpg",
+                "size": 0,
+                "is_image": True,
+                "mime_type": "image/jpeg",
+                "image_width": 0,
+                "uploaded_at": "2020-02-01 01:23",
+                "image_height": 0,
+                "visible_name": "b.jpg",
+                "url": "http://localhost:8000/media/user_files/other_name.jpg",
+                "thumbnails": {
+                    "tiny": {
+                        "url": "http://localhost:8000/media/thumbnails/tiny/other_name"
+                        ".jpg",
+                        "width": 21,
+                        "height": 21,
+                    }
+                },
+            },
+        ],
+        "single_select": {
+            "id": SelectOption.objects.get(value="A").id,
+            "value": "A",
+            "color": "red",
+        },
+        "multiple_select": [
+            {
+                "id": SelectOption.objects.get(value="D").id,
+                "value": "D",
+                "color": "yellow",
+            },
+            {
+                "id": SelectOption.objects.get(value="C").id,
+                "value": "C",
+                "color": "orange",
+            },
+            {
+                "id": SelectOption.objects.get(value="E").id,
+                "value": "E",
+                "color": "green",
+            },
+        ],
+        "phone_number": "+4412345678",
+        "formula": "test FORMULA",
+        "lookup": [
+            {"id": 1, "value": "linked_row_1"},
+            {"id": 2, "value": "linked_row_2"},
+            {"id": 3, "value": None},
+        ],
+    }

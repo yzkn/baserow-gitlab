@@ -118,8 +118,8 @@ def test_can_export_every_interesting_different_field_to_json(
             "url": "http://localhost:8000/media/user_files/hashed_name.txt"
         },
         {
-            "visible_name": "b.txt",
-            "url": "http://localhost:8000/media/user_files/other_name.txt"
+            "visible_name": "b.jpg",
+            "url": "http://localhost:8000/media/user_files/other_name.jpg"
         }
     ],
     "single_select": "A",
@@ -281,8 +281,8 @@ def test_can_export_every_interesting_different_field_to_xml(
             <url>http://localhost:8000/media/user_files/hashed_name.txt</url>
         </item>
         <item>
-            <visible_name>b.txt</visible_name>
-            <url>http://localhost:8000/media/user_files/other_name.txt</url>
+            <visible_name>b.jpg</visible_name>
+            <url>http://localhost:8000/media/user_files/other_name.jpg</url>
         </item>
     </file>
     <single-select>A</single-select>
