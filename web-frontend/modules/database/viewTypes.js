@@ -96,12 +96,13 @@ export class ViewType extends Registerable {
   }
 
   /**
-   * Should return the component that will display the view when it has been
+   * Should return a route name that will display the view when it has been
    * publicly shared.
    */
-  getPublicComponent() {
+  getPublicRoute() {
     throw new Error(
-      'Not implemented error. This view should return a component.'
+      'Not implemented error. This method should be implemented to return a route' +
+        ' name to a public page where the view can be seen.'
     )
   }
 
@@ -305,6 +306,10 @@ export class GridViewType extends ViewType {
 
   canShare() {
     return true
+  }
+
+  getPublicRoute() {
+    return 'public-grid-view'
   }
 
   async fetch({ store }, view, fields, primary, storePrefix = '') {
@@ -706,6 +711,10 @@ export class FormViewType extends ViewType {
 
   canShare() {
     return true
+  }
+
+  getPublicRoute() {
+    return 'database-table-form'
   }
 
   getComponent() {

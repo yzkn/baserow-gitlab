@@ -91,10 +91,11 @@ export default {
   },
   computed: {
     shareUrl() {
+      const viewType = this.$registry.get('view', this.view.type)
       return (
         this.$env.PUBLIC_WEB_FRONTEND_URL +
         this.$nuxt.$router.resolve({
-          name: `public-${this.view.type}-view`,
+          name: viewType.getPublicRoute(),
           params: { slug: this.view.slug },
         }).href
       )
