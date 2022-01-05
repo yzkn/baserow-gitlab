@@ -1,13 +1,15 @@
 <template>
   <Modal>
-    <h2 class="box__title">Refresh URL</h2>
+    <h2 class="box__title">{{ $t('viewRotateSlugModal.title') }}</h2>
     <Error :error="error"></Error>
     <div>
       <p>
-        Are you sure that you want to refresh the URL of {{ view.name }}? After
-        refreshing, a new URL will be generated and it will not be possible to
-        access the {{ view.type }} via the old URL. Everyone that you have
-        shared the URL with, won't be able to access the {{ view.type }}.
+        {{
+          $t('viewRotateSlugModal.refreshWarning', {
+            viewName: view.name,
+            viewTypeName,
+          })
+        }}
       </p>
       <div class="actions">
         <div class="align-right">
@@ -17,7 +19,7 @@
             :disabled="loading"
             @click="rotateSlug()"
           >
-            Generate new URL
+            {{ $t('viewRotateSlugModal.generateNewURL') }}
           </button>
         </div>
       </div>
@@ -44,6 +46,11 @@ export default {
       loading: false,
     }
   },
+  computed: {
+    viewTypeName() {
+      return this.$registry.get('view', this.view.type).getName().toLowerCase()
+    },
+  },
   methods: {
     async rotateSlug() {
       this.hideError()
@@ -67,3 +74,23 @@ export default {
   },
 }
 </script>
+
+<i18n>
+{
+  "en": {
+    "viewRotateSlugModal": {
+      "title": "Refresh URL",
+      "refreshWarning": "Are you sure that you want to refresh the URL of {viewName}? After refreshing, a new URL will be generated and it will not be possible to access the {viewTypeName} via the old URL. Everyone that you have shared the URL with, won't be able to access the {viewTypeName}.",
+      "generateNewURL": "Generate new URL"
+
+    }
+  },
+  "fr": {
+    "viewRotateSlugModal": {
+      "title": "@todo",
+      "refreshWarning": "@todo",
+      "generateNewURL": "@todo"
+    }
+  }
+}
+</i18n>
