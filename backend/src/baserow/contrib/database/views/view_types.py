@@ -95,7 +95,7 @@ class GridViewType(ViewType):
 
         return grid_view
 
-    def get_fields_and_model(self, view):
+    def get_visible_fields_and_model(self, view):
         """
         Returns the model and the field options in the correct order for exporting
         this view type.
@@ -106,10 +106,10 @@ class GridViewType(ViewType):
         ordered_visible_field_ids = self.get_visible_field_options_in_order(
             grid_view
         ).values_list("field__id", flat=True)
-        model = view.table.get_model(field_ids=ordered_visible_field_ids)
-        ordered_field_objects = []
-        for field_id in ordered_visible_field_ids:
-            ordered_field_objects.append(model._field_objects[field_id])
+        model = grid_view.table.get_model(field_ids=ordered_visible_field_ids)
+        ordered_field_objects = [
+            model._field_objects[field_id] for field_id in ordered_visible_field_ids
+        ]
         return ordered_field_objects, model
 
     def get_visible_field_options_in_order(self, grid_view):

@@ -309,7 +309,7 @@ export class GridViewType extends ViewType {
   }
 
   getPublicRoute() {
-    return 'public-grid-view'
+    return 'database-public-grid-view'
   }
 
   async fetch({ store }, view, fields, primary, storePrefix = '') {

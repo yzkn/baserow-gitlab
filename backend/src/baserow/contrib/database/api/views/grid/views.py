@@ -270,7 +270,7 @@ class PublicGridViewRowsView(APIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(
-                name="view_slug",
+                name="slug",
                 location=OpenApiParameter.PATH,
                 type=OpenApiTypes.STR,
                 description="Returns only rows that belong to the related view's "
@@ -335,7 +335,7 @@ class PublicGridViewRowsView(APIView):
         operation_id="public_list_database_table_grid_view_rows",
         description=(
             "Lists the requested rows of the view's table related to the provided "
-            "`view_id` if the grid view is public."
+            "`slug` if the grid view is public."
             "The response is paginated either by a limit/offset or page/size style. "
             "The style depends on the provided GET parameters. The properties of the "
             "returned rows depends on which fields the table has. For a complete "
@@ -353,9 +353,8 @@ class PublicGridViewRowsView(APIView):
                     "field_options": FieldOptionsField(
                         serializer_class=GridViewFieldOptionsSerializer, required=False
                     ),
-                    "row_metadata": get_example_row_metadata_field_serializer(),
                 },
-                serializer_name="PaginationSerializerWithGridViewFieldOptions",
+                serializer_name="PublicPaginationSerializerWithGridViewFieldOptions",
             ),
             400: get_error_schema(["ERROR_USER_NOT_IN_GROUP"]),
             404: get_error_schema(["ERROR_GRID_DOES_NOT_EXIST"]),

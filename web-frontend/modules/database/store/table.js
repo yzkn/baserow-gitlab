@@ -177,8 +177,11 @@ export const actions = {
       dispatch('field/fetchAll', table, { root: true }),
     ])
     await dispatch('application/clearChildrenSelected', null, { root: true })
-    commit('SET_SELECTED', { database, table })
+    await dispatch('forceSelect', { database, table })
     return { database, table }
+  },
+  forceSelect({ commit }, { database, table }) {
+    commit('SET_SELECTED', { database, table })
   },
   /**
    * Selects a table based on the provided database (application) and table id. The
@@ -212,33 +215,6 @@ export const actions = {
     const table = database.tables[index]
 
     return dispatch('select', { database, table })
-  },
-  async forceSelect(
-    { dispatch, getters, rootGetters, commit },
-    { databaseId, tableId }
-  ) {
-    const database = await dispatch('application/selectById', databaseId, {
-      root: true,
-    })
-    const type = DatabaseApplicationType.getType()
-
-    // Check if the just selected application is a database
-    if (database.type !== type) {
-      throw new StoreItemLookupError(
-        `The application doesn't have the required ${type} type.`
-      )
-    }
-
-    // Check if the provided table id is found in the just selected database.
-    const index = database.tables.findIndex((item) => item.id === tableId)
-    if (index === -1) {
-      throw new StoreItemLookupError(
-        'The table is not found in the selected application.'
-      )
-    }
-    const table = database.tables[index]
-
-    commit('SET_SELECTED', { database, table })
   },
   /**
    * Unselect the selected table.

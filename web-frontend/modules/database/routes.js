@@ -46,8 +46,8 @@ export const routes = [
     component: path.resolve(__dirname, 'pages/form.vue'),
   },
   {
-    name: 'public-grid-view',
+    name: 'database-public-grid-view',
     path: '/public/grid/:slug',
-    component: path.resolve(__dirname, 'pages/publicGrid.vue'),
+    component: path.resolve(__dirname, 'pages/publicGridView.vue'),
   },
 ]

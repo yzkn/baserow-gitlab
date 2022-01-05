@@ -1,5 +1,5 @@
 import { TestApp } from '@baserow/test/helpers/testApp'
-import PublicGrid from '@baserow/modules/database/pages/publicGrid'
+import PublicGrid from '@baserow/modules/database/pages/publicGridView'
 
 // Mock out debounce so we dont have to wait or simulate waiting for the various
 // debounces in the search functionality.

@@ -3,7 +3,7 @@
     <a
       ref="contextLink"
       class="header__filter-link"
-      :class="{ 'active--warning': view.public }"
+      :class="{ 'active--primary': view.public }"
       @click="$refs.context.toggle($refs.contextLink, 'bottom', 'left', 4)"
     >
       <i class="header__filter-icon fas fa-share-square"></i>

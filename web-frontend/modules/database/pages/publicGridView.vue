@@ -1,7 +1,7 @@
 <template>
   <div>
     <Notifications></Notifications>
-    <div class="public-view__page">
+    <div class="grid-view__public-shared-page">
       <Table
         :database="database"
         :table="table"
@@ -10,7 +10,7 @@
         :views="[view]"
         :view="view"
         :read-only="true"
-        :table-loading="tableLoading"
+        :table-loading="false"
         :store-prefix="'page/'"
       ></Table>
     </div>
@@ -19,11 +19,11 @@
 
 <script>
 import Notifications from '@baserow/modules/core/components/notifications/Notifications'
-import { mapState } from 'vuex'
 import Table from '@baserow/modules/database/components/table/Table'
-
 import GridService from '@baserow/modules/database/services/view/grid'
+import { DatabaseApplicationType } from '@baserow/modules/database/applicationTypes'
 import { PUBLIC_PLACEHOLDER_ENTITY_ID } from '@baserow/modules/database/utils/constants'
+
 export default {
   components: { Notifications, Table },
   /**
@@ -33,68 +33,50 @@ export default {
   async asyncData({ store, params, error, app }) {
     try {
       const viewSlug = params.slug
-
       await store.dispatch('page/view/grid/setPublic', true)
-
       const { data } = await GridService(app.$client).fetchPublicViewInfo(
         viewSlug
       )
-      const database = {
-        id: PUBLIC_PLACEHOLDER_ENTITY_ID,
-        type: 'database',
-        tables: [],
-      }
-      await store.dispatch('application/forceCreate', database)
 
-      const table = { id: PUBLIC_PLACEHOLDER_ENTITY_ID, database }
-      await store.dispatch('table/forceCreate', {
-        database,
-        data: table,
+      const { applications } = await store.dispatch('application/forceSetAll', {
+        applications: [
+          {
+            id: PUBLIC_PLACEHOLDER_ENTITY_ID,
+            type: DatabaseApplicationType.getType(),
+            tables: [{ id: PUBLIC_PLACEHOLDER_ENTITY_ID }],
+          },
+        ],
       })
-      await store.dispatch('table/forceSelect', {
-        databaseId: PUBLIC_PLACEHOLDER_ENTITY_ID,
-        tableId: PUBLIC_PLACEHOLDER_ENTITY_ID,
-      })
+      const database = applications[0]
+      const table = database.tables[0]
+      await store.dispatch('table/forceSelect', { database, table })
 
-      await store.dispatch('field/forceCreateFields', {
-        table,
+      const { primary, fields } = await store.dispatch('field/forceSetFields', {
         fields: data.fields,
       })
-
-      const view = data.view
-      await store.dispatch('view/forceCreate', {
-        data: view,
+      const { view } = await store.dispatch('view/forceCreate', {
+        data: data.view,
       })
-
       await store.dispatch('view/select', view)
-
-      const fields = store.getters['field/getAll']
-      const primary = store.getters['field/getPrimary']
 
       // It might be possible that the view also has some stores that need to be
       // filled with initial data, so we're going to call the fetch function here.
       const type = app.$registry.get('view', view.type)
       await type.fetch({ store }, view, fields, primary, 'page/')
       return {
-        primary,
-        fields,
         database,
         table,
         view,
+        primary,
+        fields,
       }
     } catch (e) {
       if (e.response && e.response.status === 404) {
         return error({ statusCode: 404, message: 'View not found.' })
       } else {
-        console.log(e)
         return error({ statusCode: 500, message: 'Error loading view.' })
       }
     }
-  },
-  computed: {
-    ...mapState({
-      tableLoading: (state) => state.table.loading,
-    }),
   },
 }
 </script>
