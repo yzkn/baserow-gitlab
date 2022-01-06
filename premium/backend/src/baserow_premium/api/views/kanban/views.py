@@ -1,3 +1,4 @@
+from django.db import transaction
 from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
 from drf_spectacular.utils import extend_schema
 
@@ -118,6 +119,7 @@ class KanbanViewView(APIView):
         }
     )
     @allowed_includes("field_options")
+    @transaction.atomic
     def get(self, request, view_id, field_options):
         """Responds with the rows grouped by the view's select option field value."""
 
@@ -187,8 +189,9 @@ class KanbanViewView(APIView):
 
         if field_options:
             view_type = view_type_registry.get_by_model(view)
-            context = {"fields": [o["field"] for o in model._field_objects.values()]}
-            serializer_class = view_type.get_field_options_serializer_class()
-            response.update(**serializer_class(view, context=context).data)
+            serializer_class = view_type.get_field_options_serializer_class(
+                create_if_missing=True
+            )
+            response.update(**serializer_class(view).data)
 
         return Response(response)

@@ -115,9 +115,8 @@ class GridViewType(ViewType):
     def get_visible_field_options_in_order(self, grid_view):
         # Ensure all fields have options created before we then query directly off the
         # options table below.
-        grid_view.get_field_options(create_if_not_exists=True)
         return (
-            grid_view.get_field_options()
+            grid_view.get_field_options(create_if_not_exists=True)
             .filter(hidden=False)
             .order_by("-field__primary", "order", "field__id")
         )
@@ -193,8 +192,9 @@ class GalleryViewType(ViewType):
         visible.
         """
 
-        field_options = view.get_field_options(create_if_not_exists=True)
-        field_options.sort(key=lambda x: x.field_id)
+        field_options = view.get_field_options(create_if_not_exists=True).order_by(
+            "field__id"
+        )
         ids_to_update = [f.id for f in field_options[0:3]]
 
         if ids_to_update:

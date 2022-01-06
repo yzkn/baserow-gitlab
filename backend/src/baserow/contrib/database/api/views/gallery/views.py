@@ -1,3 +1,4 @@
+from django.db import transaction
 from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
@@ -110,6 +111,7 @@ class GalleryViewView(APIView):
         }
     )
     @allowed_includes("field_options")
+    @transaction.atomic
     def get(self, request, view_id, field_options):
         """Lists the rows for the gallery view."""
 
@@ -136,8 +138,9 @@ class GalleryViewView(APIView):
         response = paginator.get_paginated_response(serializer.data)
 
         if field_options:
-            context = {"fields": [o["field"] for o in model._field_objects.values()]}
-            serializer_class = view_type.get_field_options_serializer_class()
-            response.data.update(**serializer_class(view, context=context).data)
+            serializer_class = view_type.get_field_options_serializer_class(
+                create_if_missing=True
+            )
+            response.data.update(**serializer_class(view).data)
 
         return response

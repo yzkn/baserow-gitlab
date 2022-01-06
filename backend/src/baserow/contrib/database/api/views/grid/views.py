@@ -151,6 +151,7 @@ class GridViewView(APIView):
         }
     )
     @allowed_includes("field_options", "row_metadata")
+    @transaction.atomic
     def get(self, request, view_id, field_options, row_metadata):
         """
         Lists all the rows of a grid view, paginated either by a page or offset/limit.
@@ -190,9 +191,10 @@ class GridViewView(APIView):
         response = paginator.get_paginated_response(serializer.data)
 
         if field_options:
-            context = {"fields": [o["field"] for o in model._field_objects.values()]}
-            serializer_class = view_type.get_field_options_serializer_class()
-            response.data.update(**serializer_class(view, context=context).data)
+            serializer_class = view_type.get_field_options_serializer_class(
+                create_if_missing=True
+            )
+            response.data.update(**serializer_class(view).data)
 
         if row_metadata:
             row_metadata = row_metadata_registry.generate_and_merge_metadata_for_rows(
@@ -335,7 +337,7 @@ class PublicGridViewRowsView(APIView):
         operation_id="public_list_database_table_grid_view_rows",
         description=(
             "Lists the requested rows of the view's table related to the provided "
-            "`slug` if the grid view is public."
+            "`view_id` if the grid view is public."
             "The response is paginated either by a limit/offset or page/size style. "
             "The style depends on the provided GET parameters. The properties of the "
             "returned rows depends on which fields the table has. For a complete "
@@ -367,6 +369,7 @@ class PublicGridViewRowsView(APIView):
         }
     )
     @allowed_includes("field_options")
+    @transaction.atomic
     def get(self, request, slug, field_options):
         """
         Lists all the rows of a grid view, paginated either by a page or offset/limit.
@@ -419,7 +422,9 @@ class PublicGridViewRowsView(APIView):
 
         if field_options:
             context = {"field_options": publicly_visible_field_options}
-            serializer_class = view_type.get_field_options_serializer_class()
+            serializer_class = view_type.get_field_options_serializer_class(
+                create_if_missing=False
+            )
             response.data.update(**serializer_class(view, context=context).data)
 
         return response

@@ -2,6 +2,7 @@ import secrets
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.db.models import FilteredRelation, Q
 
 from baserow.core.utils import get_model_reference_field_name
 from baserow.core.models import UserFile
@@ -92,7 +93,7 @@ class View(
         queryset = View.objects.filter(table=table)
         return cls.get_highest_order_of_queryset(queryset) + 1
 
-    def get_field_options(self, create_if_not_exists=False, fields=None):
+    def get_field_options(self, create_if_not_exists=False):
         """
         Each field can have unique options per view. This method returns those
         options per field type and can optionally create the missing ones. This method
@@ -104,11 +105,6 @@ class View(
             could be possible that they don't exist yet. If this value is True, the
             missing relationships are created in that case.
         :type create_if_not_exists: bool
-        :param fields: If all the fields related to the table of this grid view have
-            already been fetched, they can be provided here to avoid having to fetch
-            them for a second time. This is only needed if `create_if_not_exists` is
-            True.
-        :type fields: list
         :return: A list of field options instances related to this grid view.
         :rtype: list or QuerySet
         """
@@ -121,33 +117,41 @@ class View(
                 f"The view type {view_type.type} does not support field " f"options."
             )
 
-        field_name = get_model_reference_field_name(through_model, View)
+        through_model_to_view = get_model_reference_field_name(through_model, View)
 
-        if not field_name:
+        if not through_model_to_view:
             raise ValueError(
                 "The through model doesn't have a relationship with the View model or "
                 "any descendants."
             )
 
-        field_options_filters = {field_name: self}
-        if fields is not None:
-            field_options_filters["field__in"] = fields
-        field_options = through_model.objects.filter(**field_options_filters)
-
         if create_if_not_exists:
-            field_options = list(field_options)
-            if fields is None:
-                fields = Field.objects.filter(table=self.table)
+            field_to_through_model = through_model._meta.get_field(
+                "field"
+            ).remote_field.name
+            field_via_options_to_view = (
+                f"{field_to_through_model}__{through_model_to_view}"
+            )
+            fields_with_missing_options = Field.objects.annotate(
+                self_field_options=FilteredRelation(
+                    field_to_through_model,
+                    condition=(Q(**{field_via_options_to_view: self})),
+                )
+            ).filter(**{f"self_field_options__isnull": True, "table": self.table})
 
-            existing_field_ids = [options.field_id for options in field_options]
-            for field in fields:
-                if field.id not in existing_field_ids:
-                    field_option = through_model.objects.create(
-                        **{field_name: self, "field": field}
-                    )
-                    field_options.append(field_option)
+            if fields_with_missing_options.exists():
+                # Lock the view so concurrent calls to this method wont create duplicate
+                # field options.
+                View.objects.filter(id=self.id).select_for_update().first()
 
-        return field_options
+                through_model.objects.bulk_create(
+                    [
+                        through_model(**{through_model_to_view: self, "field": field})
+                        for field in fields_with_missing_options
+                    ]
+                )
+
+        return through_model.objects.filter(**{through_model_to_view: self})
 
 
 class ViewFilter(ParentFieldTrashableModelMixin, models.Model):

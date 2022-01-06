@@ -16,6 +16,7 @@
 * Increased maximum length of application name to 160 characters.
 * Fixed copying/pasting for date field.
 * Added ability to share grid views publicly.
+* Fix bug where field options in rare situations could have been duplicated.
 
 ## Released (2021-11-25)
 
