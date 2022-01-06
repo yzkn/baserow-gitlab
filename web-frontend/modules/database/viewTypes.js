@@ -107,6 +107,16 @@ export class ViewType extends Registerable {
   }
 
   /**
+   * A human readable name of the view type to be used in the ShareViewLink and
+   * related components. For example the link to share to view will have the text:
+   * `Share {this.getSharingLinkName()}`
+   */
+  getSharingLinkName() {
+    const { i18n } = this.app
+    return i18n.t('viewType.sharing.linkName')
+  }
+
+  /**
    * Should return the component that will be displayed in the header when the
    * view is selected. Extra options like filters and sorting could be added
    * here.
@@ -715,6 +725,11 @@ export class FormViewType extends ViewType {
 
   getPublicRoute() {
     return 'database-table-form'
+  }
+
+  getSharingLinkName() {
+    const { i18n } = this.app
+    return i18n.t('viewType.sharing.formLinkName')
   }
 
   getComponent() {

@@ -8,7 +8,7 @@
     >
       <i class="header__filter-icon fas fa-share-square"></i>
       <span class="header__filter-name">{{
-        $t('shareViewLink.shareView', { viewTypeName })
+        $t('shareViewLink.shareView', { viewTypeSharingLinkName })
       }}</span>
     </a>
     <Context ref="context">
@@ -19,14 +19,18 @@
         @click.stop="!readOnly && updateView({ public: true })"
       >
         <i class="fas fa-share-square view-sharing__create-link-icon"></i>
-        {{ $t('shareViewLink.shareViewTitle', { viewTypeName }) }}
+        {{ $t('shareViewLink.shareViewTitle', { viewTypeSharingLinkName }) }}
       </a>
       <div v-else class="view-sharing__shared-link">
         <div class="view-sharing__shared-link-title">
-          {{ $t('shareViewLink.sharedViewTitle', { viewTypeName }) }}
+          {{ $t('shareViewLink.sharedViewTitle', { viewTypeSharingLinkName }) }}
         </div>
         <div class="view-sharing__shared-link-description">
-          {{ $t('shareViewLink.sharedViewDescription', { viewTypeName }) }}
+          {{
+            $t('shareViewLink.sharedViewDescription', {
+              viewTypeSharingLinkName,
+            })
+          }}
         </div>
         <div class="view-sharing__shared-link-content">
           <div class="view-sharing__shared-link-box">
@@ -99,8 +103,8 @@ export default {
     viewType() {
       return this.$registry.get('view', this.view.type)
     },
-    viewTypeName() {
-      return this.viewType.getName().toLowerCase()
+    viewTypeSharingLinkName() {
+      return this.viewType.getSharingLinkName()
     },
   },
   methods: {
@@ -131,10 +135,10 @@ export default {
 {
   "en": {
     "shareViewLink": {
-      "shareView": "Share {viewTypeName}",
-      "shareViewTitle": "Create a private shareable link to the {viewTypeName}",
-      "sharedViewTitle": "This {viewTypeName} is currently shared via a private link",
-      "sharedViewDescription": "People who have the link can see the {viewTypeName}.",
+      "shareView": "Share {viewTypeSharingLinkName}",
+      "shareViewTitle": "Create a private shareable link to the {viewTypeSharingLinkName}",
+      "sharedViewTitle": "This {viewTypeSharingLinkName} is currently shared via a private link",
+      "sharedViewDescription": "People who have the link can see the {viewTypeSharingLinkName}.",
       "disableLink": "disable shared link",
       "generateNewUrl": "generate new url",
       "copyURL": "copy URL"

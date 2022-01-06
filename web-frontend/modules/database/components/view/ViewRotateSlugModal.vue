@@ -7,7 +7,7 @@
         {{
           $t('viewRotateSlugModal.refreshWarning', {
             viewName: view.name,
-            viewTypeName,
+            viewTypeSharingLinkName,
           })
         }}
       </p>
@@ -47,8 +47,8 @@ export default {
     }
   },
   computed: {
-    viewTypeName() {
-      return this.$registry.get('view', this.view.type).getName().toLowerCase()
+    viewTypeSharingLinkName() {
+      return this.$registry.get('view', this.view.type).getSharingLinkName()
     },
   },
   methods: {
@@ -80,7 +80,7 @@ export default {
   "en": {
     "viewRotateSlugModal": {
       "title": "Refresh URL",
-      "refreshWarning": "Are you sure that you want to refresh the URL of {viewName}? After refreshing, a new URL will be generated and it will not be possible to access the {viewTypeName} via the old URL. Everyone that you have shared the URL with, won't be able to access the {viewTypeName}.",
+      "refreshWarning": "Are you sure that you want to refresh the URL of {viewName}? After refreshing, a new URL will be generated and it will not be possible to access the {viewTypeSharingLinkName} via the old URL. Everyone that you have shared the URL with, won't be able to access the {viewTypeSharingLinkName}.",
       "generateNewURL": "Generate new URL"
 
     }
