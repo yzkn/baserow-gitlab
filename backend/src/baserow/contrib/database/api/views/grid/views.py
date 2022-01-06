@@ -337,7 +337,7 @@ class PublicGridViewRowsView(APIView):
         operation_id="public_list_database_table_grid_view_rows",
         description=(
             "Lists the requested rows of the view's table related to the provided "
-            "`view_id` if the grid view is public."
+            "`slug` if the grid view is public."
             "The response is paginated either by a limit/offset or page/size style. "
             "The style depends on the provided GET parameters. The properties of the "
             "returned rows depends on which fields the table has. For a complete "
