@@ -19,6 +19,7 @@ from baserow.contrib.database.api.rows.serializers import (
     get_row_serializer_class,
     RowSerializer,
 )
+from baserow.contrib.database.api.views.errors import ERROR_VIEW_DOES_NOT_EXIST
 from baserow.contrib.database.api.views.grid.serializers import (
     GridViewFieldOptionsSerializer,
     PublicGridViewInfoSerializer,
@@ -34,7 +35,6 @@ from baserow.contrib.database.views.registries import view_type_registry
 from baserow.core.exceptions import UserNotInGroup
 from .errors import ERROR_GRID_DOES_NOT_EXIST
 from .serializers import GridViewFilterSerializer
-from ..errors import ERROR_VIEW_DOES_NOT_EXIST
 
 
 class GridViewView(APIView):
