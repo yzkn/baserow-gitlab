@@ -48,12 +48,17 @@ export default function CoreModule(options) {
           default: 'http://localhost:3000',
         },
         {
-          key: 'ENABLE_I18N',
-          default: false,
-        },
-        {
           key: 'INITIAL_TABLE_DATA_LIMIT',
           default: null,
+        },
+        {
+          // Set to `1` to force download links to download files via XHR query
+          // to bypass `Content-Disposition: inline` that can't be overridden
+          // in another way.
+          // If your files are stored under another origin, you also
+          // must add CORS headers to your server.
+          key: 'DOWNLOAD_FILE_VIA_XHR',
+          default: false,
         },
         {
           // If you change this default please also update the default for the
@@ -61,15 +66,19 @@ export default function CoreModule(options) {
           key: 'HOURS_UNTIL_TRASH_PERMANENTLY_DELETED',
           default: 24 * 3,
         },
+        {
+          key: 'DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS',
+          default: false,
+        },
       ],
     },
   ])
 
   // Use feature flag to enable i18n
-  const locales = [{ code: 'en', name: 'English', file: 'en.js' }]
-  if (process.env.ENABLE_I18N) {
-    locales.push({ code: 'fr', name: 'Français', file: 'fr.js' })
-  }
+  const locales = [
+    { code: 'en', name: 'English', file: 'en.js' },
+    { code: 'fr', name: 'Français', file: 'fr.js' },
+  ]
 
   this.requireModule([
     '@nuxtjs/i18n',

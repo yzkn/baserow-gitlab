@@ -51,14 +51,13 @@
           <i class="fas fa-chevron-right"></i>
         </a>
         <div v-if="preview !== null" class="file-field-modal__preview">
-          <FileFieldModalImage
-            v-if="preview.is_image"
-            :key="preview.name + '-' + selected"
-            :src="preview.url"
-          ></FileFieldModalImage>
-          <div v-else class="file-field-modal__preview-icon">
-            <i class="fas" :class="'fa-' + getIconClass(preview.mime_type)"></i>
-          </div>
+          <PreviewAny :mime-type="preview.mime_type" :url="preview.url">
+            <template #fallback>
+              <div class="file-field-modal__preview-icon">
+                <i class="fas" :class="getIconClass(preview.mime_type)"></i>
+              </div>
+            </template>
+          </PreviewAny>
         </div>
       </div>
       <div class="file-field-modal__foot">
@@ -81,19 +80,19 @@
               <i
                 v-else
                 class="fas file-field-modal__nav-icon"
-                :class="'fa-' + getIconClass(file.mime_type)"
+                :class="getIconClass(file.mime_type)"
               ></i>
             </a>
           </li>
         </ul>
         <ul v-if="preview" class="file-field-modal__actions">
-          <a
-            target="_blank"
-            :href="preview.url"
+          <DownloadLink
             class="file-field-modal__action"
-          >
-            <i class="fas fa-download"></i>
-          </a>
+            :url="preview.url"
+            :filename="preview.visible_name"
+            :loading-class="'file-field-modal__action--loading'"
+            ><i class="fas fa-download"></i
+          ></DownloadLink>
           <a
             v-if="!readOnly"
             class="file-field-modal__action"
@@ -110,11 +109,13 @@
 <script>
 import baseModal from '@baserow/modules/core/mixins/baseModal'
 import { mimetype2fa } from '@baserow/modules/core/utils/fontawesome'
-import FileFieldModalImage from '@baserow/modules/database/components/field/FileFieldModalImage'
+import PreviewAny from '@baserow/modules/database/components/preview/PreviewAny'
 
 export default {
   name: 'FileFieldModal',
-  components: { FileFieldModalImage },
+  components: {
+    PreviewAny,
+  },
   mixins: [baseModal],
   props: {
     files: {
@@ -146,7 +147,7 @@ export default {
       return baseModal.methods.show.call(this)
     },
     getIconClass(mimeType) {
-      return mimetype2fa(mimeType)
+      return 'fa-' + mimetype2fa(mimeType)
     },
     next() {
       this.selected =

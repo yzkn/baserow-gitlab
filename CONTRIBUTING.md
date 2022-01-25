@@ -38,6 +38,8 @@ repository on GitHub, but this is not the official one.
 * Documentation for every concept that can used by a plugin.
 * [changelog.md](changelog.md) should be updated with any new features.
 * The pipeline must pass.
+* Try to apply the **rule of 10s**: MRs should aim to have no more than 10 code files with more than 10 lines modified. 
+  A code file doesn't include tests/css/text/migrations/translations/configuration/ etc.
 
 ## Any contributions you make will be under the MIT Software License
 
@@ -70,3 +72,7 @@ People love thorough bug reports.
 If you have found a vulnerability in Baserow we would appreciate it if you would notify
 us via email or via the contact form at https://baserow.io/contact instead of publicly
 as the vulnerability might need to be addressed first.
+
+## Updating Documentation
+
+The Baserow documentation can be updated by editing Markdown files in the `docs` directory. We use [CommonMark](https://commonmark.org/) specification rendered using [markdown-it](https://www.npmjs.com/package/markdown-it) library. The documentation site cannot be previewed at the moment, use a compatible Markdown editor to verify changes.

@@ -124,6 +124,12 @@ export default ({ service, populateRow }) => {
     // A list of all the rows in the table. The ones that haven't been fetched yet
     // are `null`.
     rows: [],
+    // The row that's in dragging state and is being moved to another position.
+    draggingRow: null,
+    // The row that the dragging row was before when the dragging state was started.
+    // This is needed to revert the position if anything goes wrong or the escape
+    // key was pressed.
+    draggingOriginalBefore: null,
   })
 
   const mutations = {
@@ -169,6 +175,14 @@ export default ({ service, populateRow }) => {
     MOVE_ROW(state, { oldIndex, newIndex }) {
       state.rows.splice(newIndex, 0, state.rows.splice(oldIndex, 1)[0])
     },
+    UPDATE_ROW(state, { row, values }) {
+      const index = state.rows.findIndex(
+        (item) => item !== null && item.id === row.id
+      )
+      if (index !== -1) {
+        Object.assign(state.rows[index], values)
+      }
+    },
     UPDATE_ROW_AT_INDEX(state, { index, values }) {
       Object.assign(state.rows[index], values)
     },
@@ -182,6 +196,16 @@ export default ({ service, populateRow }) => {
           Vue.set(row, name, value)
         }
       })
+    },
+    START_ROW_DRAG(state, { index }) {
+      state.rows[index]._.dragging = true
+      state.draggingRow = state.rows[index]
+      state.draggingOriginalBefore = state.rows[index + 1] || null
+    },
+    STOP_ROW_DRAG(state, { index }) {
+      state.rows[index]._.dragging = false
+      state.draggingRow = null
+      state.draggingOriginalBefore = null
     },
   }
 
@@ -571,6 +595,71 @@ export default ({ service, populateRow }) => {
       commit('INSERT_ROW_AT_INDEX', { index, row })
     },
     /**
+     * Updates the value of a row and make the updates to the store accordingly.
+     */
+    async updateRowValue(
+      { commit, dispatch },
+      { table, view, row, field, fields, primary, value, oldValue }
+    ) {
+      const fieldType = this.$registry.get('field', field._.type.type)
+      const allFields = [primary].concat(fields)
+      const newValues = {}
+      const newValuesForUpdate = {}
+      const oldValues = {}
+      const fieldName = `field_${field.id}`
+      newValues[fieldName] = value
+      newValuesForUpdate[fieldName] = fieldType.prepareValueForUpdate(
+        field,
+        value
+      )
+      oldValues[fieldName] = oldValue
+
+      allFields.forEach((fieldToCall) => {
+        const fieldType = this.$registry.get('field', fieldToCall._.type.type)
+        const fieldToCallName = `field_${fieldToCall.id}`
+        const currentFieldValue = row[fieldToCallName]
+        const optimisticFieldValue = fieldType.onRowChange(
+          row,
+          field,
+          value,
+          oldValue,
+          fieldToCall,
+          currentFieldValue
+        )
+
+        if (currentFieldValue !== optimisticFieldValue) {
+          newValues[fieldToCallName] = optimisticFieldValue
+          oldValues[fieldToCallName] = currentFieldValue
+        }
+      })
+
+      await dispatch('afterExistingRowUpdated', {
+        view,
+        fields,
+        primary,
+        row,
+        values: newValues,
+      })
+
+      try {
+        const { data } = await RowService(this.$client).update(
+          table.id,
+          row.id,
+          newValuesForUpdate
+        )
+        commit('UPDATE_ROW', { row, values: data })
+      } catch (error) {
+        dispatch('updatedExistingRow', {
+          view,
+          fields,
+          primary,
+          row,
+          values: oldValues,
+        })
+        throw error
+      }
+    },
+    /**
      * When an existing row is updated, the state in the store must also be updated.
      * Because we always receive the old and new state we can calculate if the row
      * already existed in store. If it does exist, but the row was not fetched yet,
@@ -700,6 +789,93 @@ export default ({ service, populateRow }) => {
       })
       commit('DELETE_ROW_AT_INDEX', { index })
     },
+    /**
+     * Brings the provided row in a dragging state so that it can freely moved to
+     * another position.
+     */
+    startRowDrag({ commit, getters }, { row }) {
+      const rows = getters.getRows
+      const index = rows.findIndex((r) => r !== null && r.id === row.id)
+      commit('START_ROW_DRAG', { index })
+    },
+    /**
+     * This action stops the dragging state of a row, will figure out which values
+     * need to updated and will make a call to the backend. If something goes wrong,
+     * the row is moved back to the position.
+     */
+    async stopRowDrag(
+      { dispatch, commit, getters },
+      { table, view, fields, primary }
+    ) {
+      const row = getters.getDraggingRow
+
+      if (row === null) {
+        return
+      }
+
+      const rows = getters.getRows
+      const index = rows.findIndex((r) => r !== null && r.id === row.id)
+      const before = rows[index + 1] || null
+      const originalBefore = getters.getDraggingOriginalBefore
+
+      commit('STOP_ROW_DRAG', { index })
+
+      if (originalBefore !== before) {
+        try {
+          const { data } = await RowService(this.$client).move(
+            table.id,
+            row.id,
+            before !== null ? before.id : null
+          )
+          commit('UPDATE_ROW', { row, values: data })
+        } catch (error) {
+          dispatch('cancelRowDrag', { view, fields, primary, row, stop: false })
+          throw error
+        }
+      }
+    },
+    /**
+     * Cancels the current row drag action by reverting back to the original position
+     * while respecting any new rows that have been moved into there in the mean time.
+     */
+    cancelRowDrag(
+      { dispatch, getters, commit },
+      { view, fields, primary, row, stop = true }
+    ) {
+      if (stop) {
+        const rows = getters.getRows
+        const index = rows.findIndex((r) => r !== null && r.id === row.id)
+        commit('STOP_ROW_DRAG', { index })
+      }
+
+      dispatch('afterExistingRowUpdated', {
+        view,
+        fields,
+        primary,
+        row,
+        values: row,
+      })
+    },
+    /**
+     * Moves the provided existing row to the position of the target row.
+     *
+     * @param row           The row object that must be moved.
+     * @param targetRow     Will be placed before or after the provided row.
+     */
+    forceMoveRowBefore({ getters, commit }, { row, targetRow }) {
+      const rows = getters.getRows
+      const newIndex = rows.findIndex(
+        (r) => r !== null && r.id === targetRow.id
+      )
+
+      if (newIndex > -1) {
+        const oldIndex = rows.findIndex((r) => r !== null && r.id === row.id)
+        commit('MOVE_ROW', { oldIndex, newIndex })
+        return true
+      }
+
+      return false
+    },
   }
 
   const getters = {
@@ -720,6 +896,12 @@ export default ({ service, populateRow }) => {
     },
     getRows(state) {
       return state.rows
+    },
+    getDraggingRow(state) {
+      return state.draggingRow
+    },
+    getDraggingOriginalBefore(state) {
+      return state.draggingOriginalBefore
     },
   }
 

@@ -6,6 +6,7 @@ import GalleryView from '@baserow/modules/database/components/view/gallery/Galle
 import GalleryViewHeader from '@baserow/modules/database/components/view/gallery/GalleryViewHeader'
 import FormView from '@baserow/modules/database/components/view/form/FormView'
 import FormViewHeader from '@baserow/modules/database/components/view/form/FormViewHeader'
+import { FileFieldType } from '@baserow/modules/database/fieldTypes'
 
 export const maxPossibleOrderValue = 32767
 
@@ -50,6 +51,13 @@ export class ViewType extends Registerable {
     return true
   }
 
+  /**
+   * Indicates whether it is possible to share this view via an url publically.
+   */
+  canShare() {
+    return false
+  }
+
   constructor(...args) {
     super(...args)
     this.type = this.getType()
@@ -57,6 +65,7 @@ export class ViewType extends Registerable {
     this.colorClass = this.getColorClass()
     this.canFilter = this.canFilter()
     this.canSort = this.canSort()
+    this.canShare = this.canShare()
 
     if (this.type === null) {
       throw new Error('The type name of a view type must be set.')
@@ -83,7 +92,30 @@ export class ViewType extends Registerable {
    * Should return the component that will actually display the view.
    */
   getComponent() {
-    throw new Error('Not implement error. This view should return a component.')
+    throw new Error(
+      'Not implemented error. This view should return a component.'
+    )
+  }
+
+  /**
+   * Should return a route name that will display the view when it has been
+   * publicly shared.
+   */
+  getPublicRoute() {
+    throw new Error(
+      'Not implemented error. This method should be implemented to return a route' +
+        ' name to a public page where the view can be seen.'
+    )
+  }
+
+  /**
+   * A human readable name of the view type to be used in the ShareViewLink and
+   * related components. For example the link to share to view will have the text:
+   * `Share {this.getSharingLinkName()}`
+   */
+  getSharingLinkName() {
+    const { i18n } = this.app
+    return i18n.t('viewType.sharing.linkName')
   }
 
   /**
@@ -245,6 +277,7 @@ export class ViewType extends Registerable {
       name: this.getName(),
       canFilter: this.canFilter,
       canSort: this.canSort,
+      canShare: this.canShare,
     }
   }
 
@@ -258,6 +291,29 @@ export class ViewType extends Registerable {
    */
   isDeactivated() {
     return false
+  }
+
+  /**
+   * Helper function to set a field value to null for all
+   * views of the same type
+   * Used when fields are converted or deleted and should no
+   * longer be set
+   */
+  _setFieldToNull({ rootGetters, dispatch }, field, fieldName) {
+    rootGetters['view/getAll']
+      .filter((view) => view.type === this.type)
+      .forEach((view) => {
+        if (view[fieldName] === field.id) {
+          dispatch(
+            'view/forceUpdate',
+            {
+              view,
+              values: { [fieldName]: null },
+            },
+            { root: true }
+          )
+        }
+      })
   }
 }
 
@@ -281,6 +337,14 @@ export class GridViewType extends ViewType {
 
   getComponent() {
     return GridView
+  }
+
+  canShare() {
+    return true
+  }
+
+  getPublicRoute() {
+    return 'database-public-grid-view'
   }
 
   async fetch({ store }, view, fields, primary, storePrefix = '') {
@@ -307,7 +371,7 @@ export class GridViewType extends ViewType {
   }
 
   async fieldRestored(
-    { dispatch },
+    { dispatch, rootGetters },
     table,
     selectedView,
     field,
@@ -315,9 +379,12 @@ export class GridViewType extends ViewType {
     storePrefix = ''
   ) {
     // There might be new filters and sorts associated with the restored field,
-    // ensure we fetch them. For now we have to fetch all filters/sorts however in the
-    // future we should instead just fetch them for this particular restored field.
-    await dispatch('view/refreshView', { view: selectedView }, { root: true })
+    // ensure we create them. They will be included on the field data object if present.
+    await dispatch(
+      'view/fieldRestored',
+      { field, fieldType, view: selectedView },
+      { root: true }
+    )
   }
 
   async fieldCreated({ dispatch }, table, field, fieldType, storePrefix = '') {
@@ -515,9 +582,12 @@ class BaseBufferedRowView extends ViewType {
     storePrefix = ''
   ) {
     // There might be new filters and sorts associated with the restored field,
-    // ensure we fetch them. For now we have to fetch all filters/sorts however in the
-    // future we should instead just fetch them for this particular restored field.
-    await dispatch('view/refreshView', { view: selectedView }, { root: true })
+    // ensure we create them. They will be included on the field data object if present.
+    await dispatch(
+      'view/fieldRestored',
+      { field, fieldType, view: selectedView },
+      { root: true }
+    )
   }
 
   async fieldCreated({ dispatch }, table, field, fieldType, storePrefix = '') {
@@ -652,6 +722,23 @@ export class GalleryViewType extends BaseBufferedRowView {
       order: maxPossibleOrderValue,
     }
   }
+
+  fieldUpdated(context, field, oldField, fieldType, storePrefix) {
+    // If the field type has changed from a file field to something else, it could
+    // be that there are gallery views that depending on that field. So we need to
+    // change to type to null if that's the case.
+    const type = FileFieldType.getType()
+    if (oldField.type === type && field.type !== type) {
+      this._setFieldToNull(context, field, 'card_cover_image_field')
+    }
+  }
+
+  fieldDeleted(context, field, fieldType, storePrefix = '') {
+    // We want to loop over all gallery views that we have in the store and check if
+    // they were depending on this deleted field. If that's case, we can set it to null
+    // because it doesn't exist anymore.
+    this._setFieldToNull(context, field, 'card_cover_image_field')
+  }
 }
 
 export class FormViewType extends ViewType {
@@ -678,6 +765,19 @@ export class FormViewType extends ViewType {
 
   canSort() {
     return false
+  }
+
+  canShare() {
+    return true
+  }
+
+  getPublicRoute() {
+    return 'database-table-form'
+  }
+
+  getSharingLinkName() {
+    const { i18n } = this.app
+    return i18n.t('viewType.sharing.formLinkName')
   }
 
   getHeaderComponent() {

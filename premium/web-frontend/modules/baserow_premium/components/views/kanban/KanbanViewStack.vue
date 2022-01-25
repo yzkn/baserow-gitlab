@@ -17,7 +17,7 @@
     >
       <div class="kanban-view__stack-head">
         <div v-if="option === null" class="kanban-view__uncategorized">
-          Uncategorized
+          {{ $t('kanbanViewStack.uncategorized') }}
         </div>
         <template v-else>
           <!--<a v-if="!readOnly" href="#" class="kanban-view__drag"></a>-->
@@ -77,6 +77,7 @@
               :key="'card-' + slot.id"
               :fields="cardFields"
               :row="slot.row"
+              :cover-image-field="coverImageField"
               :style="{
                 transform: `translateY(${
                   slot.position * cardHeight + bufferTop
@@ -93,7 +94,8 @@
           </div>
           <div v-if="error" class="margin-top-2">
             <a @click="fetch('click')">
-              Try again <i class="fas fa-refresh"></i>
+              {{ $t('kanbanViewStack.tryAgain') }}
+              <i class="fas fa-refresh"></i>
             </a>
           </div>
         </template>
@@ -105,7 +107,7 @@
           @click="!readOnly && $emit('create-row', { option })"
         >
           <i class="fas fa-plus"></i>
-          New
+          {{ $t('kanbanViewStack.new') }}
         </a>
       </div>
     </div>
@@ -202,7 +204,10 @@ export default {
      */
     cardHeight() {
       // 10 = margin-bottom of kanban.scss.kanban-view__stack-card
-      return getCardHeight(this.cardFields, this.$registry) + 10
+      return (
+        getCardHeight(this.cardFields, this.coverImageField, this.$registry) +
+        10
+      )
     },
     /**
      * Figure out what the stack id that's used in the store is. The representation is
@@ -218,6 +223,14 @@ export default {
     stack() {
       return this.$store.getters[this.storePrefix + 'view/kanban/getStack'](
         this.id
+      )
+    },
+    coverImageField() {
+      const fieldId = this.view.card_cover_image_field
+      return (
+        [this.primary]
+          .concat(this.fields)
+          .find((field) => field.id === fieldId) || null
       )
     },
   },
@@ -514,3 +527,22 @@ export default {
   },
 }
 </script>
+
+<i18n>
+{
+  "en": {
+    "kanbanViewStack": {
+      "uncategorized": "Uncategorized",
+      "tryAgain": "Try again",
+      "new": "New"
+    }
+  },
+  "fr": {
+    "kanbanViewStack": {
+      "uncategorized": "Sans catégorie",
+      "tryAgain": "Essayer encore",
+      "new": "Nouveau"
+    }
+  }
+}
+</i18n>

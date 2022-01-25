@@ -11,6 +11,7 @@ import {
   EmailFieldType,
   LinkRowFieldType,
   NumberFieldType,
+  RatingFieldType,
   BooleanFieldType,
   DateFieldType,
   LastModifiedFieldType,
@@ -61,6 +62,13 @@ import {
   RowUpdatedWebhookEventType,
   RowDeletedWebhookEventType,
 } from '@baserow/modules/database/webhookEventTypes'
+import {
+  ImageFilePreview,
+  AudioFilePreview,
+  VideoFilePreview,
+  PDFBrowserFilePreview,
+  GoogleDocFilePreview,
+} from '@baserow/modules/database/filePreviewTypes'
 import { APITokenSettingsType } from '@baserow/modules/database/settingsTypes'
 
 import tableStore from '@baserow/modules/database/store/table'
@@ -219,6 +227,7 @@ export default (context) => {
   app.$registry.register('field', new LongTextFieldType(context))
   app.$registry.register('field', new LinkRowFieldType(context))
   app.$registry.register('field', new NumberFieldType(context))
+  app.$registry.register('field', new RatingFieldType(context))
   app.$registry.register('field', new BooleanFieldType(context))
   app.$registry.register('field', new DateFieldType(context))
   app.$registry.register('field', new LastModifiedFieldType(context))
@@ -337,6 +346,13 @@ export default (context) => {
     'formula_type',
     new BaserowFormulaSingleSelectType(context)
   )
+
+  // File preview types
+  app.$registry.register('preview', new ImageFilePreview(context))
+  app.$registry.register('preview', new AudioFilePreview(context))
+  app.$registry.register('preview', new VideoFilePreview(context))
+  app.$registry.register('preview', new PDFBrowserFilePreview(context))
+  app.$registry.register('preview', new GoogleDocFilePreview(context))
 
   registerRealtimeEvents(app.$realtime)
 }

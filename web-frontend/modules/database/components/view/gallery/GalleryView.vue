@@ -7,26 +7,47 @@
     >
       <i class="fas fa-plus"></i>
     </a>
-    <div ref="scroll" class="gallery-view__scroll">
+    <div
+      ref="scroll"
+      v-auto-scroll="{
+        enabled: () => dragAndDropDraggingRow !== null,
+        speed: 5,
+        padding: 20,
+      }"
+      class="gallery-view__scroll"
+    >
       <div
         class="gallery-view__cards"
+        :class="{
+          'gallery-view__cards--dragging': dragAndDropDraggingRow !== null,
+        }"
         :style="{
           height: height + 'px',
         }"
       >
         <RowCard
           v-for="slot in buffer"
-          v-show="slot.left != -1"
+          v-show="slot.item !== undefined"
           :key="'card-' + slot.id"
           :fields="cardFields"
-          :row="slot.row === null ? {} : slot.row"
-          :loading="slot.row === null"
+          :row="slot.item || {}"
+          :loading="slot.item === null"
+          :cover-image-field="coverImageField"
           class="gallery-view__card"
           :style="{
             width: cardWidth + 'px',
-            height: slot.row === null ? cardHeight + 'px' : undefined,
-            transform: `translateX(${slot.left}px) translateY(${slot.top}px)`,
+            height: slot.item === null ? cardHeight + 'px' : undefined,
+            transform: `translateX(${slot.position.left || 0}px) translateY(${
+              slot.position.top || 0
+            }px)`,
           }"
+          :class="{
+            'gallery-view__card--dragging': slot.item && slot.item._.dragging,
+            'gallery-view__card--disabled': readOnly,
+          }"
+          @mousedown="rowDown($event, slot.item)"
+          @mousemove="rowMoveOver($event, slot.item)"
+          @mouseenter="rowMoveOver($event, slot.item)"
         ></RowCard>
       </div>
     </div>
@@ -40,6 +61,17 @@
       @field-updated="$emit('refresh', $event)"
       @field-deleted="$emit('refresh')"
     ></RowCreateModal>
+    <RowEditModal
+      ref="rowEditModal"
+      :table="table"
+      :fields="fields"
+      :primary="primary"
+      :rows="allRows"
+      :read-only="false"
+      @update="updateValue"
+      @field-updated="$emit('refresh', $event)"
+      @field-deleted="$emit('refresh')"
+    ></RowEditModal>
   </div>
 </template>
 
@@ -48,14 +80,22 @@ import debounce from 'lodash/debounce'
 import { mapGetters } from 'vuex'
 import ResizeObserver from 'resize-observer-polyfill'
 
+import { notifyIf } from '@baserow/modules/core/utils/error'
 import { getCardHeight } from '@baserow/modules/database/utils/card'
+import {
+  recycleSlots,
+  orderSlots,
+} from '@baserow/modules/database/utils/virtualScrolling'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
 import RowCard from '@baserow/modules/database/components/card/RowCard'
 import RowCreateModal from '@baserow/modules/database/components/row/RowCreateModal'
+import RowEditModal from '@baserow/modules/database/components/row/RowEditModal'
+import bufferedRowsDragAndDrop from '@baserow/modules/database/mixins/bufferedRowsDragAndDrop'
 
 export default {
   name: 'GalleryView',
-  components: { RowCard, RowCreateModal },
+  components: { RowCard, RowCreateModal, RowEditModal },
+  mixins: [bufferedRowsDragAndDrop],
   props: {
     primary: {
       type: Object,
@@ -93,6 +133,7 @@ export default {
       height: 0,
       cardWidth: 0,
       buffer: [],
+      dragAndDropCloneClass: 'gallery-view__card--dragging-clone',
     }
   },
   computed: {
@@ -104,7 +145,11 @@ export default {
      * the card is to correctly position it.
      */
     cardHeight() {
-      return getCardHeight(this.cardFields, this.$registry)
+      return getCardHeight(
+        this.cardFields,
+        this.coverImageField,
+        this.$registry
+      )
     },
     /**
      * Returns the visible field objects in the right order.
@@ -144,16 +189,24 @@ export default {
           }
         })
     },
+    coverImageField() {
+      const fieldId = this.view.card_cover_image_field
+      return (
+        [this.primary]
+          .concat(this.fields)
+          .find((field) => field.id === fieldId) || null
+      )
+    },
   },
   watch: {
     cardHeight() {
       this.$nextTick(() => {
-        this.updateBuffer()
+        this.updateBuffer(true, false)
       })
     },
     allRows() {
       this.$nextTick(() => {
-        this.updateBuffer()
+        this.updateBuffer(true, false)
       })
     },
   },
@@ -174,10 +227,18 @@ export default {
     // `dispatchVisibleRows` parameter to true when the user immediately stops
     // scrolling fast.
     const updateBufferDebounced = debounce(() => {
-      this.updateBuffer(true)
+      this.updateBuffer(true, false)
     }, 100)
 
+    // This debounced function is called when the user stops scrolling.
+    const updateOrderDebounced = debounce(() => {
+      this.updateBuffer(false, true)
+    }, 110)
+
     this.$el.scrollEvent = (event) => {
+      // Call the update order debounce function to simulate a stop scrolling event.
+      updateOrderDebounced()
+
       const now = Date.now()
       const { scrollTop } = event.target
 
@@ -194,18 +255,18 @@ export default {
           // When scrolling "slow", the dispatchVisibleRows parameter is true so that
           // the visible rows are fetched if needed.
           updateBufferDebounced.cancel()
-          this.updateBuffer(true)
+          this.updateBuffer(true, false)
         } else {
           // Check if the user is scrolling super fast because in that case we don't
           // fetch the rows when they're not needed.
           updateBufferDebounced()
-          this.updateBuffer(false)
+          this.updateBuffer(false, false)
         }
       } else {
         // If scroll stopped within the 100ms we still want to have a last
         // updateBuffer(true) call.
         updateBufferDebounced()
-        this.updateBuffer(false)
+        this.updateBuffer(false, false)
       }
     }
     this.$refs.scroll.addEventListener('scroll', this.$el.scrollEvent)
@@ -226,6 +287,9 @@ export default {
     }
   },
   methods: {
+    getDragAndDropStoreName(props) {
+      return `${props.storePrefix}view/gallery`
+    },
     /**
      * This method makes sure that the correct cards/rows are shown based on the
      * scroll offset, viewport width, viewport height and card height. Based on these
@@ -233,16 +297,12 @@ export default {
      * visible and what their position is without rendering all the rows in the store
      * at once.
      *
-     * @TODO make this really virtual scrolling by letting the row persist in the same
-     *   slot, even when it changes position. Currently, it updates all the cards when
-     *   a new row of cards must be displayed.
-     *
      * @param dispatchVisibleRows Indicates whether we want to dispatch the visibleRows
      *  action in the store. In some cases, when scrolling really fast through data we
      *  might want to wait a small moment before calling the action, which will make a
      *  request to the backend if needed.
      */
-    updateBuffer(dispatchVisibleRows = true) {
+    updateBuffer(dispatchVisibleRows = true, updateOrder = true) {
       const el = this.$refs.scroll
 
       const gutterSize = this.gutterSize
@@ -270,23 +330,22 @@ export default {
       const endIndex = startIndex + minimumCardsToRender
       const visibleRows = this.allRows.slice(startIndex, endIndex)
 
-      // Calculate an array containing only the rows that must be displayed and their
-      // position in the gallery as if all the rows are there.
-      this.buffer = visibleRows.map((row, positionInVisible) => {
+      const getPosition = (row, positionInVisible) => {
         const positionInAll = startIndex + positionInVisible
-        const left =
-          gutterSize + (positionInAll % cardsPerRow) * (gutterSize + cardWidth)
-        const top =
-          gutterSize +
-          Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight)
-
         return {
-          id: positionInVisible,
-          row,
-          left,
-          top,
+          left:
+            gutterSize +
+            (positionInAll % cardsPerRow) * (gutterSize + cardWidth),
+          top:
+            gutterSize +
+            Math.floor(positionInAll / cardsPerRow) * (gutterSize + cardHeight),
         }
-      })
+      }
+      recycleSlots(this.buffer, visibleRows, getPosition, minimumCardsToRender)
+
+      if (updateOrder) {
+        orderSlots(this.buffer, visibleRows)
+      }
 
       if (dispatchVisibleRows) {
         // Tell the store which rows/cards are visible so that it can fetch the missing
@@ -316,6 +375,32 @@ export default {
       } catch (error) {
         callback(error)
       }
+    },
+    async updateValue({ field, row, value, oldValue }) {
+      try {
+        await this.$store.dispatch(
+          this.storePrefix + 'view/gallery/updateRowValue',
+          {
+            table: this.table,
+            view: this.view,
+            fields: this.fields,
+            primary: this.primary,
+            row,
+            field,
+            value,
+            oldValue,
+          }
+        )
+      } catch (error) {
+        notifyIf(error, 'field')
+      }
+    },
+    /**
+     * Is called when the user clicks on the card but did not move it to another
+     * position.
+     */
+    rowClick(row) {
+      this.$refs.rowEditModal.show(row.id)
     },
   },
 }

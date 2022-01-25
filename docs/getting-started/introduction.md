@@ -90,6 +90,10 @@ are accepted.
 * `DATABASE_PASSWORD` (default `baserow`): The password for the PostgreSQL database.
 * `DATABASE_HOST` (default `db`): The hostname of the PostgreSQL server.
 * `DATABASE_PORT` (default `5432`): The port of the PostgreSQL server.
+* `DOWNLOAD_FILE_VIA_XHR` (default `0`): Set to `1` to force download links to
+  download files via XHR query to bypass `Content-Disposition: inline` that
+  can't be overridden in another way. If your files are stored under another
+  origin, you also must add CORS headers to your server.
 * `MJML_SERVER_HOST` (default `mjml`): The hostname of the MJML TCP server. In the
   development environment we use the `liminspace/mjml-tcpserver:0.10` image.
 * `MJML_SERVER_PORT` (default `28101`): The port of the MJML TCP server.
@@ -135,3 +139,5 @@ are accepted.
 * `EMAIL_SMTP_PASSWORD` (default ``): The password of the SMTP server.
 * `HOURS_UNTIL_TRASH_PERMANENTLY_DELETED` (default 72): The number of hours to keep 
   trashed items until they are permanently deleted.
+* `DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS` (default ``): If set to 'true' will 
+  disable realtime events being sent to publicly shared views.

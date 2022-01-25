@@ -23,9 +23,12 @@
         :fields="allFields"
         :read-only="readOnly"
         :field-options="fieldOptions"
+        :cover-image-field="view.card_cover_image_field"
+        :allow-cover-image-field="true"
         @update-all-field-options="updateAllFieldOptions"
         @update-field-options-of-field="updateFieldOptionsOfField"
         @update-order="orderFieldOptions"
+        @update-cover-image-field="updateCoverImageField"
       ></ViewFieldsContext>
     </li>
   </ul>
@@ -96,6 +99,7 @@ export default {
           {
             newFieldOptions,
             oldFieldOptions,
+            readOnly: this.readOnly,
           }
         )
       } catch (error) {
@@ -110,6 +114,7 @@ export default {
             field,
             values,
             oldValues,
+            readOnly: this.readOnly,
           }
         )
       } catch (error) {
@@ -122,8 +127,20 @@ export default {
           this.storePrefix + 'view/gallery/updateFieldOptionsOrder',
           {
             order,
+            readOnly: this.readOnly,
           }
         )
+      } catch (error) {
+        notifyIf(error, 'view')
+      }
+    },
+    async updateCoverImageField(value) {
+      try {
+        await this.$store.dispatch('view/update', {
+          view: this.view,
+          values: { card_cover_image_field: value },
+          readOnly: this.readOnly,
+        })
       } catch (error) {
         notifyIf(error, 'view')
       }
@@ -140,7 +157,7 @@ export default {
     }
   },
   "fr":{
-    "settings":{
+    "galleryViewHeader":{
       "customizeCards": "Configurer les cartes"
     }
   }

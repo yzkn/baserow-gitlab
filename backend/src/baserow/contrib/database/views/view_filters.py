@@ -23,6 +23,7 @@ from baserow.contrib.database.fields.field_types import (
     LongTextFieldType,
     URLFieldType,
     NumberFieldType,
+    RatingFieldType,
     DateFieldType,
     LastModifiedFieldType,
     LinkRowFieldType,
@@ -64,6 +65,7 @@ class EqualViewFilterType(ViewFilterType):
         LongTextFieldType.type,
         URLFieldType.type,
         NumberFieldType.type,
+        RatingFieldType.type,
         EmailFieldType.type,
         PhoneNumberFieldType.type,
         FormulaFieldType.compatible_with_formula_types(
@@ -210,6 +212,7 @@ class HigherThanViewFilterType(ViewFilterType):
     type = "higher_than"
     compatible_field_types = [
         NumberFieldType.type,
+        RatingFieldType.type,
         FormulaFieldType.compatible_with_formula_types(
             BaserowFormulaNumberType.type,
         ),
@@ -246,6 +249,7 @@ class LowerThanViewFilterType(ViewFilterType):
     type = "lower_than"
     compatible_field_types = [
         NumberFieldType.type,
+        RatingFieldType.type,
         FormulaFieldType.compatible_with_formula_types(
             BaserowFormulaNumberType.type,
         ),
@@ -728,6 +732,7 @@ class EmptyViewFilterType(ViewFilterType):
         LongTextFieldType.type,
         URLFieldType.type,
         NumberFieldType.type,
+        RatingFieldType.type,
         BooleanFieldType.type,
         DateFieldType.type,
         LastModifiedFieldType.type,
@@ -738,7 +743,13 @@ class EmptyViewFilterType(ViewFilterType):
         SingleSelectFieldType.type,
         PhoneNumberFieldType.type,
         MultipleSelectFieldType.type,
-        FormulaFieldType.type,
+        FormulaFieldType.compatible_with_formula_types(
+            BaserowFormulaTextType.type,
+            BaserowFormulaCharType.type,
+            BaserowFormulaNumberType.type,
+            BaserowFormulaDateType.type,
+            BaserowFormulaBooleanType.type,
+        ),
     ]
 
     def get_filter(self, field_name, value, model_field, field):

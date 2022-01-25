@@ -2,6 +2,7 @@ import moment from '@baserow/modules/core/moment'
 import { Registerable } from '@baserow/modules/core/registry'
 import ViewFilterTypeText from '@baserow/modules/database/components/view/ViewFilterTypeText'
 import ViewFilterTypeNumber from '@baserow/modules/database/components/view/ViewFilterTypeNumber'
+import ViewFilterTypeRating from '@baserow/modules/database/components/view/ViewFilterTypeRating'
 import ViewFilterTypeSelectOptions from '@baserow/modules/database/components/view/ViewFilterTypeSelectOptions'
 import ViewFilterTypeBoolean from '@baserow/modules/database/components/view/ViewFilterTypeBoolean'
 import ViewFilterTypeDate from '@baserow/modules/database/components/view/ViewFilterTypeDate'
@@ -10,7 +11,10 @@ import ViewFilterTypeLinkRow from '@baserow/modules/database/components/view/Vie
 import { trueString } from '@baserow/modules/database/utils/constants'
 import { isNumeric } from '@baserow/modules/core/utils/string'
 import ViewFilterTypeFileTypeDropdown from '@baserow/modules/database/components/view/ViewFilterTypeFileTypeDropdown'
-import { FormulaFieldType } from '@baserow/modules/database/fieldTypes'
+import {
+  FormulaFieldType,
+  RatingFieldType,
+} from '@baserow/modules/database/fieldTypes'
 
 export class ViewFilterType extends Registerable {
   /**
@@ -133,7 +137,10 @@ export class EqualViewFilterType extends ViewFilterType {
     return i18n.t('viewFilter.is')
   }
 
-  getInputComponent() {
+  getInputComponent(field) {
+    if (field?.type === RatingFieldType.getType()) {
+      return ViewFilterTypeRating
+    }
     return ViewFilterTypeText
   }
 
@@ -144,6 +151,7 @@ export class EqualViewFilterType extends ViewFilterType {
       'url',
       'email',
       'number',
+      'rating',
       'phone_number',
       FormulaFieldType.compatibleWithFormulaTypes('text', 'char', 'number'),
     ]
@@ -170,7 +178,10 @@ export class NotEqualViewFilterType extends ViewFilterType {
     return i18n.t('viewFilter.isNot')
   }
 
-  getInputComponent() {
+  getInputComponent(field) {
+    if (field?.type === RatingFieldType.getType()) {
+      return ViewFilterTypeRating
+    }
     return ViewFilterTypeText
   }
 
@@ -181,6 +192,7 @@ export class NotEqualViewFilterType extends ViewFilterType {
       'url',
       'email',
       'number',
+      'rating',
       'phone_number',
       FormulaFieldType.compatibleWithFormulaTypes('text', 'char', 'number'),
     ]
@@ -226,7 +238,8 @@ export class HasFileTypeViewFilterType extends ViewFilterType {
   }
 
   getName() {
-    return 'has file type'
+    const { i18n } = this.app
+    return i18n.t('viewFilter.hasFileType')
   }
 
   getExample() {
@@ -596,6 +609,10 @@ export class DateEqualsTodayViewFilterType extends ViewFilterType {
     return this.getDefaultValue()
   }
 
+  getExample() {
+    return ''
+  }
+
   getSliceLength() {
     // 10: YYYY-MM-DD, 7: YYYY-MM, 4: YYYY
     return 10
@@ -712,12 +729,19 @@ export class HigherThanViewFilterType extends ViewFilterType {
     return '100'
   }
 
-  getInputComponent() {
+  getInputComponent(field) {
+    if (field?.type === RatingFieldType.getType()) {
+      return ViewFilterTypeRating
+    }
     return ViewFilterTypeNumber
   }
 
   getCompatibleFieldTypes() {
-    return ['number', FormulaFieldType.compatibleWithFormulaTypes('number')]
+    return [
+      'number',
+      'rating',
+      FormulaFieldType.compatibleWithFormulaTypes('number'),
+    ]
   }
 
   matches(rowValue, filterValue, field, fieldType) {
@@ -745,12 +769,19 @@ export class LowerThanViewFilterType extends ViewFilterType {
     return '100'
   }
 
-  getInputComponent() {
+  getInputComponent(field) {
+    if (field?.type === RatingFieldType.getType()) {
+      return ViewFilterTypeRating
+    }
     return ViewFilterTypeNumber
   }
 
   getCompatibleFieldTypes() {
-    return ['number', FormulaFieldType.compatibleWithFormulaTypes('number')]
+    return [
+      'number',
+      'rating',
+      FormulaFieldType.compatibleWithFormulaTypes('number'),
+    ]
   }
 
   matches(rowValue, filterValue, field, fieldType) {
@@ -831,7 +862,8 @@ export class MultipleSelectHasFilterType extends ViewFilterType {
   }
 
   getName() {
-    return 'has'
+    const { i18n } = this.app
+    return i18n.t('viewFilter.has')
   }
 
   getExample() {
@@ -862,7 +894,8 @@ export class MultipleSelectHasNotFilterType extends ViewFilterType {
   }
 
   getName() {
-    return 'has not'
+    const { i18n } = this.app
+    return i18n.t('viewFilter.hasNot')
   }
 
   getExample() {
@@ -1016,7 +1049,13 @@ export class EmptyViewFilterType extends ViewFilterType {
       'single_select',
       'multiple_select',
       'phone_number',
-      'formula',
+      FormulaFieldType.compatibleWithFormulaTypes(
+        'text',
+        'char',
+        'boolean',
+        'date',
+        'number'
+      ),
     ]
   }
 
@@ -1064,7 +1103,13 @@ export class NotEmptyViewFilterType extends ViewFilterType {
       'single_select',
       'multiple_select',
       'phone_number',
-      'formula',
+      FormulaFieldType.compatibleWithFormulaTypes(
+        'text',
+        'char',
+        'boolean',
+        'date',
+        'number'
+      ),
     ]
   }
 

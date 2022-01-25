@@ -218,7 +218,7 @@ SPECTACULAR_SETTINGS = {
         "name": "MIT",
         "url": "https://gitlab.com/bramw/baserow/-/blob/master/LICENSE",
     },
-    "VERSION": "1.7.1",
+    "VERSION": "1.8.2",
     "SERVE_INCLUDE_SCHEMA": False,
     "TAGS": [
         {"name": "Settings"},
@@ -265,6 +265,27 @@ SPECTACULAR_SETTINGS = {
 
 # The storage must always overwrite existing files.
 DEFAULT_FILE_STORAGE = "baserow.core.storage.OverwriteFileSystemStorage"
+
+# Optional S3 storage configuration
+if os.getenv("AWS_ACCESS_KEY_ID", "") != "":
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_OBJECT_PARAMETERS = {
+        "CacheControl": "max-age=86400",
+    }
+    AWS_S3_FILE_OVERWRITE = True
+    AWS_DEFAULT_ACL = "public-read"
+
+if os.getenv("AWS_S3_REGION_NAME", "") != "":
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+
+if os.getenv("AWS_S3_ENDPOINT_URL", "") != "":
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+
+if os.getenv("AWS_S3_CUSTOM_DOMAIN", "") != "":
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
 
 MJML_BACKEND_MODE = "tcpserver"
 MJML_TCPSERVERS = [
@@ -326,7 +347,7 @@ else:
 
 # Configurable thumbnails that are going to be generated when a user uploads an image
 # file.
-USER_THUMBNAILS = {"tiny": [None, 21], "small": [48, 48]}
+USER_THUMBNAILS = {"tiny": [None, 21], "small": [48, 48], "card_cover": [None, 160]}
 
 # The directory that contains the all the templates in JSON format. When for example
 # the `sync_templates` management command is called, then the templates in the
@@ -378,3 +399,7 @@ WEBHOOKS_REQUEST_TIMEOUT_SECONDS = 5
 # https://stackoverflow.com/questions/62337379/how-to-append-nginx-ip-to-x-forwarded
 # -for-in-kubernetes-nginx-ingress-controller
 # SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS = bool(
+    os.getenv("DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS", "")
+)

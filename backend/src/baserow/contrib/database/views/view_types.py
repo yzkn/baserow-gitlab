@@ -1,4 +1,5 @@
 from django.urls import path, include
+from rest_framework.serializers import PrimaryKeyRelatedField
 
 from baserow.api.user_files.serializers import UserFileField
 from baserow.contrib.database.api.views.form.errors import (
@@ -13,6 +14,9 @@ from baserow.contrib.database.api.views.gallery.serializers import (
 from baserow.contrib.database.api.views.grid.serializers import (
     GridViewFieldOptionsSerializer,
 )
+from baserow.contrib.database.api.fields.errors import ERROR_FIELD_NOT_IN_TABLE
+from baserow.contrib.database.fields.exceptions import FieldNotInTable
+from baserow.contrib.database.fields.models import FileField
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.core.user_files.handler import UserFileHandler
 from .exceptions import FormViewFieldTypeIsNotSupported
@@ -33,6 +37,8 @@ class GridViewType(ViewType):
     model_class = GridView
     field_options_model_class = GridViewFieldOptions
     field_options_serializer_class = GridViewFieldOptionsSerializer
+    can_share = True
+    when_shared_publicly_requires_realtime_events = True
 
     def get_api_urls(self):
         from baserow.contrib.database.api.views.grid import urls as api_urls
@@ -94,7 +100,7 @@ class GridViewType(ViewType):
 
         return grid_view
 
-    def get_fields_and_model(self, view):
+    def get_visible_fields_and_model(self, view):
         """
         Returns the model and the field options in the correct order for exporting
         this view type.
@@ -102,21 +108,24 @@ class GridViewType(ViewType):
 
         grid_view = ViewHandler().get_view(view.id, view_model=GridView)
 
-        # Ensure all fields have options created before we then query directly off the
-        # options table below.
-        grid_view.get_field_options(create_if_not_exists=True)
+        ordered_visible_field_ids = self.get_visible_field_options_in_order(
+            grid_view
+        ).values_list("field__id", flat=True)
+        model = grid_view.table.get_model(field_ids=ordered_visible_field_ids)
+        ordered_field_objects = [
+            model._field_objects[field_id] for field_id in ordered_visible_field_ids
+        ]
+        return ordered_field_objects, model
 
-        ordered_field_objects = []
-        ordered_visible_fields = (
-            grid_view.get_field_options()
+    def get_visible_field_options_in_order(self, grid_view):
+        return (
+            grid_view.get_field_options(create_if_missing=True)
             .filter(hidden=False)
             .order_by("-field__primary", "order", "field__id")
-            .values_list("field__id", flat=True)
         )
-        model = view.table.get_model(field_ids=ordered_visible_fields)
-        for field_id in ordered_visible_fields:
-            ordered_field_objects.append(model._field_objects[field_id])
-        return ordered_field_objects, model
+
+    def get_hidden_field_options(self, grid_view):
+        return grid_view.get_field_options(create_if_missing=False).filter(hidden=True)
 
 
 class GalleryViewType(ViewType):
@@ -124,6 +133,21 @@ class GalleryViewType(ViewType):
     model_class = GalleryView
     field_options_model_class = GalleryViewFieldOptions
     field_options_serializer_class = GalleryViewFieldOptionsSerializer
+    allowed_fields = ["card_cover_image_field"]
+    serializer_field_names = ["card_cover_image_field"]
+    serializer_field_overrides = {
+        "card_cover_image_field": PrimaryKeyRelatedField(
+            queryset=FileField.objects.all(),
+            required=False,
+            default=None,
+            allow_null=True,
+            help_text="References a file field of which the first image must be shown "
+            "as card cover image.",
+        )
+    }
+    api_exceptions_map = {
+        FieldNotInTable: ERROR_FIELD_NOT_IN_TABLE,
+    }
 
     def get_api_urls(self):
         from baserow.contrib.database.api.views.gallery import urls as api_urls
@@ -131,6 +155,28 @@ class GalleryViewType(ViewType):
         return [
             path("gallery/", include(api_urls, namespace=self.type)),
         ]
+
+    def prepare_values(self, values, table, user):
+        """
+        Check if the provided card cover image field belongs to the same table.
+        """
+
+        name = "card_cover_image_field"
+
+        if name in values:
+            if isinstance(values[name], int):
+                values[name] = FileField.objects.get(pk=values[name])
+
+            if (
+                isinstance(values[name], FileField)
+                and values[name].table_id != table.id
+            ):
+                raise FieldNotInTable(
+                    "The provided file select field id does not belong to the gallery "
+                    "view's table."
+                )
+
+        return values
 
     def export_serialized(self, gallery, files_zip, storage):
         """
@@ -189,8 +235,9 @@ class GalleryViewType(ViewType):
         visible.
         """
 
-        field_options = view.get_field_options(create_if_not_exists=True)
-        field_options.sort(key=lambda x: x.field_id)
+        field_options = view.get_field_options(create_if_missing=True).order_by(
+            "field__id"
+        )
         ids_to_update = [f.id for f in field_options[0:3]]
 
         if ids_to_update:
@@ -205,6 +252,8 @@ class FormViewType(ViewType):
     can_filter = False
     can_sort = False
     can_share = True
+    restrict_link_row_public_view_sharing = False
+    when_shared_publicly_requires_realtime_events = False
     field_options_model_class = FormViewFieldOptions
     field_options_serializer_class = FormViewFieldOptionsSerializer
     allowed_fields = [
@@ -212,6 +261,7 @@ class FormViewType(ViewType):
         "description",
         "cover_image",
         "logo_image",
+        "submit_text",
         "submit_action",
         "submit_action_message",
         "submit_action_redirect_url",
@@ -221,6 +271,7 @@ class FormViewType(ViewType):
         "description",
         "cover_image",
         "logo_image",
+        "submit_text",
         "submit_action",
         "submit_action_message",
         "submit_action_redirect_url",
@@ -286,6 +337,7 @@ class FormViewType(ViewType):
         serialized["description"] = form.description
         serialized["cover_image"] = add_user_file(form.cover_image)
         serialized["logo_image"] = add_user_file(form.logo_image)
+        serialized["submit_text"] = form.submit_text
         serialized["submit_action"] = form.submit_action
         serialized["submit_action_message"] = form.submit_action_message
         serialized["submit_action_redirect_url"] = form.submit_action_redirect_url
@@ -349,3 +401,10 @@ class FormViewType(ViewType):
             ] = field_option_object.id
 
         return form_view
+
+    def get_visible_field_options_in_order(self, form_view):
+        return (
+            form_view.get_field_options(create_if_missing=True)
+            .filter(enabled=True)
+            .order_by("-field__primary", "order", "field__id")
+        )

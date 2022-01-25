@@ -69,6 +69,7 @@ class DatabaseConfig(AppConfig):
             LongTextFieldType,
             URLFieldType,
             NumberFieldType,
+            RatingFieldType,
             BooleanFieldType,
             DateFieldType,
             LastModifiedFieldType,
@@ -88,6 +89,7 @@ class DatabaseConfig(AppConfig):
         field_type_registry.register(URLFieldType())
         field_type_registry.register(EmailFieldType())
         field_type_registry.register(NumberFieldType())
+        field_type_registry.register(RatingFieldType())
         field_type_registry.register(BooleanFieldType())
         field_type_registry.register(DateFieldType())
         field_type_registry.register(LastModifiedFieldType())
@@ -188,9 +190,10 @@ class DatabaseConfig(AppConfig):
 
         application_type_registry.register(DatabaseApplicationType())
 
-        from .ws.pages import TablePageType
+        from .ws.pages import TablePageType, PublicViewPageType
 
         page_registry.register(TablePageType())
+        page_registry.register(PublicViewPageType())
 
         from .export.table_exporters.csv_table_exporter import CsvTableExporter
 

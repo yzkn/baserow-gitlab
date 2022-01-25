@@ -5,6 +5,8 @@
     <Error :error="error"></Error>
     <ExportTableForm
       ref="form"
+      v-slot="{ filename }"
+      :table="table"
       :view="view"
       :views="views"
       :loading="loading"
@@ -15,6 +17,7 @@
         :job="job"
         :loading="loading"
         :disabled="!isValid"
+        :filename="filename"
       ></ExportTableLoadingBar>
     </ExportTableForm>
   </Modal>
