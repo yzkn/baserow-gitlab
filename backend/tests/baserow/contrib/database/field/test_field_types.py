@@ -665,6 +665,7 @@ def test_fast_serialize_of_all_fields(data_fixture):
         "positive_int": "1",
         "negative_decimal": "-1.2",
         "positive_decimal": "1.2",
+        "rating": 3,
         "boolean": True,
         "datetime_us": "2020-02-01T01:23:00Z",
         "date_us": "2020-02-01",

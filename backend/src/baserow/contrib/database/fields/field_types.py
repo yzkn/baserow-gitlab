@@ -508,6 +508,9 @@ class RatingFieldType(FieldType):
             }
         )
 
+    def fast_serialize(self, instance, value):
+        return int(value)
+
     def force_same_type_alter_column(self, from_field, to_field):
         """
         Force field alter column hook to be called when chaging max_value.
