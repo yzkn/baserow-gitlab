@@ -1,12 +1,13 @@
 import sys
 import re
+from tqdm import tqdm
 
 from django.db import transaction
 from django.core.management.base import BaseCommand
 
 from baserow.core.models import Group
+from baserow.core.utils import Progress
 from baserow.contrib.database.airtable.handler import import_from_airtable_to_group
-from baserow.contrib.database.airtable.progress import Progress
 
 
 class Command(BaseCommand):
@@ -48,15 +49,15 @@ class Command(BaseCommand):
             )
 
         def progress_updated(percentage, state):
-            print(f"progress {percentage} {state}")
+            nonlocal progress_bar
+            progress_bar.set_description(state)
+            progress_bar.update(percentage - progress_bar.n)
 
         progress = Progress(100)
         progress.register_updated_event(progress_updated)
+        progress_bar = tqdm(total=100)
 
         share_id = f"shr{result.group(1)}"
-        print(
-            import_from_airtable_to_group(
-                group, share_id, parent_progress=(progress, 100)
-            )
-        )
+        import_from_airtable_to_group(group, share_id, parent_progress=(progress, 100))
+        progress_bar.close()
         self.stdout.write(f"Your base has been imported.")

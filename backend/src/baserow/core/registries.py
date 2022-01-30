@@ -192,7 +192,13 @@ class ApplicationType(
         }
 
     def import_serialized(
-        self, group, serialized_values, id_mapping, files_zip, storage
+        self,
+        group,
+        serialized_values,
+        id_mapping,
+        files_zip,
+        storage,
+        parent_progress=None,
     ):
         """
         Imports the exported serialized application by the `export_serialized` as a new
@@ -211,6 +217,8 @@ class ApplicationType(
         :type files_zip: ZipFile
         :param storage: The storage where the files can be copied to.
         :type storage: Storage or None
+        :param parent_progress:
+        :type parent_progress:
         :return: The newly created application.
         :rtype: Application
         """

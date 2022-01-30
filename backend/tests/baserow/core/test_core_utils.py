@@ -1,5 +1,7 @@
-from io import BytesIO
 import pytest
+
+from io import BytesIO
+from unittest.mock import MagicMock
 
 from baserow.core.utils import (
     extract_allowed,
@@ -13,6 +15,7 @@ from baserow.core.utils import (
     stream_size,
     truncate_middle,
     split_comma_separated_string,
+    Progress,
 )
 
 
@@ -101,3 +104,87 @@ def test_split_comma_separated_string():
     assert split_comma_separated_string('A,"B , C",D') == ["A", "B , C", "D"]
     assert split_comma_separated_string('A,\\"B,C') == ["A", '"B', "C"]
     assert split_comma_separated_string('A,\\"B,C\\,D') == ["A", '"B', "C,D"]
+
+
+def test_progress():
+    mock_event = MagicMock()
+
+    progress = Progress(100)
+    progress.register_updated_event(mock_event)
+    progress.increment("State 1")
+
+    assert mock_event.call_count == 1
+    args = mock_event.call_args
+    assert args[0][0] == 1
+    assert args[0][1] == "State 1"
+
+    progress.increment("State 2", by=10)
+
+    assert mock_event.call_count == 2
+    args = mock_event.call_args
+    assert args[0][0] == 11
+    assert args[0][1] == "State 2"
+
+    progress.increment("State 3", by=89)
+
+    assert mock_event.call_count == 3
+    args = mock_event.call_args
+    assert args[0][0] == 100
+    assert args[0][1] == "State 3"
+
+
+def test_nested_progress():
+    mock_event = MagicMock()
+
+    progress = Progress(100)
+    progress.register_updated_event(mock_event)
+
+    sub_progress_1 = Progress(0)
+    progress.add_child(sub_progress_1, 20)
+
+    assert mock_event.call_count == 1
+    args = mock_event.call_args
+    assert args[0][0] == 20
+    assert args[0][1] is None
+
+    sub_progress_2 = Progress(5 * 120)
+    progress.add_child(sub_progress_2, 20)
+    for i in range(0, 5):
+        for i2 in range(0, 100):
+            sub_progress_2.increment()
+        sub_progress_2.increment(by=20, state="Sub progress 2 second")
+
+    sub_progress_3 = Progress(100)
+    progress.add_child(sub_progress_3, 40)
+
+    sub_progress_3_1 = Progress(4)
+    sub_progress_3.add_child(sub_progress_3_1, 10)
+    sub_progress_3_1.increment(by=2)
+    sub_progress_3_1.increment()
+    sub_progress_3_1.increment()
+
+    sub_progress_3_2 = Progress(11)
+    sub_progress_3.add_child(sub_progress_3_2, 10)
+    for i in range(0, 11):
+        sub_progress_3_2.increment()
+
+    sub_progress_3_3 = Progress(0)
+    sub_progress_3.add_child(sub_progress_3_3, 10)
+
+    sub_progress_3_4 = Progress(5 * 120)
+    sub_progress_3.add_child(sub_progress_3_4, 65)
+    for i in range(0, 5):
+        sub_progress_3_4_1 = Progress(100)
+        sub_progress_3_4.add_child(sub_progress_3_4_1, 100)
+        for i2 in range(0, 100):
+            sub_progress_3_4_1.increment()
+        sub_progress_3_4.increment(by=20)
+
+    sub_progress_3_5 = Progress(1)
+    sub_progress_3.add_child(sub_progress_3_5, 5)
+    sub_progress_3_5.increment()
+
+    assert mock_event.call_count == 55
+    args = mock_event.call_args
+    assert args[0][0] == 80
+    assert args[0][1] is None

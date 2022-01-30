@@ -300,3 +300,46 @@ def get_model_reference_field_name(lookup_model, target_model):
                 return field.name
 
     return None
+
+
+class Progress:
+    """
+    @TODO docs
+    """
+
+    def __init__(self, total):
+        self.total = total
+        self.progress = 0
+        self.updated_events = []
+
+    def register_updated_event(self, event):
+        self.updated_events.append(event)
+
+    def increment(self, state=None, by=1):
+        self.progress += by
+        percentage = math.ceil(self.progress / self.total * 100)
+        for event in self.updated_events:
+            event(percentage, state)
+
+    def add_child(self, instance, progress: int):
+        last_percentage = 0
+
+        def updated(percentage, state=None):
+            nonlocal last_percentage
+            nonlocal progress
+            nonlocal self
+
+            progress_percentage = math.ceil(percentage / 100 * progress)
+            diff = progress_percentage - last_percentage
+            if diff > 0:
+                last_percentage = progress_percentage
+                self.progress += diff
+                parent_percentage = math.ceil(self.progress / self.total * 100)
+                for event in self.updated_events:
+                    event(parent_percentage, state)
+
+        instance.register_updated_event(updated)
+
+        # @TODO docs
+        if instance.total == instance.progress:
+            updated(100, None)

@@ -8,16 +8,14 @@ from io import BytesIO, IOBase
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from baserow.core.handler import CoreHandler
+from baserow.core.utils import Progress
 from baserow.contrib.database.application_types import DatabaseApplicationType
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.airtable.constants import (
     AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE,
     AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES,
-    AIRTABLE_EXPORT_JOB_IMPORTING,
     AIRTABLE_EXPORT_JOB_CONVERTING,
 )
-
-from .progress import Progress
 
 
 BASE_HEADERS = {
@@ -259,11 +257,13 @@ def to_baserow_database_export(
             row["id"] = new_id
         mapping_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
 
-    table_progress = Progress(len(schema["tableSchemas"]) * 6)
+    table_progress = Progress(len(schema["tableSchemas"]) * 120)
     progress.add_child(table_progress, 60)
-    for index, table in enumerate(schema["tableSchemas"]):
+    for table_index, table in enumerate(schema["tableSchemas"]):
         field_mapping = {}
 
+        column_progress = Progress(len(table["columns"]))
+        table_progress.add_child(column_progress, 19)
         for column in table["columns"]:
             field_export, field_type = to_baserow_field_export(table, column)
 
@@ -277,30 +277,33 @@ def to_baserow_database_export(
                 "baserow_field": field_export,
                 "baserow_field_type": field_type,
             }
+            column_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
 
-        table_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
-
-        exported_rows = [
-            to_baserow_row_export(
-                row_id_mapping,
-                field_mapping,
-                row,
-                index,
-                files_to_download,
+        rows_progress = Progress(len(tables[table["id"]]["rows"]))
+        table_progress.add_child(rows_progress, 100)
+        exported_rows = []
+        for row_index, row in enumerate(tables[table["id"]]["rows"]):
+            exported_rows.append(
+                to_baserow_row_export(
+                    row_id_mapping,
+                    field_mapping,
+                    row,
+                    row_index,
+                    files_to_download,
+                )
             )
-            for index, row in enumerate(tables[table["id"]]["rows"])
-        ]
+            rows_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
 
         exported_table = {
             "id": table["id"],
             "name": table["name"],
-            "order": index,
+            "order": table_index,
             "fields": [value["baserow_field"] for value in field_mapping.values()],
             "views": [],
             "rows": exported_rows,
         }
         exported_tables.append(exported_table)
-        table_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING, by=5)
+        table_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
 
     exported_database = {
         "id": 1,
@@ -343,12 +346,15 @@ def import_from_airtable_to_group(group, share_id, storage=None, parent_progress
 
     schema, tables = extract_schema(tables)
     baserow_database_export, files_buffer = to_baserow_database_export(
-        init_data, schema, tables, (progress, 60)
+        init_data, schema, tables, (progress, 40)
     )
 
     databases, id_mapping = CoreHandler().import_applications_to_group(
-        group, [baserow_database_export], files_buffer, storage=storage
+        group,
+        [baserow_database_export],
+        files_buffer,
+        storage=storage,
+        parent_progress=(progress, 40),
     )
-    progress.increment(AIRTABLE_EXPORT_JOB_IMPORTING, by=20)
 
     return databases, id_mapping

@@ -1,6 +1,7 @@
 import os
 import json
 import hashlib
+import math
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
@@ -13,6 +14,7 @@ from django.db.models import Q, Count
 from django.core.files.storage import default_storage
 from django.utils import translation
 
+from baserow.core.utils import Progress
 from baserow.core.user.utils import normalize_email_address
 
 from .models import (
@@ -786,7 +788,12 @@ class CoreHandler:
         return exported_applications
 
     def import_applications_to_group(
-        self, group, exported_applications, files_buffer, storage=None
+        self,
+        group,
+        exported_applications,
+        files_buffer,
+        storage=None,
+        parent_progress=None,
     ):
         """
         Imports multiple exported applications into the given group. It is compatible
@@ -804,10 +811,17 @@ class CoreHandler:
         :type files_buffer: IOBase
         :param storage: The storage where the files can be copied to.
         :type storage: Storage or None
+        :param parent_progress:
+        :type parent_progress:
         :return: The newly created applications based on the import and a dict
             containing a mapping of old ids to new ids.
         :rtype: list, dict
         """
+
+        progress = Progress(len(exported_applications) * 100)
+
+        if parent_progress:
+            parent_progress[0].add_child(progress, parent_progress[1])
 
         if not storage:
             storage = default_storage
@@ -818,7 +832,12 @@ class CoreHandler:
             for application in exported_applications:
                 application_type = application_type_registry.get(application["type"])
                 imported_application = application_type.import_serialized(
-                    group, application, id_mapping, files_zip, storage
+                    group,
+                    application,
+                    id_mapping,
+                    files_zip,
+                    storage,
+                    parent_progress=(progress, 100),
                 )
                 imported_applications.append(imported_application)
 
