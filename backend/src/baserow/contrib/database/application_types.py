@@ -177,6 +177,7 @@ class DatabaseApplicationType(ApplicationType):
                 for field in table["fields"]:
                     field_type = field_type_registry.get(field["type"])
                     new_field_id = id_mapping["database_fields"][field["id"]]
+                    field_name = f'field_{field["id"]}'
 
                     # If the new field id is not present in the field_ids then we don't
                     # want to set that value on the row. This is because upon creation
@@ -184,11 +185,11 @@ class DatabaseApplicationType(ApplicationType):
                     # that field. This is for example the case with the related field
                     # of the `link_row` field which would result in duplicates if we
                     # would populate.
-                    if new_field_id in field_ids:
+                    if new_field_id in field_ids and field_name in row:
                         field_type.set_import_serialized_value(
                             row_object,
                             f'field_{id_mapping["database_fields"][field["id"]]}',
-                            row[f'field_{field["id"]}'],
+                            row[field_name],
                             id_mapping,
                             files_zip,
                             storage,

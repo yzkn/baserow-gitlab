@@ -1,12 +1,9 @@
 from datetime import date
 import pytest
-
 from io import BytesIO
-
-
 from faker import Faker
-from baserow.contrib.database.views.handler import ViewHandler
 
+from baserow.contrib.database.views.handler import ViewHandler
 from baserow.core.handler import CoreHandler
 from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.fields.models import (
@@ -1989,3 +1986,49 @@ def test_conversion_to_multiple_select_with_same_option_value_on_same_row(
 
     assert len(cell_2) == 1
     assert cell_2[0].id == id_of_only_select_option
+
+
+@pytest.mark.django_db
+def test_airtable_import_multiple_select_field(data_fixture, api_client):
+    airtable_field = {
+        "id": "fldRivoc6YUWNj1Y0",
+        "name": "Multiple select",
+        "type": "multiSelect",
+        "typeOptions": {
+            "choiceOrder": ["seleVNvovl50kMO3u", "selOqvmnEdE6JFQpe"],
+            "choices": {
+                "selOqvmnEdE6JFQpe": {
+                    "id": "selOqvmnEdE6JFQpe",
+                    "color": "blue",
+                    "name": "Option 1",
+                },
+                "seleVNvovl50kMO3u": {
+                    "id": "seleVNvovl50kMO3u",
+                    "color": "cyan",
+                    "name": "Option 2",
+                },
+            },
+            "disableColors": False,
+        },
+    }
+    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
+        airtable_field
+    )
+    assert baserow_field == {
+        "type": MultipleSelectFieldType.type,
+        "select_options": [
+            {
+                "id": "selOqvmnEdE6JFQpe",
+                "value": "Option 1",
+                "color": "blue",
+                "order": 1,
+            },
+            {
+                "id": "seleVNvovl50kMO3u",
+                "value": "Option 2",
+                "color": "light-blue",
+                "order": 0,
+            },
+        ],
+    }
+    assert isinstance(field_type, MultipleSelectFieldType)

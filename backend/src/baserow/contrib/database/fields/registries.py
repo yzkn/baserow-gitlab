@@ -1062,6 +1062,34 @@ class FieldType(
             option list.
         """
 
+    def from_airtable_field_to_serialized(self, values):
+        """
+        @TODO docs
+
+        :param values:
+        :return:
+        """
+
+        return None
+
+    def from_airtable_column_value_to_serialized(
+        self,
+        row_id_mapping,
+        airtable_field,
+        baserow_field,
+        value,
+        files_to_download,
+    ):
+        """
+        @TODO docs
+
+        :param field:
+        :param value:
+        :return:
+        """
+
+        return value
+
 
 class FieldTypeRegistry(
     APIUrlsRegistryMixin, CustomFieldsRegistryMixin, ModelRegistryMixin, Registry
@@ -1075,6 +1103,21 @@ class FieldTypeRegistry(
     name = "field"
     does_not_exist_exception_class = FieldTypeDoesNotExist
     already_registered_exception_class = FieldTypeAlreadyRegistered
+
+    def from_airtable_field_to_serialized(self, values):
+        """
+        @TODO docs
+
+        :param values:
+        :return:
+        """
+
+        for type_name, instance in self.registry.items():
+            field = instance.from_airtable_field_to_serialized(values)
+            if field is not None:
+                return field, instance
+
+        return None, None
 
 
 class FieldConverter(Instance):

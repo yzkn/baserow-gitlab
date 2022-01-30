@@ -9,9 +9,10 @@ from django.db import connections
 from django.apps.registry import apps
 
 from baserow.core.handler import CoreHandler
-from baserow.contrib.database.fields.models import Field, TextField
+from baserow.contrib.database.fields.models import Field, TextField, LinkRowField
 from baserow.contrib.database.fields.handler import FieldHandler
-from baserow.contrib.database.fields.models import LinkRowField
+from baserow.contrib.database.fields.field_types import LinkRowFieldType
+from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.fields.exceptions import (
     LinkRowTableNotInSameDatabase,
     LinkRowTableNotProvided,
@@ -988,3 +989,47 @@ def test_change_link_row_related_table_when_field_with_related_name_exists(
     )
     assert names == ["Table", "Table - Link"]
     assert LinkRowField.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_airtable_import_link_row_field(data_fixture, api_client):
+    airtable_field = {
+        "id": "fldc7eaExuQhEPLUG",
+        "name": "Link to Users",
+        "type": "foreignKey",
+        "typeOptions": {
+            "foreignTableId": "tblpnq35nIRcqjIg1",
+            "relationship": "many",
+            "unreversed": True,
+            "symmetricColumnId": "fldh34wL0NF656t2I",
+        },
+    }
+    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
+        airtable_field
+    )
+    assert baserow_field == {
+        "type": LinkRowFieldType.type,
+        "link_row_table_id": "tblpnq35nIRcqjIg1",
+        "link_row_related_field_id": "fldh34wL0NF656t2I",
+    }
+    assert isinstance(field_type, LinkRowFieldType)
+
+    assert (
+        field_type.from_airtable_column_value_to_serialized(
+            {"tblpnq35nIRcqjIg1": {"reckXOeIcLWmlmOh1": 1, "recpEytK715ldAhfu": 2}},
+            airtable_field,
+            baserow_field,
+            [
+                {
+                    "foreignRowId": "reckXOeIcLWmlmOh1",
+                    "foreignRowDisplayName": "Bram 1",
+                },
+                {
+                    "foreignRowId": "recpEytK715ldAhfu",
+                    "foreignRowDisplayName": "Bram 2",
+                },
+            ],
+            {},
+        )
+        == [1, 2]
+    )

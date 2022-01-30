@@ -2,6 +2,7 @@ import pytest
 
 from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.fields.registries import field_type_registry
+from baserow.contrib.database.fields.field_types import BooleanFieldType
 
 
 @pytest.mark.django_db
@@ -104,3 +105,30 @@ def test_get_set_export_serialized_value_boolean_field(data_fixture):
     assert old_row_1_value == getattr(row_1, boolean_field_name)
     assert old_row_2_value == getattr(row_2, boolean_field_name)
     assert old_row_3_value == getattr(row_3, boolean_field_name)
+
+
+@pytest.mark.django_db
+def test_airtable_import_checkbox_field(data_fixture, api_client):
+    airtable_field = {
+        "id": "fldnil9pSFTc5A9wf",
+        "name": "Checkbox",
+        "type": "checkbox",
+        "typeOptions": {"color": "green", "icon": "check"},
+    }
+    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
+        airtable_field
+    )
+    assert baserow_field == {"type": BooleanFieldType.type}
+    assert isinstance(field_type, BooleanFieldType)
+    assert (
+        field_type.from_airtable_column_value_to_serialized(
+            {}, airtable_field, baserow_field, True, {}
+        )
+        is True
+    )
+    assert (
+        field_type.from_airtable_column_value_to_serialized(
+            {}, airtable_field, baserow_field, False, {}
+        )
+        is False
+    )

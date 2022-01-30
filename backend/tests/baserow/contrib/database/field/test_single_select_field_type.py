@@ -798,3 +798,49 @@ def test_get_set_export_serialized_value_single_select_field(data_fixture):
     assert getattr(imported_row_3, f"field_{imported_field.id}_id") != option_b.id
     assert getattr(imported_row_3, f"field_{imported_field.id}").value == "B"
     assert getattr(imported_row_3, f"field_{imported_field.id}").color == "red"
+
+
+@pytest.mark.django_db
+def test_airtable_import_single_select_field(data_fixture, api_client):
+    airtable_field = {
+        "id": "flddsgVzf6RX2B44k",
+        "name": "Single select",
+        "type": "select",
+        "typeOptions": {
+            "choiceOrder": ["selhaarWiybQ6fgvE", "selZkbpheRvVgOTpW"],
+            "choices": {
+                "selhaarWiybQ6fgvE": {
+                    "id": "selhaarWiybQ6fgvE",
+                    "color": "blue",
+                    "name": "Option A",
+                },
+                "selZkbpheRvVgOTpW": {
+                    "id": "selZkbpheRvVgOTpW",
+                    "color": "cyan",
+                    "name": "Option B",
+                },
+            },
+            "disableColors": False,
+        },
+    }
+    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
+        airtable_field
+    )
+    assert baserow_field == {
+        "type": SingleSelectFieldType.type,
+        "select_options": [
+            {
+                "id": "selhaarWiybQ6fgvE",
+                "value": "Option A",
+                "color": "blue",
+                "order": 0,
+            },
+            {
+                "id": "selZkbpheRvVgOTpW",
+                "value": "Option B",
+                "color": "light-blue",
+                "order": 1,
+            },
+        ],
+    }
+    assert isinstance(field_type, SingleSelectFieldType)
