@@ -1,7 +1,6 @@
 import os
 import json
 import hashlib
-import math
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
