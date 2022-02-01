@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from django.db import transaction
 from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
 from drf_spectacular.utils import extend_schema
@@ -209,34 +208,7 @@ class GridViewView(APIView):
             paginator = PageNumberPagination()
 
         page = paginator.paginate_queryset(queryset, request, self)
-
-        import time
-
-        start_time = time.time()
-        serializer_class = get_row_serializer_class(
-            model, RowSerializer, is_response=True
-        )
-        serializer = serializer_class(page, many=True)
-        response = paginator.get_paginated_response(serializer.data)
-        print("--- %s ---", str(time.time() - start_time))
-
-        start_time = time.time()
-        if LimitOffsetPagination.limit_query_param in request.GET:
-            count = paginator.count
-        else:
-            count = paginator.page.paginator.count
-
-        response = Response(
-            OrderedDict(
-                [
-                    ("count", count),
-                    ("next", paginator.get_next_link()),
-                    ("previous", paginator.get_previous_link()),
-                    ("results", serialize_row_fast(page, many=True)),
-                ]
-            )
-        )
-        print("--- %s ---", str(time.time() - start_time))
+        response = paginator.get_paginated_response(serialize_row_fast(page, many=True))
 
         if field_options:
             context = {"fields": [o["field"] for o in model._field_objects.values()]}

@@ -1,10 +1,12 @@
 import logging
 from collections import OrderedDict
+from typing import List, Union
 
 from rest_framework import serializers
 
 from baserow.api.serializers import get_example_pagination_serializer_class
 from baserow.api.utils import get_serializer_class
+from baserow.contrib.database.table.models import GeneratedTableModel
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.rows.registries import row_metadata_registry
 
@@ -20,14 +22,21 @@ class RowSerializer(serializers.ModelSerializer):
         extra_kwargs = {"id": {"read_only": True}, "order": {"read_only": True}}
 
 
-def serialize_row_fast(row, many=False, user_field_names=False):
+def serialize_row_fast(
+    row: Union[List[GeneratedTableModel], GeneratedTableModel],
+    many: bool = False,
+    user_field_names: bool = False,
+) -> Union[List[dict], dict]:
     """
-    @TODO docs
+    Serializes the row via native python code instead of using the Django REST
+    framework serializer because it's much faster. The output will be identical to
+    the rest framework serializer.
 
-    :param row:
-    :param many:
-    :param user_field_names:
-    :return:
+    :param row: The row that must be serialized or a list of rows when `many` is True.
+    :param many: Indicates whether multiple rows must be serialized instead of just one.
+    :param user_field_names: Indicates whether the serialized keys must be user field
+        names.
+    :return: The serialized row or a list of serialized rows.
     """
 
     if many:

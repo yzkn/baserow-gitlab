@@ -169,11 +169,14 @@ class FieldType(
 
     def fast_serialize(self, instance, value):
         """
-        @TODO docs
+        This method should serialize the raw value without using a DRF serializer.
+        We're doing this to improve performance. The output must be exactly the same
+        compared to when using the `get_response_serializer_field`.
 
-        :param instance:
-        :param value:
-        :return:
+        :param instance: The field instance for which to serialize the value for.
+        :type instance: Field
+        :param value: The value that must be serialized.
+        :return: The serialized value.
         """
 
         raise NotImplementedError(

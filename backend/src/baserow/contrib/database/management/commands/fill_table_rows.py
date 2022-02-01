@@ -1,4 +1,5 @@
 import sys
+from tqdm import tqdm
 from collections import defaultdict
 from decimal import Decimal
 from math import ceil
@@ -49,7 +50,7 @@ def fill_table_rows(limit, table):
     order = ceil(model.objects.aggregate(max=Max("order")).get("max") or Decimal("0"))
 
     rows = []
-    for i in range(0, limit):
+    for i in tqdm(range(0, limit), desc="Generating random data"):
         # Based on the random_value function we have for each type we can
         # build a dict with a random value for each field.
         values = {
@@ -72,9 +73,17 @@ def fill_table_rows(limit, table):
         }
         rows.append((instance, relations))
 
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
     # First create the rows in bulk because that's more efficient than creating them
     # one by one.
-    model.objects.bulk_create([row for (row, relations) in rows])
+    for chunk in tqdm(
+        list(chunks([row for (row, relations) in rows], 128)), desc="Inserting rows"
+    ):
+        model.objects.bulk_create(chunk)
 
     # Construct an object where the key is the field name of the many to many field
     # that must be populated. The value contains the objects that must be inserted in
@@ -108,6 +117,8 @@ def fill_table_rows(limit, table):
                     )
                 )
 
-    for field_name, values in many_to_many.items():
+    for field_name, values in tqdm(
+        many_to_many.items(), desc="Inserting relationships."
+    ):
         through = getattr(model, field_name).through
         through.objects.bulk_create(values)
