@@ -59,6 +59,7 @@ from baserow.contrib.database.validators import UnicodeRegexValidator
 from baserow.core.models import UserFile
 from baserow.core.user_files.exceptions import UserFileDoesNotExist
 from baserow.core.user_files.handler import UserFileHandler
+from baserow.contrib.database.table.cache import invalidate_single_table_in_model_cache
 from .dependencies.exceptions import (
     SelfReferenceFieldDependencyError,
     CircularFieldDependencyError,
@@ -1580,6 +1581,13 @@ class LinkRowFieldType(FieldType):
             ]
         else:
             return []
+
+    # noinspection PyMethodMayBeStatic
+    def before_table_model_invalidated(
+        self,
+        field: Field,
+    ):
+        invalidate_single_table_in_model_cache(field.link_row_table_id)
 
     def from_airtable_field_to_serialized(self, values):
         if values.get("type") == "foreignKey":
