@@ -173,7 +173,7 @@
           },
           {
             "id":"fldIGb0rdkjdaGvSu",
-            "name":"Long text",
+            "name":"Long \uD83D text",
             "type":"multilineText"
           },
           {

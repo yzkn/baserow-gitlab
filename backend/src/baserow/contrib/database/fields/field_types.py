@@ -661,6 +661,16 @@ class BooleanFieldType(FieldType):
         if values.get("type") == "checkbox":
             return {"type": self.type}
 
+    def from_airtable_column_value_to_serialized(
+        self,
+        row_id_mapping,
+        airtable_field,
+        baserow_field,
+        value,
+        files_to_download,
+    ):
+        return "true" if value else "false"
+
 
 class DateFieldType(FieldType):
     type = "date"
@@ -871,7 +881,8 @@ class DateFieldType(FieldType):
         if value is None:
             return value
         elif baserow_field["date_include_time"]:
-            return value.replace(".000Z", "+00:00")
+            value = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+            return f"{value.isoformat()}+00:00"
         else:
             return value[0:10]
 

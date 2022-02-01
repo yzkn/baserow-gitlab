@@ -302,6 +302,19 @@ def get_model_reference_field_name(lookup_model, target_model):
     return None
 
 
+def remove_invalid_surrogate_characters(content: bytes) -> str:
+    """
+    Removes illegal unicode characters from the provided content.
+
+    :param content: The content where the illegal unicode characters must be removed
+        from.
+    :return: Decoded string where the unicode illegal unicode characters are removed
+        from.
+    """
+
+    return re.sub(r"\\u(d|D)([a-z|A-Z|0-9]{3})", "", content.decode("utf-8", "ignore"))
+
+
 class Progress:
     """
     @TODO docs

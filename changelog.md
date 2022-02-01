@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* Added management to import a shard Airtable base.
 * Fixed `'<' not supported between instances of 'NoneType' and 'int'` error. Blank 
   string for a decimal value is now converted to `None` when using the REST API.
 * Moved the in component `<i18n>` translations to JSON files. 

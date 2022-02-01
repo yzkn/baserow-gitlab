@@ -325,3 +325,8 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
     assert rows[0].email == "bram@email.com"
     assert str(rows[0].number) == "1"
     assert [r.id for r in rows[0].data.all()] == [1]
+
+    data_model = all_tables[1].get_model(attribute_names=True)
+    rows = data_model.objects.all()
+    assert rows[0].checkbox is True
+    assert rows[1].checkbox is False

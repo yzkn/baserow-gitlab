@@ -674,6 +674,12 @@ def test_airtable_import_european_date_field(data_fixture, api_client):
     )
     assert (
         field_type.from_airtable_column_value_to_serialized(
+            {}, airtable_field, baserow_field, "2020-08-27T21:10:24.828Z", {}
+        )
+        == "2020-08-27"
+    )
+    assert (
+        field_type.from_airtable_column_value_to_serialized(
             {}, airtable_field, baserow_field, None, {}
         )
         is None
@@ -709,6 +715,12 @@ def test_airtable_import_datetime_field(data_fixture, api_client):
             {}, airtable_field, baserow_field, "2022-01-03T14:51:00.000Z", {}
         )
         == "2022-01-03T14:51:00+00:00"
+    )
+    assert (
+        field_type.from_airtable_column_value_to_serialized(
+            {}, airtable_field, baserow_field, "2020-08-27T21:10:24.828Z", {}
+        )
+        == "2020-08-27T21:10:24.828000+00:00"
     )
     assert (
         field_type.from_airtable_column_value_to_serialized(

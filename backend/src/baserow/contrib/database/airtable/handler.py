@@ -8,7 +8,7 @@ from io import BytesIO, IOBase
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from baserow.core.handler import CoreHandler
-from baserow.core.utils import Progress
+from baserow.core.utils import Progress, remove_invalid_surrogate_characters
 from baserow.contrib.database.application_types import DatabaseApplicationType
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.airtable.constants import (
@@ -44,8 +44,7 @@ def fetch_publicly_shared_base(share_id: str) -> Tuple[str, dict, dict]:
 
     url = f"https://airtable.com/{share_id}"
     response = requests.get(url, headers=BASE_HEADERS)
-    content = response.content
-    decoded_content = content.decode()
+    decoded_content = remove_invalid_surrogate_characters(response.content)
 
     request_id = re.search('requestId: "(.*)",', decoded_content).group(1)
     raw_init_data = re.search("window.initData = (.*);\n", decoded_content).group(1)
@@ -72,11 +71,10 @@ def fetch_table_data(
     :param request_id: The request_id returned by the initially requested shared base.
     :param cookies: The cookies dict returned by the initially requested shared base.
     :param fetch_application_structure: Indicates whether the application structure
-        must also be fetched.
-        If True, the schema of all the tables and views will be included in the
-        response. Note that the structure of the response is different because it
-        will wrap application/table schema around the table data. The table data will
-        be available at the path `data.tableDatas.0.rows`.
+        must also be fetched. If True, the schema of all the tables and views will be
+        included in the response. Note that the structure of the response is
+        different because it will wrap application/table schema around the table
+        data. The table data will be available at the path `data.tableDatas.0.rows`.
         If False, the only the table data will be included in the response JSON,
         which will be available at the path `data.rows`.
     :param stream: Indicates whether the request should be streamed. This could be
@@ -332,16 +330,16 @@ def import_from_airtable_to_group(group, share_id, storage=None, parent_progress
     table_progress = Progress(len(raw_tables))
     progress.add_child(table_progress, 19)
     for index, table_id in enumerate(raw_tables):
-        tables.append(
-            fetch_table_data(
-                table_id=table_id,
-                init_data=init_data,
-                request_id=request_id,
-                cookies=cookies,
-                fetch_application_structure=index == 0,
-                stream=False,
-            ).json()
+        response = fetch_table_data(
+            table_id=table_id,
+            init_data=init_data,
+            request_id=request_id,
+            cookies=cookies,
+            fetch_application_structure=index == 0,
+            stream=False,
         )
+        decoded_content = remove_invalid_surrogate_characters(response.content)
+        tables.append(json.loads(decoded_content))
         table_progress.increment(AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE)
 
     schema, tables = extract_schema(tables)

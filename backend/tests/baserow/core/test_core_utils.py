@@ -15,6 +15,7 @@ from baserow.core.utils import (
     stream_size,
     truncate_middle,
     split_comma_separated_string,
+    remove_invalid_surrogate_characters,
     Progress,
 )
 
@@ -104,6 +105,10 @@ def test_split_comma_separated_string():
     assert split_comma_separated_string('A,"B , C",D') == ["A", "B , C", "D"]
     assert split_comma_separated_string('A,\\"B,C') == ["A", '"B', "C"]
     assert split_comma_separated_string('A,\\"B,C\\,D') == ["A", '"B', "C,D"]
+
+
+def test_remove_invalid_surrogate_characters():
+    assert remove_invalid_surrogate_characters(b"test\uD83Dtest") == "testtest"
 
 
 def test_progress():

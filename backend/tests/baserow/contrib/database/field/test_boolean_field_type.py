@@ -124,11 +124,11 @@ def test_airtable_import_checkbox_field(data_fixture, api_client):
         field_type.from_airtable_column_value_to_serialized(
             {}, airtable_field, baserow_field, True, {}
         )
-        is True
+        == "true"
     )
     assert (
         field_type.from_airtable_column_value_to_serialized(
             {}, airtable_field, baserow_field, False, {}
         )
-        is False
+        == "false"
     )
