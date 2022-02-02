@@ -2,13 +2,18 @@ import re
 import json
 import requests
 from collections import defaultdict
-from typing import List, Tuple
+from typing import List, Tuple, Union, Dict, Optional
 from requests import Response
 from io import BytesIO, IOBase
 from zipfile import ZipFile, ZIP_DEFLATED
 
+from django.core.files.storage import Storage
+
 from baserow.core.handler import CoreHandler
 from baserow.core.utils import Progress, remove_invalid_surrogate_characters
+from baserow.core.models import Group
+from baserow.contrib.database.models import Database
+from baserow.contrib.database.fields.registries import FieldType
 from baserow.contrib.database.application_types import DatabaseApplicationType
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.airtable.constants import (
@@ -152,7 +157,19 @@ def extract_schema(exports: List[dict]) -> Tuple[dict, dict]:
     return schema, tables
 
 
-def to_baserow_field_export(table: dict, column: dict):
+def to_baserow_field_export(
+    table: dict, column: dict
+) -> Tuple[Union[dict, None], Union[FieldType, None]]:
+    """
+    Converts the provided Airtable column dict to Baserow export field format.
+
+    :param table: The Airtable table dict. This is needed to figure out whether the
+        field is the primary field.
+    :param column: The Airtable column dict. These values will be converted to
+        Baserow format.
+    :return: The converted column as a Baserow field export.
+    """
+
     exported_field, field_type = field_type_registry.from_airtable_field_to_serialized(
         column
     )
@@ -178,8 +195,29 @@ def to_baserow_field_export(table: dict, column: dict):
 
 
 def to_baserow_row_export(
-    row_id_mapping, column_mapping, row, index, files_to_download
-):
+    row_id_mapping: Dict[str, Dict[str, int]],
+    column_mapping: Dict[str, dict],
+    row: dict,
+    index: int,
+    files_to_download: Dict[str, str],
+) -> dict:
+    """
+    Converts the provided Airtable record to a Baserow row by looping over the field
+    types and executing the `from_airtable_column_value_to_serialized` method.
+
+    :param row_id_mapping: A mapping containing the table as key as the value is
+        another mapping where the Airtable row id maps the Baserow row id.
+    :param column_mapping: A mapping where the Airtable colum id is the value and the
+        value containing another mapping with the Airtable column dict and Baserow
+        field dict.
+    :param row: The Airtable row that must be converted a Baserow row.
+    :param index: The index the row has in the table.
+    :param files_to_download: A dict that contains all the user file URLs that must be
+        downloaded. The key is the file name and the value the URL. Additional files
+        can be added to this dict.
+    :return: The converted row in Baserow export format.
+    """
+
     exported_row = {
         "id": row["id"],
         "order": f"{index + 1}.00000000000000000000",
@@ -204,7 +242,22 @@ def to_baserow_row_export(
     return exported_row
 
 
-def download_files_as_zip(files_to_download, parent_progress=None):
+def download_files_as_zip(
+    files_to_download: Dict[str, str],
+    parent_progress: Optional[Tuple[Progress, int]] = None,
+) -> BytesIO:
+    """
+    Downloads all the user files in the provided dict and adds them to a zip file.
+    The key of the dict will be the file name in the zip file.
+
+    :param files_to_download: A dict that contains all the user file URLs that must be
+        downloaded. The key is the file name and the value the URL. Additional files
+        can be added to this dict.
+    :param parent_progress: If provided, the progress will be registered as child to
+        the `parent_progress`.
+    :return: An in memory buffer as zip file containing all the user files.
+    """
+
     files_buffer = BytesIO()
     total = len(files_to_download.keys())
     progress = Progress(total)
@@ -224,16 +277,25 @@ def download_files_as_zip(files_to_download, parent_progress=None):
 def to_baserow_database_export(
     init_data: dict,
     schema: dict,
-    tables: dict,
-    parent_progress=None,
+    tables: list,
+    parent_progress: Optional[Tuple[Progress, int]] = None,
 ) -> Tuple[dict, IOBase]:
     """
+    Converts the provided raw Airtable database dict to a Baserow export format and
+    an in memory zip file containing all the downloaded user files.
 
-    :param init_data:
-    :param schema:
-    :param tables:
-    :param parent_progress:
-    :return:
+    @TODO add the views.
+    @TODO preserve the order of least one view.
+    @TODO fall back on another field if the primary field is not supported.
+
+    :param init_data: The init_data, extracted from the initial page related to the
+        shared base.
+    :param schema: An object containing the schema of the Airtable base.
+    :param tables: a list containing the table data.
+    :param parent_progress: If provided, the progress will be registered as child to
+        the `parent_progress`.
+    :return: The converted Airtable base in Baserow export format and a zip file
+        containing the user files.
     """
 
     progress = Progress(100)
@@ -241,11 +303,20 @@ def to_baserow_database_export(
     if parent_progress:
         parent_progress[0].add_child(progress, parent_progress[1])
 
+    # A list containing all the exported table in Baserow format.
     exported_tables = []
-    files_to_download = {}
-    row_id_mapping = defaultdict(dict)
 
-    # @TODO explain why we need a mapping
+    # A dict containing all the user files that must be downloaded and added to a zip
+    # file.
+    files_to_download = {}
+
+    # A mapping containing the Airtable table id as key and as value another mapping
+    # containing with the key as Airtable row id and the value as new Baserow row id.
+    # This mapping is created because Airtable has string row id that look like
+    # "recAjnk3nkj5", but Baserow doesn't support string row id, so we need to
+    # replace them with a unique int. We need a mapping because there could be
+    # references to the row.
+    row_id_mapping = defaultdict(dict)
     mapping_progress = Progress(len(schema["tableSchemas"]))
     progress.add_child(mapping_progress, 10)
     for index, table in enumerate(schema["tableSchemas"]):
@@ -260,6 +331,8 @@ def to_baserow_database_export(
     for table_index, table in enumerate(schema["tableSchemas"]):
         field_mapping = {}
 
+        # Loop over all the columns in the table and try to convert them to Baserow
+        # format.
         column_progress = Progress(len(table["columns"]))
         table_progress.add_child(column_progress, 19)
         for column in table["columns"]:
@@ -270,6 +343,9 @@ def to_baserow_database_export(
             if field_export is None:
                 continue
 
+            # Construct a mapping where the Airtable column id is the key and the
+            # value contains the row Airtable field values, Baserow field values and
+            # the Baserow field type object for later use.
             field_mapping[column["id"]] = {
                 "airtable_field": column,
                 "baserow_field": field_export,
@@ -277,6 +353,11 @@ def to_baserow_database_export(
             }
             column_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
 
+        # Loop over all the rows in the table and convert them to Baserow format. We
+        # need to provide the `row_id_mapping` and `field_mapping` because there
+        # could be references to other rows and fields. the `files_to_download` is
+        # needed because every value could be depending on additional files that must
+        # later be downloaded.
         rows_progress = Progress(len(tables[table["id"]]["rows"]))
         table_progress.add_child(rows_progress, 100)
         exported_rows = []
@@ -311,20 +392,45 @@ def to_baserow_database_export(
         "tables": exported_tables,
     }
 
+    # After all the tables have been converted to Baserow format, we can must
+    # download all the user files. Because we first want to the whole conversion to
+    # be completed and because we want this to be added to the progress bar, this is
+    # done last.
     user_files_zip = download_files_as_zip(files_to_download, (progress, 30))
 
     return exported_database, user_files_zip
 
 
-def import_from_airtable_to_group(group, share_id, storage=None, parent_progress=None):
+def import_from_airtable_to_group(
+    group: Group,
+    share_id: str,
+    storage: Optional[Storage] = None,
+    parent_progress: Optional[Tuple[Progress, int]] = None,
+) -> Tuple[List[Database], dict]:
+    """
+    Downloads all the data of the provided publicly shared Airtable base, converts it
+    into Baserow export format, downloads the related files and imports that converted
+    base into the provided group.
+
+    :param group: The group where the copy of the Airtable must be added to.
+    :param share_id: The shared Airtable ID that must be imported.
+    :param storage: The storage where the user files must be saved to.
+    :param parent_progress: If provided, the progress will be registered as child to
+        the `parent_progress`.
+    :return:
+    """
+
     progress = Progress(100)
 
     if parent_progress:
         parent_progress[0].add_child(progress, parent_progress[1])
 
+    # Execute the initial request to obtain the initial data that's needed to make the
     request_id, init_data, cookies = fetch_publicly_shared_base(share_id)
     progress.increment(AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE)
 
+    # Loop over all the tables and make a request for each table to obtain the raw
+    # Airtable table data.
     tables = []
     raw_tables = list(init_data["rawTables"].keys())
     table_progress = Progress(len(raw_tables))
@@ -335,6 +441,8 @@ def import_from_airtable_to_group(group, share_id, storage=None, parent_progress
             init_data=init_data,
             request_id=request_id,
             cookies=cookies,
+            # At least one request must also fetch the application structure that
+            # contains the schema of all the tables, so we do this for the first table.
             fetch_application_structure=index == 0,
             stream=False,
         )
@@ -342,11 +450,17 @@ def import_from_airtable_to_group(group, share_id, storage=None, parent_progress
         tables.append(json.loads(decoded_content))
         table_progress.increment(AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE)
 
+    # Split database schema from the tables because we need this to be separated
+    # later on..
     schema, tables = extract_schema(tables)
+
+    # Convert the raw Airtable data to Baserow export format so we can import that
+    # later.
     baserow_database_export, files_buffer = to_baserow_database_export(
         init_data, schema, tables, (progress, 40)
     )
 
+    # Import the converted data using the existing method to avoid duplicate code.
     databases, id_mapping = CoreHandler().import_applications_to_group(
         group,
         [baserow_database_export],

@@ -11,18 +11,26 @@ from baserow.contrib.database.airtable.handler import import_from_airtable_to_gr
 
 
 class Command(BaseCommand):
-    help = "@TODO docs"
+    help = (
+        "This management command copies all the data from a publicly shared Airtable "
+        "base and tries to import a copy into the provided group. A base can be "
+        "shared publicly by clicking on the `Share` button in the top right corner and "
+        "then create a `Shared base link`. The resulting URL must be provided as "
+        "argument."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "group_id",
             type=int,
-            help="@TODO",
+            help="The group ID where a copy of the imported Airtable base must be "
+            "added to.",
         )
         parser.add_argument(
             "public_base_url",
             type=str,
-            help="@TODO",
+            help="The URL of the publicly shared Airtable base "
+            "(e.g. https://airtable.com/shrxxxxxxxxxxxxxx).",
         )
 
     @transaction.atomic

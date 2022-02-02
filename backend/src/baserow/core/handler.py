@@ -810,8 +810,9 @@ class CoreHandler:
         :type files_buffer: IOBase
         :param storage: The storage where the files can be copied to.
         :type storage: Storage or None
-        :param parent_progress:
-        :type parent_progress:
+        :param parent_progress: If provided, the progress will be registered as child to
+            the `parent_progress`.
+        :type: Optional[Tuple[Progress, int]]
         :return: The newly created applications based on the import and a dict
             containing a mapping of old ids to new ids.
         :rtype: list, dict

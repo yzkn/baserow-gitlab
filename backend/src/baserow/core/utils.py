@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 import os
 import re
@@ -7,7 +9,7 @@ import hashlib
 import math
 
 from collections import namedtuple
-from typing import List
+from typing import List, Optional
 
 from django.db.models import ForeignKey
 from django.db.models.fields import NOT_PROVIDED
@@ -304,7 +306,10 @@ def get_model_reference_field_name(lookup_model, target_model):
 
 def remove_invalid_surrogate_characters(content: bytes) -> str:
     """
-    Removes illegal unicode characters from the provided content.
+    Removes illegal unicode characters from the provided content. If you for example
+    run something like `b"\uD83D".encode("utf-8")`, it will result in a
+    UnicodeEncodeError. This function removed the illegal characters, it keeps the
+    valid emoji's.
 
     :param content: The content where the illegal unicode characters must be removed
         from.
@@ -317,24 +322,96 @@ def remove_invalid_surrogate_characters(content: bytes) -> str:
 
 class Progress:
     """
-    @TODO docs
+    This helper class can be used to easily track progress of certain tasks. It's
+    possible to register a child progress and reserve a range in the current progress.
+
+    Example:
+        def callback(percentage, state):
+            print(f'{percentage}% {state}')
+
+        progress = Progress(100)
+        progress.register_updated_event(callback)
+
+        for i in range(0, 10):
+            sleep(0.1)
+            progress.increment("First")
+
+        sleep(1)
+        progress.increment("Second", by=10)
+
+        sub_progress = Progress(2)
+        progress.add_child(sub_progress, 50)
+        sub_progress.increment("Sub first")
+        sleep(1)
+        sub_progress.increment("Sub second")
+
+        progress.increment(by=40)
+
+    Output:
+        1% First
+        2% First
+        3% First
+        4% First
+        5% First
+        6% First
+        8% First
+        8% First
+        9% First
+        10% First
+        20% Second
+        45% Sub first
+        70% Sub second
+        100% None
     """
 
-    def __init__(self, total):
+    def __init__(self, total: int):
+        """
+        :param total: The total amount representing 100%. This means that the
+            progress can be increment `total` times before reaching 100%.
+        """
+
         self.total = total
         self.progress = 0
         self.updated_events = []
 
     def register_updated_event(self, event):
+        """
+        Register another callback event. The callback is expected to have two
+        parameters, one for the percentage and one for the state.
+
+        :param event:
+        :return:
+        """
+
         self.updated_events.append(event)
 
-    def increment(self, state=None, by=1):
+    def increment(self, state: Optional[str] = None, by: Optional[int] = 1):
+        """
+        Increments the progress with a given amount.
+
+        :param state: A descriptive name of the state. This could for example be
+            "Downloading files."
+        :param by: How much the progress should be increment by. If the total is
+            `100` and we increment by `1`, it will add 1%, but if we increment by `10`,
+            it will add 10%.
+        """
+
         self.progress += by
         percentage = math.ceil(self.progress / self.total * 100)
         for event in self.updated_events:
             event(percentage, state)
 
-    def add_child(self, instance, progress: int):
+    def add_child(self, instance: Progress, progress: int):
+        """
+        Registers a child progress. Everytime the child progress increment, it will
+        also update the current progress to reflect the increment.
+
+        :param instance: The child progress instance that must be registered.
+        :param progress: How much the child progress represents in this progress when
+            it is at 100%. If this value would be `40` and the total is `100` and the
+            child progress reaches 100%, it will increment the progress by 40.
+        """
+
         last_percentage = 0
 
         def updated(percentage, state=None):
@@ -353,6 +430,7 @@ class Progress:
 
         instance.register_updated_event(updated)
 
-        # @TODO docs
+        # If the progress is already at 100%, we must call the update event,
+        # otherwise the increment is never registered with the parent progress.
         if instance.total == instance.progress:
             updated(100, None)
