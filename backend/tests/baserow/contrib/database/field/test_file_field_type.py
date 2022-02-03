@@ -308,7 +308,7 @@ def test_import_export_file_field(data_fixture, tmpdir):
 @pytest.mark.django_db
 def test_airtable_import_file_field(data_fixture, api_client):
     airtable_field = {
-        "id": "flddvU4WC5wPyydmq",
+        "id": "fldwdy4qWUvC5PmW5yd",
         "name": "Attachment",
         "type": "multipleAttachment",
         "typeOptions": {"unreversed": True},

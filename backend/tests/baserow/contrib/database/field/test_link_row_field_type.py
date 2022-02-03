@@ -994,14 +994,14 @@ def test_change_link_row_related_table_when_field_with_related_name_exists(
 @pytest.mark.django_db
 def test_airtable_import_link_row_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldc7eaExuQhEPLUG",
+        "id": "fldQcEaGEe7xuhUEuPL",
         "name": "Link to Users",
         "type": "foreignKey",
         "typeOptions": {
-            "foreignTableId": "tblpnq35nIRcqjIg1",
+            "foreignTableId": "tblRpq315qnnIcg5IjI",
             "relationship": "many",
             "unreversed": True,
-            "symmetricColumnId": "fldh34wL0NF656t2I",
+            "symmetricColumnId": "fldFh5wIL430N62LN6t",
         },
     }
     baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
@@ -1009,23 +1009,23 @@ def test_airtable_import_link_row_field(data_fixture, api_client):
     )
     assert baserow_field == {
         "type": LinkRowFieldType.type,
-        "link_row_table_id": "tblpnq35nIRcqjIg1",
-        "link_row_related_field_id": "fldh34wL0NF656t2I",
+        "link_row_table_id": "tblRpq315qnnIcg5IjI",
+        "link_row_related_field_id": "fldFh5wIL430N62LN6t",
     }
     assert isinstance(field_type, LinkRowFieldType)
 
     assert (
         field_type.from_airtable_column_value_to_serialized(
-            {"tblpnq35nIRcqjIg1": {"reckXOeIcLWmlmOh1": 1, "recpEytK715ldAhfu": 2}},
+            {"tblRpq315qnnIcg5IjI": {"recWkle1IOXcLmhILmO": 1, "rec5pdtuKyE71lfK1Ah": 2}},
             airtable_field,
             baserow_field,
             [
                 {
-                    "foreignRowId": "reckXOeIcLWmlmOh1",
+                    "foreignRowId": "recWkle1IOXcLmhILmO",
                     "foreignRowDisplayName": "Bram 1",
                 },
                 {
-                    "foreignRowId": "recpEytK715ldAhfu",
+                    "foreignRowId": "rec5pdtuKyE71lfK1Ah",
                     "foreignRowDisplayName": "Bram 2",
                 },
             ],

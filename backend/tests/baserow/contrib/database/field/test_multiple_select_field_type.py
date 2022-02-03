@@ -1991,19 +1991,19 @@ def test_conversion_to_multiple_select_with_same_option_value_on_same_row(
 @pytest.mark.django_db
 def test_airtable_import_multiple_select_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldRivoc6YUWNj1Y0",
+        "id": "fldURNo0cvi6YWYcYj1",
         "name": "Multiple select",
         "type": "multiSelect",
         "typeOptions": {
-            "choiceOrder": ["seleVNvovl50kMO3u", "selOqvmnEdE6JFQpe"],
+            "choiceOrder": ["sel5ekvuoNVvl03olMO", "selEOJmenvqEd6pndFQ"],
             "choices": {
-                "selOqvmnEdE6JFQpe": {
-                    "id": "selOqvmnEdE6JFQpe",
+                "selEOJmenvqEd6pndFQ": {
+                    "id": "selEOJmenvqEd6pndFQ",
                     "color": "blue",
                     "name": "Option 1",
                 },
-                "seleVNvovl50kMO3u": {
-                    "id": "seleVNvovl50kMO3u",
+                "sel5ekvuoNVvl03olMO": {
+                    "id": "sel5ekvuoNVvl03olMO",
                     "color": "cyan",
                     "name": "Option 2",
                 },
@@ -2018,13 +2018,13 @@ def test_airtable_import_multiple_select_field(data_fixture, api_client):
         "type": MultipleSelectFieldType.type,
         "select_options": [
             {
-                "id": "selOqvmnEdE6JFQpe",
+                "id": "selEOJmenvqEd6pndFQ",
                 "value": "Option 1",
                 "color": "blue",
                 "order": 1,
             },
             {
-                "id": "seleVNvovl50kMO3u",
+                "id": "sel5ekvuoNVvl03olMO",
                 "value": "Option 2",
                 "color": "light-blue",
                 "order": 0,

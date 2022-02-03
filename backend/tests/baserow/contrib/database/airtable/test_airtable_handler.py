@@ -29,13 +29,13 @@ def test_fetch_publicly_shared_base():
     with open(path, "rb") as file:
         responses.add(
             responses.GET,
-            "https://airtable.com/shrxqmpWsTXkmzvF0",
+            "https://airtable.com/shrXxmp0WmqsTkFWTzv",
             status=200,
             body=file,
             headers={"Set-Cookie": "brw=test;"},
         )
 
-        request_id, init_data, cookies = fetch_publicly_shared_base("shrxqmpWsTXkmzvF0")
+        request_id, init_data, cookies = fetch_publicly_shared_base("shrXxmp0WmqsTkFWTzv")
         assert request_id == "req8wbZoh7Be65osz"
         assert init_data["pageLoadId"] == "pglUrFAGTNpbxUymM"
         assert cookies["brw"] == "test"
@@ -52,12 +52,12 @@ def test_fetch_table():
     with open(path, "rb") as file:
         responses.add(
             responses.GET,
-            "https://airtable.com/shrxqmpWsTXkmzvF0",
+            "https://airtable.com/shrXxmp0WmqsTkFWTzv",
             status=200,
             body=file,
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base("shrxqmpWsTXkmzvF0")
+        request_id, init_data, cookies = fetch_publicly_shared_base("shrXxmp0WmqsTkFWTzv")
 
     cookies = {
         "brw": "brw",
@@ -70,12 +70,12 @@ def test_fetch_table():
     with open(application_response_path, "rb") as application_response_file:
         responses.add(
             responses.GET,
-            "https://airtable.com/v0.3/application/appEzkH33aWXZtJ4B/read",
+            "https://airtable.com/v0.3/application/appZkaH3aWX3ZjT3b/read",
             status=200,
             body=application_response_file,
         )
         application_response = fetch_table_data(
-            "tblpnq35nIRcqjIg1",
+            "tblRpq315qnnIcg5IjI",
             init_data,
             request_id,
             cookies,
@@ -86,12 +86,12 @@ def test_fetch_table():
     with open(table_response_path, "rb") as table_response_file:
         responses.add(
             responses.GET,
-            "https://airtable.com/v0.3/table/tblgHtLG8C78lzbzI/readData",
+            "https://airtable.com/v0.3/table/tbl7glLIGtH8C8zGCzb/readData",
             status=200,
             body=table_response_file,
         )
         table_response = fetch_table_data(
-            "tblgHtLG8C78lzbzI",
+            "tbl7glLIGtH8C8zGCzb",
             init_data,
             request_id,
             cookies,
@@ -101,9 +101,9 @@ def test_fetch_table():
 
     assert (
         application_response.json()["data"]["tableSchemas"][0]["id"]
-        == "tblpnq35nIRcqjIg1"
+        == "tblRpq315qnnIcg5IjI"
     )
-    assert table_response.json()["data"]["id"] == "tblgHtLG8C78lzbzI"
+    assert table_response.json()["data"]["id"] == "tbl7glLIGtH8C8zGCzb"
 
 
 @pytest.mark.django_db
@@ -119,10 +119,10 @@ def test_extract_schema():
 
     assert "tableDatas" not in schema
     assert len(schema["tableSchemas"]) == 2
-    assert schema["tableSchemas"][0]["id"] == "tblpnq35nIRcqjIg1"
-    assert schema["tableSchemas"][1]["id"] == "tblgHtLG8C78lzbzI"
-    assert tables["tblpnq35nIRcqjIg1"]["id"] == "tblpnq35nIRcqjIg1"
-    assert tables["tblgHtLG8C78lzbzI"]["id"] == "tblgHtLG8C78lzbzI"
+    assert schema["tableSchemas"][0]["id"] == "tblRpq315qnnIcg5IjI"
+    assert schema["tableSchemas"][1]["id"] == "tbl7glLIGtH8C8zGCzb"
+    assert tables["tblRpq315qnnIcg5IjI"]["id"] == "tblRpq315qnnIcg5IjI"
+    assert tables["tbl7glLIGtH8C8zGCzb"]["id"] == "tbl7glLIGtH8C8zGCzb"
 
 
 @pytest.mark.django_db
@@ -162,12 +162,12 @@ def test_to_baserow_database_export():
     with open(path, "rb") as file:
         responses.add(
             responses.GET,
-            "https://airtable.com/shrxqmpWsTXkmzvF0",
+            "https://airtable.com/shrXxmp0WmqsTkFWTzv",
             status=200,
             body=file.read(),
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base("shrxqmpWsTXkmzvF0")
+        request_id, init_data, cookies = fetch_publicly_shared_base("shrXxmp0WmqsTkFWTzv")
 
     schema, tables = extract_schema([user_table_json, data_table_json])
     baserow_database_export, files_buffer = to_baserow_database_export(
@@ -189,12 +189,12 @@ def test_to_baserow_database_export():
     assert baserow_database_export["type"] == "database"
     assert len(baserow_database_export["tables"]) == 2
 
-    assert baserow_database_export["tables"][0]["id"] == "tblpnq35nIRcqjIg1"
+    assert baserow_database_export["tables"][0]["id"] == "tblRpq315qnnIcg5IjI"
     assert baserow_database_export["tables"][0]["name"] == "Users"
     assert baserow_database_export["tables"][0]["order"] == 0
     assert len(baserow_database_export["tables"][0]["fields"]) == 4
 
-    assert baserow_database_export["tables"][1]["id"] == "tblgHtLG8C78lzbzI"
+    assert baserow_database_export["tables"][1]["id"] == "tbl7glLIGtH8C8zGCzb"
     assert baserow_database_export["tables"][1]["name"] == "Data"
     assert baserow_database_export["tables"][1]["order"] == 1
     assert len(baserow_database_export["tables"][1]["fields"]) == 23
@@ -202,18 +202,18 @@ def test_to_baserow_database_export():
     # We don't have to check all the fields and rows, just a single one, because we have
     # separate tests for mapping the Airtable fields and values to Baserow.
     assert (
-        baserow_database_export["tables"][0]["fields"][0]["id"] == "fld97w8Zq7Guyi448"
+        baserow_database_export["tables"][0]["fields"][0]["id"] == "fldG9y88Zw7q7u4Z7i4"
     )
     assert baserow_database_export["tables"][0]["fields"][0] == {
         "type": "text",
-        "id": "fld97w8Zq7Guyi448",
+        "id": "fldG9y88Zw7q7u4Z7i4",
         "name": "Name",
         "order": 0,
         "primary": True,
     }
     assert baserow_database_export["tables"][0]["fields"][1] == {
         "type": "email",
-        "id": "fld7b0kRuFB1w9Osy",
+        "id": "fldB7wkyR0buF1sRF9O",
         "name": "Email",
         "order": 1,
         "primary": False,
@@ -222,18 +222,18 @@ def test_to_baserow_database_export():
     assert baserow_database_export["tables"][0]["rows"][0] == {
         "id": 1,
         "order": "1.00000000000000000000",
-        "field_fld7b0kRuFB1w9Osy": "bram@email.com",
-        "field_fld97w8Zq7Guyi448": "Bram 1",
-        "field_fldh34wL0NF656t2I": [1],
-        "field_fldB54rLmhZjmlAI4": "1",
+        "field_fldB7wkyR0buF1sRF9O": "bram@email.com",
+        "field_fldG9y88Zw7q7u4Z7i4": "Bram 1",
+        "field_fldFh5wIL430N62LN6t": [1],
+        "field_fldZBmr4L45mhjILhlA": "1",
     }
     assert baserow_database_export["tables"][0]["rows"][1] == {
         "id": 2,
         "order": "2.00000000000000000000",
-        "field_fld7b0kRuFB1w9Osy": "bram@test.nl",
-        "field_fld97w8Zq7Guyi448": "Bram 2",
-        "field_fldh34wL0NF656t2I": [2, 3, 1],
-        "field_fldB54rLmhZjmlAI4": "2",
+        "field_fldB7wkyR0buF1sRF9O": "bram@test.nl",
+        "field_fldG9y88Zw7q7u4Z7i4": "Bram 2",
+        "field_fldFh5wIL430N62LN6t": [2, 3, 1],
+        "field_fldZBmr4L45mhjILhlA": "2",
     }
 
 
@@ -271,7 +271,7 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
     with open(os.path.join(base_path, "airtable_base.html"), "rb") as file:
         responses.add(
             responses.GET,
-            "https://airtable.com/shrxqmpWsTXkmzvF0",
+            "https://airtable.com/shrXxmp0WmqsTkFWTzv",
             status=200,
             body=file.read(),
             headers={"Set-Cookie": "brw=test;"},
@@ -280,7 +280,7 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
     with open(os.path.join(base_path, "airtable_application.json"), "rb") as file:
         responses.add(
             responses.GET,
-            "https://airtable.com/v0.3/application/appEzkH33aWXZtJ4B/read",
+            "https://airtable.com/v0.3/application/appZkaH3aWX3ZjT3b/read",
             status=200,
             body=file.read(),
         )
@@ -288,13 +288,13 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
     with open(os.path.join(base_path, "airtable_table.json"), "rb") as file:
         responses.add(
             responses.GET,
-            "https://airtable.com/v0.3/table/tblgHtLG8C78lzbzI/readData",
+            "https://airtable.com/v0.3/table/tbl7glLIGtH8C8zGCzb/readData",
             status=200,
             body=file.read(),
         )
 
     databases, id_mapping = import_from_airtable_to_group(
-        group, "shrxqmpWsTXkmzvF0", storage=storage
+        group, "shrXxmp0WmqsTkFWTzv", storage=storage
     )
 
     assert UserFile.objects.all().count() == 3

@@ -110,7 +110,7 @@ def test_get_set_export_serialized_value_boolean_field(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_checkbox_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldnil9pSFTc5A9wf",
+        "id": "fldTn59fpliSFcwpFA9",
         "name": "Checkbox",
         "type": "checkbox",
         "typeOptions": {"color": "green", "icon": "check"},

@@ -613,7 +613,7 @@ def test_get_set_export_serialized_value_date_field(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_date_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldAHeIhfuygXFDGz",
+        "id": "fldyAXIzheHfugGhuFD",
         "name": "ISO DATE",
         "type": "date",
         "typeOptions": {"isDateTime": False, "dateFormat": "US"},
@@ -646,7 +646,7 @@ def test_airtable_import_date_field(data_fixture, api_client):
 @pytest.mark.django_db
 def test_airtable_import_european_date_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldAHeIhfuygXFDGz",
+        "id": "fldyAXIzheHfugGhuFD",
         "name": "EUROPE",
         "type": "date",
         "typeOptions": {
@@ -689,7 +689,7 @@ def test_airtable_import_european_date_field(data_fixture, api_client):
 @pytest.mark.django_db
 def test_airtable_import_datetime_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldBNmd0jVEZ5JIup",
+        "id": "fldEB5dp0mNjVZu0VJI",
         "name": "Date",
         "type": "date",
         "typeOptions": {

@@ -211,7 +211,7 @@ def test_content_type_still_set_when_save_overridden(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_number_integer_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldB54rLmhZjmlAI4",
+        "id": "fldZBmr4L45mhjILhlA",
         "name": "Number",
         "type": "number",
         "typeOptions": {
@@ -266,7 +266,7 @@ def test_airtable_import_number_integer_field(data_fixture, api_client):
 @pytest.mark.django_db
 def test_airtable_import_number_decimal_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldB54rLmhZjmlAI4",
+        "id": "fldZBmr4L45mhjILhlA",
         "name": "Decimal",
         "type": "number",
         "typeOptions": {
@@ -286,7 +286,7 @@ def test_airtable_import_number_decimal_field(data_fixture, api_client):
     }
 
     airtable_field = {
-        "id": "fldB54rLmhZjmlAI4",
+        "id": "fldZBmr4L45mhjILhlA",
         "name": "Decimal",
         "type": "number",
         "typeOptions": {

@@ -803,19 +803,19 @@ def test_get_set_export_serialized_value_single_select_field(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_single_select_field(data_fixture, api_client):
     airtable_field = {
-        "id": "flddsgVzf6RX2B44k",
+        "id": "fldRd2Vkzgsf6X4z6B4",
         "name": "Single select",
         "type": "select",
         "typeOptions": {
-            "choiceOrder": ["selhaarWiybQ6fgvE", "selZkbpheRvVgOTpW"],
+            "choiceOrder": ["selbh6rEWaaiyQvWyfg", "selvZgpWhbkeRVphROT"],
             "choices": {
-                "selhaarWiybQ6fgvE": {
-                    "id": "selhaarWiybQ6fgvE",
+                "selbh6rEWaaiyQvWyfg": {
+                    "id": "selbh6rEWaaiyQvWyfg",
                     "color": "blue",
                     "name": "Option A",
                 },
-                "selZkbpheRvVgOTpW": {
-                    "id": "selZkbpheRvVgOTpW",
+                "selvZgpWhbkeRVphROT": {
+                    "id": "selvZgpWhbkeRVphROT",
                     "color": "cyan",
                     "name": "Option B",
                 },
@@ -830,13 +830,13 @@ def test_airtable_import_single_select_field(data_fixture, api_client):
         "type": SingleSelectFieldType.type,
         "select_options": [
             {
-                "id": "selhaarWiybQ6fgvE",
+                "id": "selbh6rEWaaiyQvWyfg",
                 "value": "Option A",
                 "color": "blue",
                 "order": 0,
             },
             {
-                "id": "selZkbpheRvVgOTpW",
+                "id": "selvZgpWhbkeRVphROT",
                 "value": "Option B",
                 "color": "light-blue",
                 "order": 1,

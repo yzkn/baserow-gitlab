@@ -6,7 +6,7 @@ from baserow.contrib.database.fields.field_types import PhoneNumberFieldType
 
 @pytest.mark.django_db
 def test_airtable_import_phone_field(data_fixture, api_client):
-    airtable_field = {"id": "fldrqTuJq7kvPOhSY", "name": "Phone", "type": "phone"}
+    airtable_field = {"id": "fldkrPuYJTqq7vSJ7Oh", "name": "Phone", "type": "phone"}
     baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
         airtable_field
     )

@@ -230,7 +230,7 @@ def test_import_export_last_modified_field(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_last_modified_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldsrdnxEJwr6FJM8",
+        "id": "fldws6n8xdrEJrMxJFJ",
         "name": "Last",
         "type": "formula",
         "typeOptions": {
@@ -260,7 +260,7 @@ def test_airtable_import_last_modified_field(data_fixture, api_client):
     assert isinstance(field_type, LastModifiedFieldType)
 
     airtable_field = {
-        "id": "fldsrdnxEJwr6FJM8",
+        "id": "fldws6n8xdrEJrMxJFJ",
         "name": "Last",
         "type": "formula",
         "typeOptions": {

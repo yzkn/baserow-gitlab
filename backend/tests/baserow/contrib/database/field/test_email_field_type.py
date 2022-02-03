@@ -7,7 +7,7 @@ from baserow.contrib.database.fields.field_types import EmailFieldType
 @pytest.mark.django_db
 def test_airtable_import_email_field(data_fixture, api_client):
     airtable_field = {
-        "id": "flddmiAR39NAoEgxZ",
+        "id": "fldNdoAZRim39AxR9Eg",
         "name": "Email",
         "type": "text",
         "typeOptions": {"validatorName": "email"},

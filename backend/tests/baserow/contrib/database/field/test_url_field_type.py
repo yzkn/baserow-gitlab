@@ -7,7 +7,7 @@ from baserow.contrib.database.fields.field_types import URLFieldType
 @pytest.mark.django_db
 def test_airtable_import_url_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fld97w8Zq7Guyi448",
+        "id": "fldG9y88Zw7q7u4Z7i4",
         "name": "Name",
         "type": "text",
         "typeOptions": {"validatorName": "url"},

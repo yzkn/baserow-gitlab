@@ -302,7 +302,7 @@ def test_rating_field_modification(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_rating_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fld1dzF0gRpyIoX7u",
+        "id": "fldp1IFu0zdgRy70RoX",
         "name": "Rating",
         "type": "rating",
         "typeOptions": {"color": "yellow", "icon": "star", "max": 5},

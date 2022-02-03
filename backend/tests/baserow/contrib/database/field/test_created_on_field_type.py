@@ -226,7 +226,7 @@ def test_import_export_last_modified_field(data_fixture):
 @pytest.mark.django_db
 def test_airtable_import_created_on_field(data_fixture, api_client):
     airtable_field = {
-        "id": "fldTVUJopscDpzONu",
+        "id": "fldcTpJuoUVpsDNoszO",
         "name": "Created",
         "type": "formula",
         "typeOptions": {
@@ -253,7 +253,7 @@ def test_airtable_import_created_on_field(data_fixture, api_client):
     assert isinstance(field_type, CreatedOnFieldType)
 
     airtable_field = {
-        "id": "fldTVUJopscDpzONu",
+        "id": "fldcTpJuoUVpsDNoszO",
         "name": "Created",
         "type": "formula",
         "typeOptions": {
