@@ -1016,7 +1016,12 @@ def test_airtable_import_link_row_field(data_fixture, api_client):
 
     assert (
         field_type.from_airtable_column_value_to_serialized(
-            {"tblRpq315qnnIcg5IjI": {"recWkle1IOXcLmhILmO": 1, "rec5pdtuKyE71lfK1Ah": 2}},
+            {
+                "tblRpq315qnnIcg5IjI": {
+                    "recWkle1IOXcLmhILmO": 1,
+                    "rec5pdtuKyE71lfK1Ah": 2,
+                }
+            },
             airtable_field,
             baserow_field,
             [

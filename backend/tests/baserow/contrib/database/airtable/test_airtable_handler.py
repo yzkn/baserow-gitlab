@@ -35,7 +35,9 @@ def test_fetch_publicly_shared_base():
             headers={"Set-Cookie": "brw=test;"},
         )
 
-        request_id, init_data, cookies = fetch_publicly_shared_base("shrXxmp0WmqsTkFWTzv")
+        request_id, init_data, cookies = fetch_publicly_shared_base(
+            "shrXxmp0WmqsTkFWTzv"
+        )
         assert request_id == "req8wbZoh7Be65osz"
         assert init_data["pageLoadId"] == "pglUrFAGTNpbxUymM"
         assert cookies["brw"] == "test"
@@ -57,7 +59,9 @@ def test_fetch_table():
             body=file,
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base("shrXxmp0WmqsTkFWTzv")
+        request_id, init_data, cookies = fetch_publicly_shared_base(
+            "shrXxmp0WmqsTkFWTzv"
+        )
 
     cookies = {
         "brw": "brw",
@@ -167,7 +171,9 @@ def test_to_baserow_database_export():
             body=file.read(),
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base("shrXxmp0WmqsTkFWTzv")
+        request_id, init_data, cookies = fetch_publicly_shared_base(
+            "shrXxmp0WmqsTkFWTzv"
+        )
 
     schema, tables = extract_schema([user_table_json, data_table_json])
     baserow_database_export, files_buffer = to_baserow_database_export(
