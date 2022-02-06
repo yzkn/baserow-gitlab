@@ -818,7 +818,7 @@ class CoreHandler:
         :rtype: list, dict
         """
 
-        progress = Progress(len(exported_applications) * 100)
+        progress = Progress(len(exported_applications) * 1000)
 
         if parent_progress:
             parent_progress[0].add_child(progress, parent_progress[1])
@@ -837,7 +837,7 @@ class CoreHandler:
                     id_mapping,
                     files_zip,
                     storage,
-                    parent_progress=(progress, 100),
+                    parent_progress=(progress, 1000),
                 )
                 imported_applications.append(imported_application)
 

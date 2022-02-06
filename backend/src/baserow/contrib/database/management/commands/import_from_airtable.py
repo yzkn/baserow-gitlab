@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand
 from baserow.core.models import Group
 from baserow.core.utils import Progress
 from baserow.contrib.database.airtable.handler import import_from_airtable_to_group
+from baserow.contrib.database.airtable.exceptions import AirtableBaseNotPublic
 
 
 class Command(BaseCommand):
@@ -59,13 +60,26 @@ class Command(BaseCommand):
         def progress_updated(percentage, state):
             nonlocal progress_bar
             progress_bar.set_description(state)
-            progress_bar.update(percentage - progress_bar.n)
+            progress_bar.update(progress.progress - progress_bar.n)
 
-        progress = Progress(100)
+        progress = Progress(1000)
         progress.register_updated_event(progress_updated)
-        progress_bar = tqdm(total=100)
+        progress_bar = tqdm(total=1000)
 
         share_id = f"shr{result.group(1)}"
-        import_from_airtable_to_group(group, share_id, parent_progress=(progress, 100))
-        progress_bar.close()
-        self.stdout.write(f"Your base has been imported.")
+
+        try:
+            import_from_airtable_to_group(
+                group, share_id, parent_progress=(progress, 1000)
+            )
+            self.stdout.write(f"Your base has been imported.")
+        except AirtableBaseNotPublic:
+            self.stdout.write(
+                self.style.ERROR(
+                    f"The Airtable base is not shared publicly. A base can be shared "
+                    f"publicly by clicking on the `Share` button in the top right "
+                    f"corner and then create a `Shared base link`."
+                )
+            )
+        finally:
+            progress_bar.close()

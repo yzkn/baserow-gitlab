@@ -7,9 +7,11 @@ import random
 import string
 import hashlib
 import math
+from itertools import islice
+from decimal import Decimal
 
 from collections import namedtuple
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
 from django.db.models import ForeignKey
 from django.db.models.fields import NOT_PROVIDED
@@ -320,6 +322,22 @@ def remove_invalid_surrogate_characters(content: bytes) -> str:
     return re.sub(r"\\u(d|D)([a-z|A-Z|0-9]{3})", "", content.decode("utf-8", "ignore"))
 
 
+def grouper(n: int, iterable: Iterable):
+    """
+    Groups the iterable by `n` per chunk and yields it.
+
+    :param n: The amount of items per chunk.
+    :param iterable: The iterable that must be grouped
+    """
+
+    it = iter(iterable)
+    while True:
+        chunk = tuple(islice(it, n))
+        if not chunk:
+            return
+        yield chunk
+
+
 class Progress:
     """
     This helper class can be used to easily track progress of certain tasks. It's
@@ -379,58 +397,62 @@ class Progress:
         Register another callback event. The callback is expected to have two
         parameters, one for the percentage and one for the state.
 
-        :param event:
-        :return:
+        :param event: A function that should accept the `progress` and `state`
+            arguments.
         """
 
         self.updated_events.append(event)
 
-    def increment(self, state: Optional[str] = None, by: Optional[int] = 1):
+    def increment(self, by: Optional[int] = 1, state: Optional[str] = None):
         """
         Increments the progress with a given amount.
 
-        :param state: A descriptive name of the state. This could for example be
-            "Downloading files."
         :param by: How much the progress should be increment by. If the total is
             `100` and we increment by `1`, it will add 1%, but if we increment by `10`,
             it will add 10%.
+        :param state: A descriptive name of the state. This could for example be
+            "Downloading files."
         """
 
         self.progress += by
-        percentage = math.ceil(self.progress / self.total * 100)
+
+        percentage = math.ceil(Decimal(self.progress) / self.total * 100)
         for event in self.updated_events:
             event(percentage, state)
 
-    def add_child(self, instance: Progress, progress: int):
+    def add_child(self, child_progress: Progress, represents_progress: int):
         """
         Registers a child progress. Everytime the child progress increment, it will
         also update the current progress to reflect the increment.
 
-        :param instance: The child progress instance that must be registered.
-        :param progress: How much the child progress represents in this progress when
-            it is at 100%. If this value would be `40` and the total is `100` and the
-            child progress reaches 100%, it will increment the progress by 40.
+        :param child_progress: The child progress instance that must be registered.
+        :param represents_progress: How much the child progress represents in this
+            progress when it is at 100%. If this value would be `40` and the total is
+            `100` and the child progress reaches 100%, it will increment the progress
+            by 40.
         """
 
-        last_percentage = 0
+        last_progress = 0
 
-        def updated(percentage, state=None):
-            nonlocal last_percentage
-            nonlocal progress
-            nonlocal self
+        def updated(percentage, state):
+            nonlocal last_progress
+            nonlocal represents_progress
+            nonlocal child_progress
 
-            progress_percentage = math.ceil(percentage / 100 * progress)
-            diff = progress_percentage - last_percentage
+            if child_progress.progress == child_progress.total:
+                new_progress = represents_progress
+            else:
+                new_progress = math.ceil(
+                    child_progress.progress / child_progress.total * represents_progress
+                )
+            diff = new_progress - last_progress
             if diff > 0:
-                last_percentage = progress_percentage
-                self.progress += diff
-                parent_percentage = math.ceil(self.progress / self.total * 100)
-                for event in self.updated_events:
-                    event(parent_percentage, state)
+                last_progress = new_progress
+                self.increment(diff, state)
 
-        instance.register_updated_event(updated)
+        child_progress.register_updated_event(updated)
 
         # If the progress is already at 100%, we must call the update event,
         # otherwise the increment is never registered with the parent progress.
-        if instance.total == instance.progress:
+        if child_progress.progress >= child_progress.total:
             updated(100, None)

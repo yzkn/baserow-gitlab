@@ -116,21 +116,24 @@ def test_progress():
 
     progress = Progress(100)
     progress.register_updated_event(mock_event)
-    progress.increment("State 1")
+    progress.increment(state="State 1")
 
     assert mock_event.call_count == 1
     args = mock_event.call_args
     assert args[0][0] == 1
     assert args[0][1] == "State 1"
 
-    progress.increment("State 2", by=10)
+    progress.increment(
+        by=10,
+        state="State 2",
+    )
 
     assert mock_event.call_count == 2
     args = mock_event.call_args
     assert args[0][0] == 11
     assert args[0][1] == "State 2"
 
-    progress.increment("State 3", by=89)
+    progress.increment(by=89, state="State 3")
 
     assert mock_event.call_count == 3
     args = mock_event.call_args
@@ -144,7 +147,9 @@ def test_nested_progress():
     progress = Progress(100)
     progress.register_updated_event(mock_event)
 
-    sub_progress_1 = Progress(0)
+    # Progress is already at 100%, so we immediately ad 20.
+    sub_progress_1 = Progress(1)
+    sub_progress_1.progress = 1
     progress.add_child(sub_progress_1, 20)
 
     assert mock_event.call_count == 1
@@ -159,6 +164,10 @@ def test_nested_progress():
             sub_progress_2.increment()
         sub_progress_2.increment(by=20, state="Sub progress 2 second")
 
+    args = mock_event.call_args
+    assert args[0][0] == 40
+    assert args[0][1] is None
+
     sub_progress_3 = Progress(100)
     progress.add_child(sub_progress_3, 40)
 
@@ -168,13 +177,25 @@ def test_nested_progress():
     sub_progress_3_1.increment()
     sub_progress_3_1.increment()
 
+    args = mock_event.call_args
+    assert args[0][0] == 44
+    assert args[0][1] is None
+
     sub_progress_3_2 = Progress(11)
     sub_progress_3.add_child(sub_progress_3_2, 10)
     for i in range(0, 11):
         sub_progress_3_2.increment()
 
+    args = mock_event.call_args
+    assert args[0][0] == 48
+    assert args[0][1] is None
+
     sub_progress_3_3 = Progress(0)
     sub_progress_3.add_child(sub_progress_3_3, 10)
+
+    args = mock_event.call_args
+    assert args[0][0] == 52
+    assert args[0][1] is None
 
     sub_progress_3_4 = Progress(5 * 120)
     sub_progress_3.add_child(sub_progress_3_4, 65)
@@ -192,4 +213,41 @@ def test_nested_progress():
     assert mock_event.call_count == 55
     args = mock_event.call_args
     assert args[0][0] == 80
+    assert args[0][1] is None
+
+
+def test_progress_higher_total_than_parent():
+    mock_event = MagicMock()
+
+    progress = Progress(100)
+    progress.register_updated_event(mock_event)
+
+    sub_progress = Progress(1000)
+    progress.add_child(sub_progress, 100)
+    sub_progress.increment()
+
+    assert mock_event.call_count == 1
+    args = mock_event.call_args
+    assert args[0][0] == 1
+    assert args[0][1] is None
+
+    sub_progress.increment()
+
+    assert mock_event.call_count == 1
+    args = mock_event.call_args
+    assert args[0][0] == 1
+    assert args[0][1] is None
+
+    sub_progress.increment(8)
+
+    assert mock_event.call_count == 1
+    args = mock_event.call_args
+    assert args[0][0] == 1
+    assert args[0][1] is None
+
+    sub_progress.increment()
+
+    assert mock_event.call_count == 2
+    args = mock_event.call_args
+    assert args[0][0] == 2
     assert args[0][1] is None

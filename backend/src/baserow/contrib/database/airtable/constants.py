@@ -1,7 +1,6 @@
-AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE = "downloading-structure"
+AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE = "downloading-base"
 AIRTABLE_EXPORT_JOB_CONVERTING = "converting"
 AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES = "downloading-files"
-AIRTABLE_EXPORT_JOB_IMPORTING = "importing"
 AIRTABLE_BASEROW_COLOR_MAPPING = {
     "blue": "blue",
     "cyan": "light-blue",

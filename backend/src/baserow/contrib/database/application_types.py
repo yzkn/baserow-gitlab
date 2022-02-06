@@ -13,6 +13,9 @@ from baserow.contrib.database.models import Database, Table
 from baserow.contrib.database.views.registries import view_type_registry
 from baserow.core.registries import ApplicationType
 from baserow.core.trash.handler import TrashHandler
+from baserow.core.utils import grouper
+
+from .constants import IMPORT_SERIALIZED_IMPORTING, IMPORT_SERIALIZED_IMPORTING_TABLE
 
 
 class DatabaseApplicationType(ApplicationType):
@@ -112,7 +115,32 @@ class DatabaseApplicationType(ApplicationType):
         Imports a database application exported by the `export_serialized` method.
         """
 
-        progress = Progress(100)
+        tables = serialized_values.pop("tables")
+        database = super().import_serialized(
+            group, serialized_values, id_mapping, files_zip, storage, parent_progress
+        )
+
+        progress = Progress(
+            (
+                # Creating each table
+                len(tables)
+                + sum(
+                    [
+                        # Inserting every field
+                        len(table["fields"]) +
+                        # Inserting every field
+                        len(table["views"]) +
+                        # Converting every row
+                        len(table["rows"]) +
+                        # Inserting every row
+                        len(table["rows"]) +
+                        # After each field
+                        len(table["fields"])
+                        for table in tables
+                    ]
+                )
+            )
+        )
 
         if parent_progress:
             parent_progress[0].add_child(progress, parent_progress[1])
@@ -120,15 +148,8 @@ class DatabaseApplicationType(ApplicationType):
         if "database_tables" not in id_mapping:
             id_mapping["database_tables"] = {}
 
-        tables = serialized_values.pop("tables")
-        database = super().import_serialized(
-            group, serialized_values, id_mapping, files_zip, storage, parent_progress
-        )
-
         # First, we want to create all the table instances because it could be that
         # field or view properties depend on the existence of a table.
-        table_progress = Progress(len(tables))
-        progress.add_child(table_progress, 10)
         for table in tables:
             table_object = Table.objects.create(
                 database=database,
@@ -138,12 +159,10 @@ class DatabaseApplicationType(ApplicationType):
             id_mapping["database_tables"][table["id"]] = table_object.id
             table["_object"] = table_object
             table["_field_objects"] = []
-            table_progress.increment()
+            progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         # Because view properties might depend on fields, we first want to create all
         # the fields.
-        field_progress = Progress(len(tables))
-        progress.add_child(field_progress, 10)
         all_fields = []
         for table in tables:
             for field in table["fields"]:
@@ -156,7 +175,7 @@ class DatabaseApplicationType(ApplicationType):
                     table["_field_objects"].append(field_object)
                     all_fields.append((field_type, field_object))
 
-            field_progress.increment()
+            progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         field_cache = FieldCache()
         for field_type, field in all_fields:
@@ -164,8 +183,6 @@ class DatabaseApplicationType(ApplicationType):
 
         # Now that the all tables and fields exist, we can create the views and create
         # the table schema in the database.
-        view_progress = Progress(len(tables))
-        progress.add_child(view_progress, 10)
         for table in tables:
             for view in table["views"]:
                 view_type = view_type_registry.get(view["type"])
@@ -185,19 +202,15 @@ class DatabaseApplicationType(ApplicationType):
                 table["_model"] = model
                 schema_editor.create_model(model)
 
-            view_progress.increment()
+            progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         # Now that everything is in place we can start filling the table with the rows
         # in an efficient matter by using the bulk_create functionality.
-        table_rows_progress = Progress(len(tables) * 120)
-        progress.add_child(table_rows_progress, 65)
         for table in tables:
             model = table["_model"]
             field_ids = [field_object.id for field_object in table["_field_objects"]]
             rows_to_be_inserted = []
 
-            row_progress = Progress(len(table["rows"]))
-            table_rows_progress.add_child(row_progress, 100)
             for row in table["rows"]:
                 row_object = model(id=row["id"], order=row["order"])
 
@@ -223,13 +236,19 @@ class DatabaseApplicationType(ApplicationType):
                         )
 
                 rows_to_be_inserted.append(row_object)
-                row_progress.increment()
+                progress.increment(
+                    state=f"{IMPORT_SERIALIZED_IMPORTING_TABLE}{table['id']}"
+                )
 
             # We want to insert the rows in bulk because there could potentially be
             # hundreds of thousands of rows in there and this will result in better
             # performance.
-            model.objects.bulk_create(rows_to_be_inserted)
-            table_rows_progress.increment(by=20)
+            for chunk in grouper(512, rows_to_be_inserted):
+                model.objects.bulk_create(chunk, batch_size=512)
+                progress.increment(
+                    len(chunk),
+                    state=f"{IMPORT_SERIALIZED_IMPORTING_TABLE}{table['id']}",
+                )
 
             # When the rows are inserted we keep the provide the old ids and because of
             # that the auto increment is still set at `1`. This needs to be set to the
@@ -240,14 +259,12 @@ class DatabaseApplicationType(ApplicationType):
 
         # The progress off `apply_updates_and_get_updated_fields` takes 5% of the
         # total progress of this import.
-        all_fields_progress = Progress(len(all_fields))
-        progress.add_child(all_fields_progress, 5)
         for field_type, field in all_fields:
             update_collector = CachingFieldUpdateCollector(
                 field.table, existing_field_lookup_cache=field_cache
             )
             field_type.after_rows_imported(field, [], update_collector)
             update_collector.apply_updates_and_get_updated_fields()
-            all_fields_progress.increment()
+            progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         return database

@@ -17,10 +17,12 @@ from baserow.contrib.database.fields.registries import FieldType
 from baserow.contrib.database.application_types import DatabaseApplicationType
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.airtable.constants import (
-    AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE,
+    AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
     AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES,
     AIRTABLE_EXPORT_JOB_CONVERTING,
 )
+
+from .exceptions import AirtableBaseNotPublic
 
 
 BASE_HEADERS = {
@@ -49,6 +51,10 @@ def fetch_publicly_shared_base(share_id: str) -> Tuple[str, dict, dict]:
 
     url = f"https://airtable.com/{share_id}"
     response = requests.get(url, headers=BASE_HEADERS)
+
+    if not response.ok:
+        raise AirtableBaseNotPublic(f"The base with share id {share_id} is not public.")
+
     decoded_content = remove_invalid_surrogate_characters(response.content)
 
     request_id = re.search('requestId: "(.*)",', decoded_content).group(1)
@@ -259,8 +265,7 @@ def download_files_as_zip(
     """
 
     files_buffer = BytesIO()
-    total = len(files_to_download.keys())
-    progress = Progress(total)
+    progress = Progress(len(files_to_download.keys()))
 
     if parent_progress:
         parent_progress[0].add_child(progress, parent_progress[1])
@@ -269,7 +274,7 @@ def download_files_as_zip(
         for index, (file_name, url) in enumerate(files_to_download.items()):
             response = requests.get(url, headers=BASE_HEADERS)
             files_zip.writestr(file_name, response.content)
-            progress.increment(AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES)
+            progress.increment(state=AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES)
 
     return files_buffer
 
@@ -298,7 +303,23 @@ def to_baserow_database_export(
         containing the user files.
     """
 
-    progress = Progress(100)
+    progress = Progress(1000)
+    converting_progress = Progress(
+        sum(
+            [
+                # Mapping progress
+                len(tables[table["id"]]["rows"])
+                # Table column progress
+                + len(table["columns"])
+                # Table rows progress
+                + len(tables[table["id"]]["rows"])
+                # The table itself.
+                + 1
+                for table in schema["tableSchemas"]
+            ]
+        )
+    )
+    progress.add_child(converting_progress, 500)
 
     if parent_progress:
         parent_progress[0].add_child(progress, parent_progress[1])
@@ -317,24 +338,18 @@ def to_baserow_database_export(
     # replace them with a unique int. We need a mapping because there could be
     # references to the row.
     row_id_mapping = defaultdict(dict)
-    mapping_progress = Progress(len(schema["tableSchemas"]))
-    progress.add_child(mapping_progress, 10)
     for index, table in enumerate(schema["tableSchemas"]):
         for row_index, row in enumerate(tables[table["id"]]["rows"]):
             new_id = row_index + 1
             row_id_mapping[table["id"]][row["id"]] = new_id
             row["id"] = new_id
-        mapping_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
+            converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
-    table_progress = Progress(len(schema["tableSchemas"]) * 120)
-    progress.add_child(table_progress, 60)
     for table_index, table in enumerate(schema["tableSchemas"]):
         field_mapping = {}
 
         # Loop over all the columns in the table and try to convert them to Baserow
         # format.
-        column_progress = Progress(len(table["columns"]))
-        table_progress.add_child(column_progress, 19)
         for column in table["columns"]:
             field_export, field_type = to_baserow_field_export(table, column)
 
@@ -351,15 +366,13 @@ def to_baserow_database_export(
                 "baserow_field": field_export,
                 "baserow_field_type": field_type,
             }
-            column_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
+            converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
         # Loop over all the rows in the table and convert them to Baserow format. We
         # need to provide the `row_id_mapping` and `field_mapping` because there
         # could be references to other rows and fields. the `files_to_download` is
         # needed because every value could be depending on additional files that must
         # later be downloaded.
-        rows_progress = Progress(len(tables[table["id"]]["rows"]))
-        table_progress.add_child(rows_progress, 100)
         exported_rows = []
         for row_index, row in enumerate(tables[table["id"]]["rows"]):
             exported_rows.append(
@@ -371,7 +384,7 @@ def to_baserow_database_export(
                     files_to_download,
                 )
             )
-            rows_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
+            converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
         exported_table = {
             "id": table["id"],
@@ -382,7 +395,7 @@ def to_baserow_database_export(
             "rows": exported_rows,
         }
         exported_tables.append(exported_table)
-        table_progress.increment(AIRTABLE_EXPORT_JOB_CONVERTING)
+        converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
     exported_database = {
         "id": 1,
@@ -396,7 +409,7 @@ def to_baserow_database_export(
     # download all the user files. Because we first want to the whole conversion to
     # be completed and because we want this to be added to the progress bar, this is
     # done last.
-    user_files_zip = download_files_as_zip(files_to_download, (progress, 30))
+    user_files_zip = download_files_as_zip(files_to_download, (progress, 500))
 
     return exported_database, user_files_zip
 
@@ -420,21 +433,21 @@ def import_from_airtable_to_group(
     :return:
     """
 
-    progress = Progress(100)
+    progress = Progress(1000)
 
     if parent_progress:
         parent_progress[0].add_child(progress, parent_progress[1])
 
     # Execute the initial request to obtain the initial data that's needed to make the
     request_id, init_data, cookies = fetch_publicly_shared_base(share_id)
-    progress.increment(AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE)
+    progress.increment(state=AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE)
 
     # Loop over all the tables and make a request for each table to obtain the raw
     # Airtable table data.
     tables = []
     raw_tables = list(init_data["rawTables"].keys())
     table_progress = Progress(len(raw_tables))
-    progress.add_child(table_progress, 19)
+    progress.add_child(table_progress, 99)
     for index, table_id in enumerate(raw_tables):
         response = fetch_table_data(
             table_id=table_id,
@@ -448,7 +461,7 @@ def import_from_airtable_to_group(
         )
         decoded_content = remove_invalid_surrogate_characters(response.content)
         tables.append(json.loads(decoded_content))
-        table_progress.increment(AIRTABLE_EXPORT_JOB_DOWNLOADING_STRUCTURE)
+        table_progress.increment(state=AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE)
 
     # Split database schema from the tables because we need this to be separated
     # later on..
@@ -457,7 +470,7 @@ def import_from_airtable_to_group(
     # Convert the raw Airtable data to Baserow export format so we can import that
     # later.
     baserow_database_export, files_buffer = to_baserow_database_export(
-        init_data, schema, tables, (progress, 40)
+        init_data, schema, tables, (progress, 300)
     )
 
     # Import the converted data using the existing method to avoid duplicate code.
@@ -466,7 +479,7 @@ def import_from_airtable_to_group(
         [baserow_database_export],
         files_buffer,
         storage=storage,
-        parent_progress=(progress, 40),
+        parent_progress=(progress, 600),
     )
 
     return databases, id_mapping
