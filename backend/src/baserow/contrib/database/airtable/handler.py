@@ -385,7 +385,6 @@ def to_baserow_database_export(
                 if value["baserow_field_type"].can_be_primary_field:
                     value["baserow_field"]["primary"] = True
                     found_existing_field = True
-                    print("fallback")
                     break
 
             # If none of the existing fields can be primary, we will create a new
@@ -432,9 +431,6 @@ def to_baserow_database_export(
             "views": [],
             "rows": exported_rows,
         }
-        import json
-
-        print(json.dumps(exported_table, indent=4))
         exported_tables.append(exported_table)
         converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
