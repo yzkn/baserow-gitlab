@@ -13,9 +13,8 @@ from baserow.core.handler import CoreHandler
 from baserow.core.utils import Progress, remove_invalid_surrogate_characters
 from baserow.core.models import Group
 from baserow.contrib.database.models import Database
-from baserow.contrib.database.fields.registries import FieldType
 from baserow.contrib.database.application_types import DatabaseApplicationType
-from baserow.contrib.database.fields.registries import field_type_registry
+from baserow.contrib.database.fields.registries import FieldType, field_type_registry
 from baserow.contrib.database.airtable.constants import (
     AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
     AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES,
@@ -183,18 +182,22 @@ def to_baserow_field_export(
     if exported_field is None:
         return None, None
 
-    order = next(
-        index
-        for index, value in enumerate(table["meaningfulColumnOrder"])
-        if value["columnId"] == column["id"]
-    )
+    try:
+        order = next(
+            index
+            for index, value in enumerate(table["meaningfulColumnOrder"])
+            if value["columnId"] == column["id"]
+        )
+    except StopIteration:
+        order = 32767
 
     exported_field.update(
         **{
             "id": column["id"],
             "name": column["name"],
             "order": order,
-            "primary": table["primaryColumnId"] == column["id"],
+            "primary": field_type.can_be_primary_field
+            and table["primaryColumnId"] == column["id"],
         }
     )
     return exported_field, field_type
@@ -368,6 +371,41 @@ def to_baserow_database_export(
             }
             converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
+        # Create a list with all the primary fields so that we can check if it's
+        # missing.
+        primary_fields = list(
+            filter(
+                lambda value: value["baserow_field"]["primary"], field_mapping.values()
+            )
+        )
+        if len(primary_fields) == 0:
+            # First check if another field can act as the primary field type.
+            found_existing_field = False
+            for value in field_mapping.values():
+                if value["baserow_field_type"].can_be_primary_field:
+                    value["baserow_field"]["primary"] = True
+                    found_existing_field = True
+                    print("fallback")
+                    break
+
+            # If none of the existing fields can be primary, we will create a new
+            # text field.
+            if not found_existing_field:
+                airtable_column = {
+                    "id": "primary_field",
+                    "name": "Primary field (auto created)",
+                    "type": "text",
+                }
+                field_export, field_type = to_baserow_field_export(
+                    table, airtable_column
+                )
+                field_mapping["primary_id"] = {
+                    "airtable_field": airtable_column,
+                    "baserow_field": field_export,
+                    "baserow_field_type": field_type,
+                }
+                field_mapping["primary_id"]["baserow_field"]["primary"] = True
+
         # Loop over all the rows in the table and convert them to Baserow format. We
         # need to provide the `row_id_mapping` and `field_mapping` because there
         # could be references to other rows and fields. the `files_to_download` is
@@ -394,6 +432,9 @@ def to_baserow_database_export(
             "views": [],
             "rows": exported_rows,
         }
+        import json
+
+        print(json.dumps(exported_table, indent=4))
         exported_tables.append(exported_table)
         converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 

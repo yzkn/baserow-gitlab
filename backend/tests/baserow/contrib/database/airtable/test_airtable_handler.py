@@ -3,6 +3,7 @@ import pytest
 import responses
 import json
 
+from copy import deepcopy
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -241,6 +242,57 @@ def test_to_baserow_database_export():
         "field_fldFh5wIL430N62LN6t": [2, 3, 1],
         "field_fldZBmr4L45mhjILhlA": "2",
     }
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_to_baserow_database_export_without_primary_value():
+    base_path = os.path.join(settings.BASE_DIR, "../../../tests/airtable_responses")
+    path = os.path.join(base_path, "airtable_base.html")
+    user_table_path = os.path.join(base_path, "airtable_application.json")
+    user_table_json = json.loads(Path(user_table_path).read_text())
+
+    # Remove the data table because we don't need that one.
+    del user_table_json["data"]["tableSchemas"][1]
+    user_table_json["data"]["tableDatas"][0]["rows"] = []
+
+    # Rename the primary column so that we depend on the fallback in the migrations.
+    user_table_json["data"]["tableSchemas"][0][
+        "primaryColumnId"
+    ] = "fldG9y88Zw7q7u4Z7i4_unknown"
+
+    with open(path, "rb") as file:
+        responses.add(
+            responses.GET,
+            "https://airtable.com/shrXxmp0WmqsTkFWTzv",
+            status=200,
+            body=file.read(),
+            headers={"Set-Cookie": "brw=test;"},
+        )
+        request_id, init_data, cookies = fetch_publicly_shared_base(
+            "shrXxmp0WmqsTkFWTzv"
+        )
+
+    schema, tables = extract_schema(deepcopy([user_table_json]))
+    baserow_database_export, files_buffer = to_baserow_database_export(
+        init_data, schema, tables
+    )
+    assert baserow_database_export["tables"][0]["fields"][0]["primary"] is True
+
+    user_table_json["data"]["tableSchemas"][0]["columns"] = []
+    schema, tables = extract_schema(deepcopy([user_table_json]))
+    baserow_database_export, files_buffer = to_baserow_database_export(
+        init_data, schema, tables
+    )
+    assert baserow_database_export["tables"][0]["fields"] == [
+        {
+            "type": "text",
+            "id": "primary_field",
+            "name": "Primary field (auto created)",
+            "order": 32767,
+            "primary": True,
+        }
+    ]
 
 
 @pytest.mark.django_db
