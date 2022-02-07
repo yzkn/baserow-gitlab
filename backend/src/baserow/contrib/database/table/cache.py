@@ -15,6 +15,8 @@ def all_baserow_version_table_model_cache_entry_key(table_id: int):
 
 
 def clear_generated_model_cache():
+    if settings.NO_MODEL_CACHE:
+        return
     print("Clearing Baserow's internal generated model cache...")
     generated_models_cache.clear()
     print("Done clearing cache.")
@@ -27,6 +29,9 @@ def invalidate_table_model_cache_and_related_models(table_id: int):
     by table_id.
     """
 
+    if settings.NO_MODEL_CACHE:
+        return
+
     _invalidate_all_related_models(table_id)
 
     invalidate_single_table_in_model_cache(table_id)
@@ -37,6 +42,9 @@ def invalidate_single_table_in_model_cache(table_id: int):
     Invalidates a single model in the model cache for all versions of Baserow. Does not
     attempt to invalidate any related models.
     """
+
+    if settings.NO_MODEL_CACHE:
+        return
 
     if hasattr(generated_models_cache, "delete_pattern"):
         all_versions_cache_key = all_baserow_version_table_model_cache_entry_key(

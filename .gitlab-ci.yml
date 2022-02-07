@@ -218,6 +218,7 @@ variables:
   BACKEND_IMAGE_NAME: backend
   BACKEND_DEV_IMAGE_NAME: backend_dev
   WEBFRONTEND_IMAGE_NAME: web-frontend
+  ALLINONE_IMAGE_NAME: baserow
   WEBFRONTEND_DEV_IMAGE_NAME: web-frontend_dev
   BACKEND_CI_DEV_IMAGE: $CI_IMAGE_REPO/$BACKEND_DEV_IMAGE_NAME:$CLEANUP_JOB_CI_TAG_PREFIX$CI_COMMIT_SHORT_SHA
   WEBFRONTEND_CI_DEV_IMAGE: $CI_IMAGE_REPO/$WEBFRONTEND_DEV_IMAGE_NAME:$CLEANUP_JOB_CI_TAG_PREFIX$CI_COMMIT_SHORT_SHA
@@ -227,6 +228,7 @@ variables:
   TESTED_WEBFRONTEND_CI_IMAGE: $CI_IMAGE_REPO/$WEBFRONTEND_IMAGE_NAME:$TESTED_IMAGE_PREFIX$CI_COMMIT_SHORT_SHA
   TESTED_BACKEND_CI_DEV_IMAGE: $CI_IMAGE_REPO/$BACKEND_DEV_IMAGE_NAME:$TESTED_IMAGE_PREFIX$CI_COMMIT_SHORT_SHA
   TESTED_WEBFRONTEND_CI_DEV_IMAGE: $CI_IMAGE_REPO/$WEBFRONTEND_DEV_IMAGE_NAME:$TESTED_IMAGE_PREFIX$CI_COMMIT_SHORT_SHA
+  TESTED_ALLINONE_CI_IMAGE: $CI_IMAGE_REPO/$ALLINONE_IMAGE_NAME:$TESTED_IMAGE_PREFIX$CI_COMMIT_SHORT_SHA
   # Used to tag the latest images on $DEVELOP_BRANCH_NAME
   DEVELOP_LATEST_TAG: develop-latest
   # Names of important branches used to decide when to run certain jobs.
@@ -235,6 +237,7 @@ variables:
   # The locations of the various dockerfiles to build.
   BACKEND_DOCKERFILE_PATH: $CI_PROJECT_DIR/backend/Dockerfile
   WEBFRONTEND_DOCKERFILE_PATH: $CI_PROJECT_DIR/web-frontend/Dockerfile
+  ALLINONE_DOCKERFILE_PATH: $CI_PROJECT_DIR/deploy/all-in-one/Dockerfile
   # The image path for the helper CI util image that will be built and pushed to.
   CI_UTIL_IMAGE: $CI_IMAGE_REPO/ci_util_image:latest
 
@@ -507,6 +510,26 @@ build-final-web-frontend-image:
     DOCKERFILE_PATH: $WEBFRONTEND_DOCKERFILE_PATH
 
 
+# ================================== ALL IN ONES ======================================
+# If pipeline not triggered by tag:
+# - Build and store non-dev images in CI repo under the `ci-tested` tag so we know
+#   those images have passed the tests.
+build-all-in-one-image:
+  extends: .build-final-baserow-image
+  needs:
+    - job: build-final-web-frontend-image
+    - job: build-final-backend-image
+#  only:
+#    refs:
+#      - $MASTER_BRANCH_NAME
+#      - $DEVELOP_BRANCH_NAME
+  variables:
+    IMAGE_NAME: $ALLINONE_IMAGE_NAME
+    DOCKERFILE_PATH: $ALLINONE_DOCKERFILE_PATH
+    BUILD_FROM_BACKEND_IMAGE: $TESTED_BACKEND_CI_IMAGE
+    BUILD_FROM_WEBFRONTEND_IMAGE: $TESTED_WEBFRONTEND_CI_IMAGE
+
+
 # ================================== TRIGGER SAAS =====================================
 
 # Triggers a special pipeline in dependant project and passes various variables to it.
@@ -663,6 +686,54 @@ publish-webfrontend-latest-release-image:
     SKIP_IF_TAG_NOT_ON_BRANCH: $MASTER_BRANCH_NAME
     SOURCE_IMAGE: $TESTED_WEBFRONTEND_CI_IMAGE
     TARGET_IMAGE: "$RELEASE_IMAGE_REPO/$WEBFRONTEND_IMAGE_NAME:latest"
+    TARGET_REGISTRY: $CI_REGISTRY
+    TARGET_REGISTRY_PASSWORD: $CI_REGISTRY_PASSWORD
+    TARGET_REGISTRY_USER: $CI_REGISTRY_USER
+
+# ================================ PUSHING ALL-IN-ONE ===============================
+
+# Push baserow/baserow:develop_latest
+publish-allinone-develop-latest-image:
+  extends: .publish-baserow-image
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEVELOP_BRANCH_NAME
+  dependencies: []
+  variables:
+    SKIP_IF_NOT_LATEST_COMMIT_ON_BRANCH: $DEVELOP_BRANCH_NAME
+    SOURCE_IMAGE: $TESTED_ALLINONE_CI_IMAGE
+    TARGET_IMAGE: "$RELEASE_IMAGE_REPO/$ALLINONE_IMAGE_NAME:$DEVELOP_LATEST_TAG"
+    TARGET_REGISTRY: $CI_REGISTRY
+    TARGET_REGISTRY_PASSWORD: $CI_REGISTRY_PASSWORD
+    TARGET_REGISTRY_USER: $CI_REGISTRY_USER
+
+# Push baserow/baserow:$VERSION_GIT_TAG
+publish-allinone-release-tagged-image:
+  extends: .publish-baserow-image
+  only:
+    refs:
+      - tags
+  dependencies: []
+  variables:
+    SKIP_IF_TAG_NOT_ON_BRANCH: $MASTER_BRANCH_NAME
+    SOURCE_IMAGE: $TESTED_ALLINONE_CI_IMAGE
+    TARGET_IMAGE: "$RELEASE_IMAGE_REPO/$ALLINONE_IMAGE_NAME:$CI_COMMIT_TAG"
+    TARGET_REGISTRY: $CI_REGISTRY
+    TARGET_REGISTRY_PASSWORD: $CI_REGISTRY_PASSWORD
+    TARGET_REGISTRY_USER: $CI_REGISTRY_USER
+
+# Push baserow/baserow:latest
+publish-allinone-latest-release-image:
+  extends: .publish-baserow-image
+  only:
+    refs:
+      - tags
+  dependencies: []
+  variables:
+    SKIP_IF_NOT_LATEST_COMMIT_ON_BRANCH: $MASTER_BRANCH_NAME
+    SKIP_IF_TAG_NOT_ON_BRANCH: $MASTER_BRANCH_NAME
+    SOURCE_IMAGE: $TESTED_ALLINONE_CI_IMAGE
+    TARGET_IMAGE: "$RELEASE_IMAGE_REPO/$ALLINONE_IMAGE_NAME:latest"
     TARGET_REGISTRY: $CI_REGISTRY
     TARGET_REGISTRY_PASSWORD: $CI_REGISTRY_PASSWORD
     TARGET_REGISTRY_USER: $CI_REGISTRY_USER

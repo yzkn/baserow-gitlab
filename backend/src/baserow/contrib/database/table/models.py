@@ -1,6 +1,7 @@
 import re
 from typing import Dict, Any, Union
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Q, F
 
@@ -466,10 +467,15 @@ class Table(
             and field_ids is None
             and add_dependencies is True
             and attribute_names is False
+            and not settings.NO_MODEL_CACHE
         )
 
-        field_attrs = generated_models_cache.get(self.cache_key)
-        if field_attrs is None or not use_cache:
+        if use_cache:
+            field_attrs = generated_models_cache.get(self.cache_key)
+        else:
+            field_attrs = None
+
+        if field_attrs is None:
             if use_cache and hasattr(generated_models_cache, "lock"):
                 cache_lock = generated_models_cache.lock(self.cache_key)
                 cache_lock.acquire()

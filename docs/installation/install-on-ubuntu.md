@@ -1,17 +1,26 @@
-# Installation on Ubuntu
+# Deprecated Guide - Installation on Ubuntu
 
-This guide will walk you through a production installation of Baserow. Specifically
-this document aims to provide a walkthrough for servers running Ubuntu 18.04.03 LTS.
-These instructions have been tested with a clean install of Ubuntu 18.04.03 LTS and a
-user account with root access. Note that without root access, many of the instructions
-cannot be executed, so root access is necessary in almost all cases.
+> Warning: This guide has been deprecated as of version 1.9 of Baserow. Please follow
+> the [Migrate from Ubuntu to Docker](migrate-from-ubuntu-to-docker.md) guide if
+> you have an existing Baserow installation. Or if you do not have an existing install
+> to follow the one of the following guides instead:
+> * [Install with Docker](install-with-docker.md)
+> * [Install with Docker-compose](install-with-docker-compose.md)
+> * [Install on Cloudron](install-on-cloudron.md)
+
+This deprecated and now unsupported guide will walk you through a production
+installation of Baserow. Specifically this document aims to provide a walkthrough for
+servers running Ubuntu 18.04.03 LTS. These instructions have been tested with a clean
+install of Ubuntu 18.04.03 LTS and a user account with root access. Note that without
+root access, many of the instructions cannot be executed, so root access is necessary in
+almost all cases.
 
 # Prerequisites
 
 ## Update & Upgrade Packages
 
-In order to make sure that we're getting the correct and new versions of any packages
-we install, we need to update and upgrade our packages.
+In order to make sure that we're getting the correct and new versions of any packages we
+install, we need to update and upgrade our packages.
 
 ```bash
 $ sudo apt update
@@ -28,8 +37,8 @@ are new to firewalls.
 
 ## Install & Setup PostgreSQL
 
-Baserow uses PostgreSQL in order to store its user data. You can install PostgreSQL
-with the following commands:
+Baserow uses PostgreSQL in order to store its user data. You can install PostgreSQL with
+the following commands:
 
 ```bash
 $ sudo apt install postgresql postgresql-contrib -y
@@ -62,11 +71,11 @@ $ sudo systemctl restart redis.service
 
 Redis is not publicly accessible by default, so there is no need to setup a password.
 
-## Install other utils 
+## Install other utils
 
-Git is required to download the source code of Baserow so you can install it in the 
-following section. Curl will be required later in the guide to install nodejs. 
-Install them both using the following command:
+Git is required to download the source code of Baserow so you can install it in the
+following section. Curl will be required later in the guide to install nodejs. Install
+them both using the following command:
 
 ```bash
 $ sudo apt install git curl -y 
@@ -75,7 +84,7 @@ $ sudo apt install git curl -y
 ## Install Baserow
 
 In this section, we will install Baserow itself. We will need a new user called
-`baserow`. Baserow uses the `/baserow` directory for storing the application itself. 
+`baserow`. Baserow uses the `/baserow` directory for storing the application itself.
 
 ```bash
 # Create baserow user
@@ -94,16 +103,16 @@ $ git clone --branch master https://gitlab.com/bramw/baserow.git
 ```
 
 The password used for the `baserow` user does not have to be the same as the one used
-with PostgreSQL. Just make sure that you use a secure password and that you remember
-it for when you need it later.
+with PostgreSQL. Just make sure that you use a secure password and that you remember it
+for when you need it later.
 
 ## Install dependencies for & setup Baserow
 
 In order to use the Baserow application, we will need to create a media directory for
-the uploaded user files, a virtual environment and install some more dependencies
-like: NodeJS, Yarn, Python 3.7.
+the uploaded user files, a virtual environment and install some more dependencies like:
+NodeJS, Yarn, Python 3.7.
 
-First, if you are on Ubuntu version 20.04 or later you will need add the following 
+First, if you are on Ubuntu version 20.04 or later you will need add the following
 repository to then be able to install Python 3.7:
 
 ```bash
@@ -156,8 +165,7 @@ $ ./node_modules/nuxt/bin/nuxt.js build --config-file config/nuxt.config.local.j
 ## Install NGINX
 
 Baserow uses NGINX as a reverse proxy for its frontend and backend. Through that, you
-can easily add SSL Certificates and add more applications to your server if you want
-to. 
+can easily add SSL Certificates and add more applications to your server if you want to.
 
 ```bash
 # Go back to baserow root directory
@@ -175,8 +183,8 @@ traffic from outside your network to the correct application on your server. The
 virtual hosts are defined in `.conf` files which are put into the
 `/etc/nginx/sites-enabled/` directory where NGINX will then process them on startup.
 Baserow comes with two configuration files for NGINX. After moving these over, change
-the `server_name` value in both of the files. The server name is the domain under
-which you want Baserow to be reachable. 
+the `server_name` value in both of the files. The server name is the domain under which
+you want Baserow to be reachable.
 
 Make sure that in the following commands you replace `api.domain.com` with your own
 backend domain, that you replace `baserow.domain.com` with your frontend domain and
@@ -201,9 +209,8 @@ $ service nginx restart
 
 In the "*Install & Setup PostgreSQL*" Section, we created a database called `baserow`
 for the application. Since we didn't do anything with that database it is still empty,
-which will result in a non-working application since Baserow expects certain tables
-and relations to exist in that database. You can create these with the following
-commands:
+which will result in a non-working application since Baserow expects certain tables and
+relations to exist in that database. You can create these with the following commands:
 
 ```bash
 # Prepare for creating the database schema
@@ -240,11 +247,10 @@ $ cd /baserow
 $ cp baserow/docs/guides/installation/configuration-files/supervisor.conf /etc/supervisor/conf.d/baserow.conf
 ```
 
-You will need to edit the `baserow.conf` file (located now at 
-`/etc/supervisor/conf.d/`) in order to set the necessary environment
-variables. You will need to change at least the following variables which can be found
-in the `environment=` section. Ensure these URL variables start with http:// or https://
-.
+You will need to edit the `baserow.conf` file (located now at
+`/etc/supervisor/conf.d/`) in order to set the necessary environment variables. You will
+need to change at least the following variables which can be found in the `environment=`
+section. Ensure these URL variables start with http:// or https:// .
 
 - `PUBLIC_WEB_FRONTEND_URL`: The URL under which your frontend can be reached from the
   internet.
@@ -253,6 +259,7 @@ in the `environment=` section. Ensure these URL variables start with http:// or 
 - `MEDIA_URL`: The URL under which your media files can be reached from the internet.
 
 You can make the modifications using sed like so:
+
 ```bash
 $ sed -i 's/\*YOUR_BACKEND_DOMAIN\*/https:\/\/api.domain.com/g' /etc/supervisor/conf.d/baserow.conf 
 $ sed -i 's/\*YOUR_WEB_FRONTEND_DOMAIN\*/https:\/\/baserow.domain.com/g' /etc/supervisor/conf.d/baserow.conf 
@@ -261,8 +268,8 @@ $ sed -i 's/\*YOUR_MEDIA_DOMAIN\*/https:\/\/media.domain.com/g' /etc/supervisor/
 
 **Backend**
 
-- `SECRET_KEY`: The secret key that is used to generate tokens and other random
-  strings. You can generate one with the following commands:
+- `SECRET_KEY`: The secret key that is used to generate tokens and other random strings.
+  You can generate one with the following commands:
   ```bash
   $ cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 80 | head -n 1
   ```
@@ -272,9 +279,9 @@ $ sed -i 's/\*YOUR_MEDIA_DOMAIN\*/https:\/\/media.domain.com/g' /etc/supervisor/
 
 **Email SMTP configuration**
 
-If you want to configure Baserow to send emails you will have to add the following 
-environment variables to the `/etc/supervisor/conf.d/baserow.conf` environment block. 
-Otherwise, by default Baserow will not send emails and instead just log them in 
+If you want to configure Baserow to send emails you will have to add the following
+environment variables to the `/etc/supervisor/conf.d/baserow.conf` environment block.
+Otherwise, by default Baserow will not send emails and instead just log them in
 `/var/log/baserow/worker.error`.
 
 * `EMAIL_SMTP` (default ``): Providing anything other than an empty string will enable
@@ -336,10 +343,10 @@ $ sudo certbot --nginx
 $ supervisorctl restart nginx
 ```
 
-## Conclusion 
+## Conclusion
 
 You now have a full installation of Baserow, which will keep the Front- & Backend
-running even if there is an unforeseen termination of them. 
+running even if there is an unforeseen termination of them.
 
 ## Updating existing installation to the latest version
 

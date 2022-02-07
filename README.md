@@ -1,86 +1,68 @@
-# Baserow
+## Baserow is an open source no-code database tool and Airtable alternative. 
 
-Open source no-code database tool and Airtable alternative. Join our forum on
+Create your own online database without technical experience. Our user-friendly no-code 
+tool gives you the powers of a developer without leaving your browser.
+
+* A spreadsheet database hybrid combining ease of use and powerful data organization.
+* Can be self-hosted or used instantly on https://baserow.io.
+* Open source under the (https://choosealicense.com/licenses/mit/)
+  allowing commercial and private use.
+
+![Baserow screenshot](docs/assets/screenshot.png "Baserow screenshot")
+
+Join our forum on
 https://community.baserow.io/ or on Gitter via
 https://gitter.im/bramw-baserow/community.
-
-> Warning: From version 0.8.0 to 1.4.1 of Baserow the docker-compose.yml included in 
-> the root of this repository has exposed an unsecured redis instance by default on the 
-> ip:port 0.0.0.0:6379.
-> If you have been running a server which is accessible via the internet using this 
-> `docker-compose.yml` then it is possible this redis server has been exposed to the 
-> internet depending on your operating system, networking setup and firewall settings.
-> Please update to the latest version of Baserow, 1.4.2 which no longer exposes the 
-> redis, db and mjml containers. Additionally, 1.4.2 only exposes the backend, 
-> web-frontend and media containers on localhost and not on 0.0.0.0. If you were 
-> previously relying on `docker-compose.yml` publicly exposing Baserow then please 
-> follow the [Make Baserow publicly accessible](./docs/guides/baserow-docker-how-to.md)
-> section in the docker how to guide.
-
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/bram2w/baserow/tree/master)
-*Beta*
 
 **We're hiring** remote developers! More information at 
 https://baserow.io/jobs/experienced-full-stack-developer.
 
-![Baserow screenshot](docs/assets/screenshot.png "Baserow screenshot")
+## Installation
 
-## Introduction
+[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/bram2w/baserow/tree/master)
 
-Create own database without technical experience. Our user friendly no-code tool gives
-you the powers of a developer without leaving your browser.
+### Docker
 
-* Uses popular frameworks like [Django](https://www.djangoproject.com/) and
-  [Nuxt.js](https://nuxtjs.org/).
-* Uses [PostgreSQL](https://www.postgresql.org/).
-* Open source.
-* MIT license.
-* Self hosted.
-* Headless and API first.
-* Modular architecture.
-* Supports plugins.
-* Includes a plugin boilerplate.
-* Unlimited rows.
-* Runs in your browser.
-* Alternative to Airtable.
+```bash
+docker run -v baserow_data:/baserow/data -p 80:80 -p 443:443 baserow/baserow:1.8.2
 
-## Self host
+# Set the DOMAIN env variable to easily host Baserow on your domain with auto HTTPS 
+# thanks to Caddy:
+docker run -e DOMAIN=https://www.yourdomain.com -v baserow_data:/baserow/data -p 80:80 -p 443:443 baserow/baserow:1.8.2
+```
 
-* [**Heroku**: Easily install and scale up on Heroku by using the template.](./docs/guides/installation/install-on-heroku.md)
-* [**Cloudron**: Install and update Baserow on your own Cloudron server.](./docs/guides/installation/install-on-cloudron.md)
-* [**Ubuntu**: Manually install Baserow step by step on a clean Ubuntu server. **not recommended**](./docs/guides/installation/install-on-ubuntu.md)
+See our [Install using Docker](docs/installation/install-using-docker.md) guide
+for full instructions and further customization options.
 
-## Try out Baserow on your machine 
-
-If you just want to try out Baserow, you can create an account on the SaaS version at
-https://baserow.io. Just click on the create account or register button at the 
-homepage.
-
-If you want to try out Baserow on your own computer, you can easily start a local 
-environment via `docker-compose`. Just clone the repository, run the following commands
-and visit http://localhost:3000 in your browser.
+### Docker-compose
 
 ```
 $ git clone --branch master https://gitlab.com/bramw/baserow.git
 $ cd baserow
-$ docker-compose up 
+$ docker-compose up -d
+$ docker-compose ps
+$ docker-compose logs
 ```
 
-More detailed instructions and more information about running baserow locally check 
-[here](docs/guides/running-baserow-locally.md) or at 
-https://baserow.io/docs/guides/running-baserow-locally.
+See our [Install using Docker-Compose](docs/installation/install-using-docker-compose.md) 
+guide for full instructions and further customization options.
+
+### Other self-hosting solutions
+
+* [**Heroku**: Easily install and scale up on Heroku by using the template.](docs/installation/install-on-heroku.md)
+* [**Cloudron**: Install and update Baserow on your own Cloudron server.](docs/installation/install-on-cloudron.md)
+
 
 ## Development environment
 
-If you want to contribute to Baserow you need to setup the development environment. 
-Execute the following commands to start a development version of the baserow environment
-which has debug and hot re-loading features enabled.
+If you want to contribute to Baserow you can setup a development environment with
+hot reloading and debug logging enabled like so:
 
 ```
-$ git clone --branch master https://gitlab.com/bramw/baserow.git
+$ git clone https://gitlab.com/bramw/baserow.git
 $ cd baserow
-$ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
-$ # OR use our ./dev.sh script which also ensures your dev containers run as your user
+$ # Then use ./dev.sh script runs our docker-compose dev files with some environment 
+$ # setup
 $ ./dev.sh --build
 ```
 

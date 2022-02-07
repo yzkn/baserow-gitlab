@@ -1,21 +1,54 @@
 version: "3.4"
 
-services:
-  db:
-    # Please ensure the postgres-client's major version in the backend image is kept in
-    # sync with this major version so pg_dump remains compatible.
-    image: postgres:11.3
-    environment:
-      - POSTGRES_USER=${DATABASE_USER:-baserow}
-      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-baserow}
-      - POSTGRES_DB=${DATABASE_NAME:-baserow}
-    networks:
-      local:
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+x-common-variables: &common-variables
+  DOMAIN:
+  CADDY: yes
+  PRIVATE_BACKEND_URL: backend:8000
+  PRIVATE_WEBFRONTEND_URL: web-frontend:3000
+  WEB_FRONTEND_PORT: ${WEB_FRONTEND_PORT:-3000}
 
-  redis:
-    image: redis:6.0
+x-common-backend-variables: &common-backend-variables
+  SECRET_KEY: ${SECRET_KEY:?Please provide a condidential secret key used by Baserow's Django Backend to secure signed data}
+  DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Please provide a secure database password for the postgres db service user to use, prior to version 1.9 this defaulted to "baserow"}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?Please provide a secure redis password}
+  MIGRATE_ON_STARTUP: ${MIGRATE_ON_STARTUP:-true}
+  SYNC_TEMPLATES_ON_STARTUP: ${SYNC_TEMPLATES_ON_STARTUP:-true}
+  DATABASE_USER: ${DATABASE_USER:-baserow}
+  DATABASE_NAME: ${DATABASE_NAME:-baserow}
+  ADDITIONAL_APPS:
+  EMAIL_SMTP:
+  EMAIL_SMTP_HOST:
+  EMAIL_SMTP_PORT:
+  EMAIL_SMTP_USE_TLS:
+  EMAIL_SMTP_USER:
+  EMAIL_SMTP_PASSWORD:
+  FROM_EMAIL:
+  DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS:
+
+services:
+  # A caddy reverse proxy sitting in-front of all the services.
+  caddy:
+    image: caddy:2.4.6
+    user: 9999:9999
+    restart: unless-stopped
+    environment:
+      <<: *common-variables
+      CADDY_LISTEN_PORT:
+    ports:
+      - "${HOST_PUBLISH_IP:-0.0.0.0}:${WEB_FRONTEND_PORT:-3000}:80"
+      - "${HOST_PUBLISH_IP:-0.0.0.0}:443:443"
+    depends_on:
+      - media-volume-fixer
+    volumes:
+      - $PWD/deploy/all-in-one/Caddyfile:/etc/caddy/Caddyfile
+      - media:/baserow/media
+      - caddy_config:/config
+      - caddy_data:/data
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "http://localhost/caddy-health-check" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       local:
 
@@ -24,41 +57,41 @@ services:
       dockerfile: ./backend/Dockerfile
       context: .
     image: baserow_backend:latest
+    restart: unless-stopped
     environment:
-      - PUBLIC_BACKEND_URL=${PUBLIC_BACKEND_URL:-http://localhost:8000}
-      - PUBLIC_WEB_FRONTEND_URL=${PUBLIC_WEB_FRONTEND_URL:-http://localhost:3000}
-      - MIGRATE_ON_STARTUP=${MIGRATE_ON_STARTUP:-true}
-      - SYNC_TEMPLATES_ON_STARTUP=${SYNC_TEMPLATES_ON_STARTUP:-true}
-      - DATABASE_USER=${DATABASE_USER:-baserow}
-      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-baserow}
-      - DATABASE_NAME=${DATABASE_NAME:-baserow}
-      - ADDITIONAL_APPS
-      - MEDIA_URL=${MEDIA_URL:-http://localhost:4000/media/}
-      - EMAIL_SMTP
-      - EMAIL_SMTP_HOST
-      - EMAIL_SMTP_PORT
-      - EMAIL_SMTP_USE_TLS
-      - EMAIL_SMTP_USER
-      - EMAIL_SMTP_PASSWORD
-      - FROM_EMAIL
-      - DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS
-    ports:
-      - "${HOST_PUBLISH_IP:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
     depends_on:
       - db
       - redis
+      - caddy
       - media-volume-fixer
     volumes:
       - media:/baserow/media
     networks:
       local:
 
+  web-frontend:
+    build:
+      context: .
+      dockerfile: ./web-frontend/Dockerfile
+    image: baserow_web-frontend:latest
+    restart: unless-stopped
+    environment:
+      <<: *common-backend-variables
+    depends_on:
+      - backend
+    networks:
+      local:
+
   celery:
     image: baserow_backend:latest
+    restart: unless-stopped
     build:
       dockerfile: ./backend/Dockerfile
       context: .
     environment:
+      - CADDY=yes
+      - WEB_FRONTEND_PORT=${WEB_FRONTEND_PORT:-3000}
+      - DOMAIN
       - ADDITIONAL_APPS
       - EMAIL_SMTP
       - EMAIL_SMTP_HOST
@@ -68,7 +101,9 @@ services:
       - EMAIL_SMTP_PASSWORD
       - FROM_EMAIL
       - DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS
-    command: celery worker -l INFO -Q celery
+    command: celery-worker
+    healthcheck:
+      test: [ "CMD", "./docker/docker-entrypoint.sh", "celery-worker-healthcheck" ]
     depends_on:
       - backend
     volumes:
@@ -78,13 +113,19 @@ services:
 
   celery-export-worker:
     image: baserow_backend:latest
+    restart: unless-stopped
     build:
       dockerfile: ./backend/Dockerfile
       context: .
-    command: celery worker -l INFO -Q export
+    command: celery-exportworker
+    healthcheck:
+      test: [ "CMD", "./docker/docker-entrypoint.sh", "celery-exportworker-healthcheck" ]
     depends_on:
       - backend
     environment:
+      - CADDY=yes
+      - WEB_FRONTEND_PORT=${WEB_FRONTEND_PORT:-3000}
+      - DOMAIN
       - ADDITIONAL_APPS
       - EMAIL_SMTP
       - EMAIL_SMTP_HOST
@@ -101,13 +142,19 @@ services:
 
   celery-beat-worker:
     image: baserow_backend:latest
+    restart: unless-stopped
     build:
       dockerfile: ./backend/Dockerfile
       context: .
-    command: celery beat -l INFO -S redbeat.RedBeatScheduler
+    command: celery-beat
+    healthcheck:
+      test: [ "CMD-SHELL", "exit 0" ]
     depends_on:
       - backend
     environment:
+      - CADDY=yes
+      - WEB_FRONTEND_PORT=${WEB_FRONTEND_PORT:-3000}
+      - DOMAIN
       - ADDITIONAL_APPS
       - EMAIL_SMTP
       - EMAIL_SMTP_HOST
@@ -122,32 +169,29 @@ services:
     networks:
       local:
 
-  web-frontend:
-    build:
-      context: .
-      dockerfile: ./web-frontend/Dockerfile
-    image: baserow_web-frontend:latest
+  db:
+    # Please ensure the postgres-client's major version in the backend image is kept in
+    # sync with this major version so pg_dump remains compatible.
+    image: postgres:11.3
+    restart: unless-stopped
     environment:
-      - PUBLIC_BACKEND_URL=${PUBLIC_BACKEND_URL:-http://localhost:8000}
-      - PUBLIC_WEB_FRONTEND_URL=${PUBLIC_WEB_FRONTEND_URL:-http://localhost:3000}
-      - ADDITIONAL_MODULES
-      - DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS
-    ports:
-      - "${HOST_PUBLISH_IP:-127.0.0.1}:${WEB_FRONTEND_PORT:-3000}:3000"
-    depends_on:
-      - backend
+      - POSTGRES_USER=${DATABASE_USER:-baserow}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-baserow}
+      - POSTGRES_DB=${DATABASE_NAME:-baserow}
+    healthcheck:
+      test: [ "CMD-SHELL", "su postgres -c pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       local:
-
-  # A nginx container purely to serve up django's MEDIA files.
-  media:
-    build: media
-    ports:
-      - "${HOST_PUBLISH_IP:-127.0.0.1}:${MEDIA_PORT:-4000}:80"
-    depends_on:
-      - media-volume-fixer
     volumes:
-      - media:/baserow/media
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:6.0
+    healthcheck:
+      test: [ "CMD", "redis-cli","ping" ]
     networks:
       local:
 
@@ -156,15 +200,19 @@ services:
   # environment here.
   media-volume-fixer:
     image: bash:4.4
-    command: chown 9999:9999 -R /baserow/media
+    command: bash -c 'chown 9999:9999 -R /baserow/media /config /data && echo "Successfully fixed docker volume permissions, exiting fixer as nothing else to do."'
     volumes:
       - media:/baserow/media
+      - caddy_config:/config
+      - caddy_data:/data
     networks:
       local:
 
 volumes:
   pgdata:
   media:
+  caddy_data:
+  caddy_config:
 
 networks:
   local:

@@ -7,7 +7,7 @@ environment.
 > advised however that you install the latest version of Docker available: 20.10.
 > Please check that your docker is up to date by running `docker -v`.
 
-See [baserow's docker api](../reference/baserow-docker-api.md) for the full details on
+See [baserow's docker api](../technical/baserow-docker-api.md) for the full details on
 what commands and environment variables baserow's docker-compose and docker image's
 support.
 
@@ -97,7 +97,7 @@ $ HOST_PUBLISH_IP=0.0.0.0 PUBLIC_BACKEND_URL=http://192.168.0.194:8000 PUBLIC_WE
 
 ### Configure an external email server
 
-See [the introduction](../getting-started/introduction.md) for the all the of email
+See [the introduction](../technical/introduction.md) for the all the of email
 environment variables available to configure Baserow. For a simple example you can start
 up Baserow locally and have it connect to an external SMTP server like so:
 

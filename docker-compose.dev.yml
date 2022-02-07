@@ -31,7 +31,7 @@ services:
         # reducing the chance the containers screw up the bind mounted folders.
         UID: $UID
         GID: $GID
-    command: celery-dev worker -l INFO -Q celery
+    command: "watch-py celery-worker"
     volumes:
       - ./backend:/baserow/backend
       - ./premium/backend/:/baserow/premium/backend
@@ -48,7 +48,7 @@ services:
         # reducing the chance the containers screw up the bind mounted folders.
         UID: $UID
         GID: $GID
-    command: celery-dev worker -l INFO -Q export
+    command: "watch-py celery-exportworker"
     volumes:
       - ./backend:/baserow/backend
       - ./premium/backend/:/baserow/premium/backend
@@ -65,7 +65,7 @@ services:
         # reducing the chance the containers screw up the bind mounted folders.
         UID: $UID
         GID: $GID
-    command: celery-dev beat -l INFO -S redbeat.RedBeatScheduler
+    command: "watch-py celery-beat"
     volumes:
       - ./backend:/baserow/backend
       - ./premium/backend/:/baserow/premium/backend
@@ -102,6 +102,8 @@ services:
         GID: $GID
       context: .
       dockerfile: ./web-frontend/Dockerfile
+    healthcheck:
+      test: [ "CMD-SHELL", "exit 0" ]
     image: baserow_web-frontend:latest
     command: "bash -c 'cd /baserow/backend/email_compiler/ && yarn install && yarn run watch'"
     volumes:

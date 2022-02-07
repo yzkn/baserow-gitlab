@@ -1,8 +1,7 @@
-# Baserow's Docker API
+# Baserow's Docker Setup 
 
-Baserow uses docker and docker-compose when running the local or development
-environments. Below you will find details on how this is structured, how to configure
-baserow running this way and usage references.
+Baserow provides various Dockerfiles and an example docker-compose file to install
+Baserow. How these Dockerfiles are structured and setup is explained below:
 
 ## Baserow's Docker Files
 
@@ -12,11 +11,13 @@ Below are the files used by our docker setup and what they are responsible for:
 
 - `docker-compose.yml`: A compose file which starts Baserow in local mode with no
   development features enabled.
+- `./deploy/all-in-on/Dockerfile`: An Dockerfile which runs Baserow in a single 
+  container by internally using [supervisord](http://supervisord.org/) to run the 
+  various services.
 - `./backend/Dockerfile`: The backend's Dockerfile. See below for
   supported command line arguments. Also used to run the celery worker.
 - `./web-frontend/Dockerfile`: The web-frontend's Dockerfile. See below
   for supported command line arguments.
-- `./media/Dockerfile`: A simple nginx image used to serve uploaded user files only.
 
 ### The Dev Env
 
@@ -100,7 +101,7 @@ $ ./dev.sh run web-frontend COMMAND
 
 ## Environment Variables
 
-See [the introduction](../getting-started/introduction.md) for the environment variables
+See [the introduction](../technical/introduction.md) for the environment variables
 supported specifically by the backend and web-frontend processes. Below are the
 variables available for configuring baserow's docker setup.
 
@@ -119,7 +120,7 @@ Port configuration (these only work when used with the docker-compose files):
 - `HOST_PUBLISH_IP` (default `127.0.0.1`) : The IP address on the docker host Baserow's
   containers will bind exposed ports to. By default Baserow only exposes it's containers
   ports on localhost, please see
-  the [Baserow Docker How To](../guides/baserow-docker-how-to.md)
+  the [Baserow Docker How To](baserow-docker-how-to.md)
   on how to expose Baserow over a network or the internet.
 - `BACKEND_PORT` (default `8000`) : The port the `backend` container will bind to on
   your local network.
@@ -139,7 +140,7 @@ Backend configuration:
 Pass through variables:
 
 These environment variables when provided to the docker-compose files are passed through
-to the correct containers. See [the introduction](../getting-started/introduction.md)
+to the correct containers. See [the introduction](../technical/introduction.md)
 for what these variables do.
 
 - `PUBLIC_BACKEND_URL`

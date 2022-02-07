@@ -1,7 +1,6 @@
 from baserow.config.settings.base import *
 import os
 import ssl
-import dj_database_url
 
 MEDIA_ROOT = "/baserow/media"
 
@@ -30,7 +29,3 @@ CELERY_BROKER_POOL_LIMIT = min(4 * int(os.getenv("BASEROW_AMOUNT_OF_WORKERS", "1
 CELERY_REDIS_MAX_CONNECTIONS = min(
     4 * int(os.getenv("BASEROW_AMOUNT_OF_WORKERS", "1")), 10
 )
-
-DATABASES = {
-    "default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=600)
-}

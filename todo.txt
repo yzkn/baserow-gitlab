@@ -1,0 +1,15 @@
+* finish quickstart guide
+* ensure docker-compose local env uses safe secret key
+
+* write up configuration document with all available variables
+* write up all in one, backend, web-frontend cli docs
+* write up new docker-compose install doc
+
+* create a migration guide from older docker-compose to a newer one?
+  ->
+
+* consider making redis/db passwords manditory in docker-compose
+  -> have to pass via env variable?
+     -> Just force the user to set via an error ?? thingy + tell them to put in a .env file
+  -> use a one off service to create a pgpassword file in volume and use that?
+     -> Wont work with an existing volume....

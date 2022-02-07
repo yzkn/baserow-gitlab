@@ -97,5 +97,5 @@ start using the software.
 
 - See [docker how to guide](baserow-docker-how-to.md) for a larger collection of useful
   operations and commands.
-- See [docker usage](../reference/baserow-docker-api.md) for more detail on how
+- See [docker usage](../technical/baserow-docker-api.md) for more detail on how
   Baserow's docker setup can be used and configured.

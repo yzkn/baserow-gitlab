@@ -5,8 +5,8 @@ field based on a formula. These formulas are similar to those found in other spr
 tools, have a growing collection of functions available and are lightning fast.
 
 This guide will first explain what Baserow formulas are and how to use them. See the
-[baserow formula technical guide](./formula-technical-guide.md) if you are a looking for
-a technical understanding of how formulas are implemented within Baserow.
+[baserow formula technical guide](../technical/formula-technical-guide.md) if you are a
+looking for a technical understanding of how formulas are implemented within Baserow.
 
 ## What a Baserow Formula Field is
 
@@ -102,8 +102,8 @@ operators.
 ### Using Dates
 
 Use the `todate` function to create a constant date inside a formula like so:
-`todate('2020-01-01 10:20:30', 'YYYY-MM-DD HH:MI:SS')`. The first argument is the 
-date you want in text form and the second is the format of the date text.
+`todate('2020-01-01 10:20:30', 'YYYY-MM-DD HH:MI:SS')`. The first argument is the date
+you want in text form and the second is the format of the date text.
 
 ### Using Date intervals
 

@@ -292,6 +292,7 @@ if [ "$dont_attach" != true ] && [ "$up" = true ] ; then
           "/bin/bash /baserow/backend/docker/docker-entrypoint.sh lint-shell"
 
   if [ "$attach_all" = true ] ; then
+    launch_tab_and_attach "caddy" "caddy"
     launch_tab_and_attach "mjml compiler" "mjml-email-compiler"
     launch_tab_and_attach "db" "db"
     launch_tab_and_attach "redis" "redis"

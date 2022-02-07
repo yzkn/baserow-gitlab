@@ -5,14 +5,20 @@ set -euo pipefail
 # Used by docker-entrypoint.sh to start the dev server
 # If not configured you'll receive this: CommandError: "0.0.0.0:" is not a valid port number or address:port pair.
 PORT="${PORT:-8000}"
-DATABASE_USER="${DATABASE_USER:-postgres}"
+DATABASE_USER="${DATABASE_USER:-baserow}"
 DATABASE_HOST="${DATABASE_HOST:-db}"
 DATABASE_PORT="${DATABASE_PORT:-5432}"
+DATABASE_NAME="${DATABASE_USER:-baserow}"
+DATABASE_PASSWORD="${DATABASE_PASSWORD:-baserow}"
+
+BASEROW_AMOUNT_OF_WORKERS=${BASEROW_AMOUNT_OF_WORKERS:-1}
+BASEROW_AMOUNT_OF_GUNICORN_WORKERS=${BASEROW_AMOUNT_OF_GUNICORN_WORKERS:-$BASEROW_AMOUNT_OF_WORKERS}
+RUN_MINIMAL_CELERY=${RUN_MINIMAL_CELERY:-}
 
 source "/baserow/venv/bin/activate"
 
 postgres_ready() {
-python << END
+python3 << END
 import sys
 import psycopg2
 try:
@@ -59,8 +65,21 @@ lint-exit       : Run the linting and exit (only available if using dev target)
 test:           : Run the tests (only available if using dev target)
 ci-test:        : Run the tests for ci including various reports (dev only)
 ci-check-startup: Start up a single gunicorn and timeout after 10 seconds for ci (dev).
+backup          : Backs up Baserow.
+restore         : Restores Baserow.
 help            : Show this message
 """
+}
+
+curlf() {
+  OUTPUT_FILE=$(mktemp)
+  HTTP_CODE=$(curl --silent --output "$OUTPUT_FILE" --write-out "%{http_code}" "$@")
+  if [[ ${HTTP_CODE} -lt 200 || ${HTTP_CODE} -gt 299 ]] ; then
+    >&2 cat "$OUTPUT_FILE"
+    return 22
+  fi
+  cat "$OUTPUT_FILE"
+  rm "$OUTPUT_FILE"
 }
 
 run_setup_commands_if_configured(){
@@ -74,23 +93,50 @@ if [ "$SYNC_TEMPLATES_ON_STARTUP" = "true" ] ; then
 fi
 }
 
+start_celery_worker(){
+  if [[ -n "$RUN_MINIMAL_CELERY" ]]; then
+    EXTRA_CELERY_ARGS=(--without-heartbeat --without-gossip --without-mingle)
+  fi
+  exec celery -A baserow worker --concurrency "$BASEROW_AMOUNT_OF_WORKERS" "${EXTRA_CELERY_ARGS[@]}" -l INFO "$@"
+}
+
+# Lets devs attach to this container running the passed command, press ctrl-c and only
+# the command will stop. Additionally they will be able to use bash history to
+# re-run the containers command after they have done what they want.
+attachable_exec(){
+    echo "$@"
+    exec bash --init-file <(echo "history -s $*; $*")
+}
+
+if [[ -z "${1:-}" ]]; then
+  echo "Must provide arguments to docker-entrypoint.sh"
+  show_help
+  exit 1
+fi
+
 case "$1" in
-    dev)
+    django-dev)
         wait_for_postgres
         run_setup_commands_if_configured
         echo "Running Development Server on 0.0.0.0:${PORT}"
         echo "Press CTRL-p CTRL-q to close this session without stopping the container."
-        CMD="python /baserow/backend/src/baserow/manage.py runserver 0.0.0.0:${PORT}"
-        echo "$CMD"
-        # The below command lets devs attach to this container, press ctrl-c and only
-        # the server will stop. Additionally they will be able to use bash history to
-        # re-run the containers run server command after they have done what they want.
-        exec bash --init-file <(echo "history -s $CMD; $CMD")
+        attachable_exec python /baserow/backend/src/baserow/manage.py runserver "0.0.0.0:${PORT}"
     ;;
-    local)
+    gunicorn)
         wait_for_postgres
         run_setup_commands_if_configured
-        exec gunicorn --workers=3 -b 0.0.0.0:"${PORT}" -k uvicorn.workers.UvicornWorker baserow.config.asgi:application
+        exec gunicorn --workers="$BASEROW_AMOUNT_OF_GUNICORN_WORKERS" \
+          --worker-tmp-dir "${TMPDIR:-/dev/shm}" \
+          --log-file=- \
+          --capture-output \
+          --forwarded-allow-ips='*' \
+          -b 127.0.0.1:"${PORT}" \
+          --log-level=debug \
+          -k uvicorn.workers.UvicornWorker baserow.config.asgi:application "${@:2}"
+    ;;
+    backend-healthcheck)
+      echo "Running backend healthcheck..."
+      curlf "http://localhost:$PORT/_health/"
     ;;
     exec)
         exec "${@:2}"
@@ -99,26 +145,24 @@ case "$1" in
         exec /bin/bash "${@:2}"
     ;;
     manage)
-        exec python /baserow/backend/src/baserow/manage.py "${@:2}"
+        exec python3 /baserow/backend/src/baserow/manage.py "${@:2}"
     ;;
     python)
-        exec python "${@:2}"
+        exec python3 "${@:2}"
     ;;
     setup)
-      echo "python /baserow/backend/src/baserow/manage.py migrate"
-      python /baserow/backend/src/baserow/manage.py migrate
-      echo "python /baserow/backend/src/baserow/manage.py update_formulas"
-      python /baserow/backend/src/baserow/manage.py update_formulas
-      echo "python /baserow/backend/src/baserow/manage.py sync_templates"
-      python /baserow/backend/src/baserow/manage.py sync_templates
+      echo "python3 /baserow/backend/src/baserow/manage.py migrate"
+      DONT_UPDATE_FORMULAS_AFTER_MIGRATION=yes python3 /baserow/backend/src/baserow/manage.py migrate
+      echo "python3 /baserow/backend/src/baserow/manage.py update_formulas"
+      python3 /baserow/backend/src/baserow/manage.py update_formulas
+      echo "python3 /baserow/backend/src/baserow/manage.py sync_templates"
+      python3 /baserow/backend/src/baserow/manage.py sync_templates
     ;;
     shell)
-        exec python /baserow/backend/src/baserow/manage.py shell
+        exec python3 /baserow/backend/src/baserow/manage.py shell
     ;;
     lint-shell)
-        CMD="make lint-python"
-        echo "$CMD"
-        exec bash --init-file <(echo "history -s $CMD; $CMD")
+        attachable_exec make lint-python
     ;;
     lint)
         exec make lint-python
@@ -130,9 +174,26 @@ case "$1" in
         exec make ci-check-startup-python
     ;;
     celery)
-        exec celery -A baserow "${@:2}"
+        exec celery -A baserow  "${@:2}"
     ;;
-    celery-dev)
+    celery-worker)
+      start_celery_worker -Q celery -n default-worker@%h "${@:2}"
+    ;;
+    celery-worker-healthcheck)
+      echo "Running celery worker healthcheck..."
+      exec celery -A baserow inspect ping -d "default-worker@$HOSTNAME" -t 10 "${@:2}"
+    ;;
+    celery-exportworker)
+      start_celery_worker -Q export -n export-worker@%h "${@:2}"
+    ;;
+    celery-exportworker-healthcheck)
+      echo "Running celery export worker healthcheck..."
+      exec celery -A baserow inspect ping -d "export-worker@$HOSTNAME" -t 10 "${@:2}"
+    ;;
+    celery-beat)
+      exec celery -A baserow beat -l INFO -S redbeat.RedBeatScheduler "${@:2}"
+    ;;
+    watch-py)
         # Ensure we watch all possible python source code locations for changes.
         directory_args=''
         for i in $(echo "$PYTHONPATH" | tr ":" "\n")
@@ -140,12 +201,39 @@ case "$1" in
           directory_args="$directory_args -d=$i"
         done
 
-        CMD="watchmedo auto-restart $directory_args --pattern=*.py --recursive -- celery -A baserow ${*:2}"
-        echo "$CMD"
-        # The below command lets devs attach to this container, press ctrl-c and only
-        # the server will stop. Additionally they will be able to use bash history to
-        # re-run the containers run server command after they have done what they want.
-        exec bash --init-file <(echo "history -s $CMD; $CMD")
+        attachable_exec watchmedo auto-restart "$directory_args" --pattern=*.py --recursive -- "${BASH_SOURCE[0]} ${*:2}"
+    ;;
+    backup)
+        if [[ -n "${DATABASE_URL:-}" ]]; then
+          echo -e "\e[31mThe backup command is currently incompatible with DATABASE_URL, "\
+            "please set the DATABASE_{HOST,USER,PASSWORD,NAME,PORT} variables manually"\
+            " instead. \e[0m" >&2
+          exit 1
+        fi
+        cd "${DATA_DIR:-/baserow}"/backups || true
+        export PGPASSWORD=$DATABASE_PASSWORD
+        exec python3 /baserow/backend/src/baserow/manage.py backup_baserow \
+            -h "$DATABASE_HOST" \
+            -d "$DATABASE_NAME" \
+            -U "$DATABASE_USER" \
+            -p "$DATABASE_PORT" \
+            "${@:2}"
+    ;;
+    restore)
+        if [[ -n "${DATABASE_URL:-}" ]]; then
+          echo -e "\e[31mThe restore command is currently incompatible with DATABASE_URL, "\
+            "please set the DATABASE_{HOST,USER,PASSWORD,NAME,PORT} variables manually"\
+            " instead. \e[0m" >&2
+          exit 1
+        fi
+        cd "${DATA_DIR:-/baserow}"/backups || true
+        export PGPASSWORD=$DATABASE_PASSWORD
+        exec python3 /baserow/backend/src/baserow/manage.py restore_baserow \
+            -h "$DATABASE_HOST" \
+            -d "$DATABASE_NAME" \
+            -U "$DATABASE_USER" \
+            -p "$DATABASE_PORT" \
+            "${@:2}"
     ;;
     *)
         echo "${@:2}"

@@ -30,6 +30,19 @@ export default function CoreModule(options) {
   // Register new alias to the web-frontend directory.
   this.options.alias['@baserow'] = path.resolve(__dirname, '../../')
 
+  if (process.env.CADDY) {
+    const domain = process.env.DOMAIN || 'http://localhost'
+    process.env.PUBLIC_BACKEND_URL = domain
+    process.env.PUBLIC_WEB_FRONTEND_URL = domain
+    if (
+      process.env.WEB_FRONTEND_PORT &&
+      process.env.WEB_FRONTEND_PORT !== '80'
+    ) {
+      process.env.PUBLIC_BACKEND_URL += ':' + process.env.WEB_FRONTEND_PORT
+      process.env.PUBLIC_WEB_FRONTEND_URL += ':' + process.env.WEB_FRONTEND_PORT
+    }
+  }
+
   // The core depends on these modules.
   this.requireModule('cookie-universal-nuxt')
   this.requireModule([

@@ -2,6 +2,7 @@
 # Bash strict mode: http://redsymbol.net/articles/unofficial-bash-strict-mode/
 set -euo pipefail
 
+PORT="${PORT:-3000}"
 
 show_help() {
 # If you change this please update ./docs/reference/baserow-docker-api.md
@@ -22,26 +23,36 @@ help     : Show this message
 """
 }
 
+# Lets devs attach to this container running the passed command, press ctrl-c and only
+# the command will stop. Additionally they will be able to use bash history to
+# re-run the containers command after they have done what they want.
+attachable_exec(){
+    echo "$@"
+    exec bash --init-file <(echo "history -s $*; $*")
+}
+
+if [[ -z "${1:-}" ]]; then
+  echo "Must provide arguments to docker-entrypoint.sh"
+  show_help
+  exit 1
+fi
+
 
 case "$1" in
-    dev)
-        CMD="yarn run dev"
-        echo "$CMD"
-        # The below command lets devs attach to this container, press ctrl-c and only
-        # the server will stop. Additionally they will be able to use bash history to
-        # re-run the containers run server command after they have done what they want.
-        exec bash --init-file <(echo "history -s $CMD; $CMD")
+    nuxt-dev)
+        attachable_exec yarn run dev
     ;;
-    local)
-      exec yarn run start
+    nuxt)
+      exec ./node_modules/.bin/nuxt --hostname 127.0.0.1 --port "$PORT" "${@:2}"
+    ;;
+    nuxt-local)
+      exec ./node_modules/.bin/nuxt --hostname 127.0.0.1 --port "$PORT" --config-file ./config/nuxt.config.local.js "${@:2}"
     ;;
     lint)
       exec make lint-javascript
     ;;
     lint-fix)
-      CMD="yarn run eslint --fix"
-      echo "$CMD"
-      exec bash --init-file <(echo "history -s $CMD; $CMD")
+      attachable_exec yarn run eslint --fix
     ;;
     eslint)
       exec make eslint

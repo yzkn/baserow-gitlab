@@ -1,6 +1,7 @@
 import datetime
 import os
 from urllib.parse import urlparse, urljoin
+import dj_database_url
 
 from corsheaders.defaults import default_headers
 
@@ -10,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_TO_SOMETHING_SECRET_IN_PRODUCTION")
+SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -28,6 +29,14 @@ INSTALLED_APPS = [
     "channels",
     "drf_spectacular",
     "djcelery_email",
+    "health_check",
+    "health_check.db",
+    "health_check.cache",
+    "health_check.storage",
+    "health_check.contrib.migrations",
+    "health_check.contrib.celery_ping",
+    "health_check.contrib.psutil",
+    "health_check.contrib.redis",
     "baserow.core",
     "baserow.api",
     "baserow.ws",
@@ -128,17 +137,21 @@ CHANNEL_LAYERS = {
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DATABASE_NAME", "baserow"),
-        "USER": os.getenv("DATABASE_USER", "baserow"),
-        "PASSWORD": os.getenv("DATABASE_PASSWORD", "baserow"),
-        "HOST": os.getenv("DATABASE_HOST", "db"),
-        "PORT": os.getenv("DATABASE_PORT", "5432"),
+if "DATABASE_URL" in os.environ:
+    DATABASES = {
+        "default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DATABASE_NAME", "baserow"),
+            "USER": os.getenv("DATABASE_USER", "baserow"),
+            "PASSWORD": os.getenv("DATABASE_PASSWORD", "baserow"),
+            "HOST": os.getenv("DATABASE_HOST", "db"),
+            "PORT": os.getenv("DATABASE_PORT", "5432"),
+        }
+    }
 
 GENERATED_MODEL_CACHE_NAME = "generated-models"
 CACHES = {
@@ -309,6 +322,15 @@ if os.getenv("AWS_S3_CUSTOM_DOMAIN", "") != "":
 
 PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "http://localhost:8000")
 PUBLIC_WEB_FRONTEND_URL = os.getenv("PUBLIC_WEB_FRONTEND_URL", "http://localhost:3000")
+if bool(os.getenv("CADDY", False)):
+    DOMAIN = os.getenv("DOMAIN", "http://localhost")
+    PUBLIC_BACKEND_URL = DOMAIN
+    PUBLIC_WEB_FRONTEND_URL = DOMAIN
+    WEB_FRONTEND_PORT = os.getenv("WEB_FRONTEND_PORT", "80")
+    if WEB_FRONTEND_PORT != "80":
+        PUBLIC_BACKEND_URL += f":{WEB_FRONTEND_PORT}"
+        PUBLIC_WEB_FRONTEND_URL += f":{WEB_FRONTEND_PORT}"
+
 PRIVATE_BACKEND_URL = os.getenv("PRIVATE_BACKEND_URL", "http://backend:8000")
 PUBLIC_BACKEND_HOSTNAME = urlparse(PUBLIC_BACKEND_URL).hostname
 PUBLIC_WEB_FRONTEND_HOSTNAME = urlparse(PUBLIC_WEB_FRONTEND_URL).hostname
@@ -393,8 +415,8 @@ FILE_UPLOAD_PERMISSIONS = None
 
 MAX_FORMULA_STRING_LENGTH = 10000
 MAX_FIELD_REFERENCE_DEPTH = 1000
-UPDATE_FORMULAS_AFTER_MIGRATION = bool(
-    os.getenv("UPDATE_FORMULAS_AFTER_MIGRATION", "yes")
+DONT_UPDATE_FORMULAS_AFTER_MIGRATION = bool(
+    os.getenv("DONT_UPDATE_FORMULAS_AFTER_MIGRATION", "")
 )
 
 WEBHOOKS_MAX_CONSECUTIVE_TRIGGER_FAILURES = 8
@@ -418,3 +440,48 @@ WEBHOOKS_REQUEST_TIMEOUT_SECONDS = 5
 DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS = bool(
     os.getenv("DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS", "")
 )
+
+NO_MODEL_CACHE = bool(os.getenv("NO_MODEL_CACHE", ""))
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": "%(levelname)s %(asctime)s %(name)s.%(funcName)s:%(lineno)s- %("
+            "message)s "
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+    },
+    "loggers": {
+        "gunicorn": {
+            "level": "INFO",
+            "handlers": ["console"],
+            "propagate": True,
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+}

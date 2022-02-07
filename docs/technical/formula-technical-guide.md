@@ -2,7 +2,7 @@
 
 This guide explains the inner workings of Baserow formulas for developers.
 
-See the [understanding baserow formulas guide](./understanding-baserow-formulas.md) if
+See the [understanding baserow formulas guide](../tutorials/understanding-baserow-formulas.md) if
 you instead want a general guide of how to use formulas as a user within Baserow.
 
 ## Technical Overview

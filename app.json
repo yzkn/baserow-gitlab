@@ -31,6 +31,11 @@
       "description": "The amount of workers per dyno. This value must be `1` if you want to run the free plan.",
       "value": "1",
       "required": true
+    },
+    "INSTALL_TEMPLATES": {
+      "description": "The free Heroku database only supports 10k rows, Baserows templates if installed will use 12k rows and go over the limit. Only set this to yes if you have paid for the Heroku database upgrade and can store more than 10k rows. Whether or not to install baserow's built in templates.",
+      "value": "no",
+      "required": false
     }
   }
 }
