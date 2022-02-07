@@ -330,11 +330,7 @@ class NumberFieldType(FieldType):
     def get_serializer_field(self, instance, **kwargs):
         required = kwargs.get("required", False)
 
-        kwargs["decimal_places"] = (
-            0
-            if instance.number_type == NUMBER_TYPE_INTEGER
-            else instance.number_decimal_places
-        )
+        kwargs["decimal_places"] = instance.number_decimal_places
 
         if not instance.number_negative:
             kwargs["min_value"] = 0
@@ -356,7 +352,7 @@ class NumberFieldType(FieldType):
         # don't convert it to a string. However if a decimal to preserve any precision
         # we keep it as a string.
         instance = field_object["field"]
-        if instance.number_type == NUMBER_TYPE_INTEGER:
+        if instance.number_decimal_places == 0:
             return int(value)
 
         # DRF's Decimal Serializer knows how to quantize and format the decimal
@@ -364,11 +360,7 @@ class NumberFieldType(FieldType):
         return self.get_serializer_field(instance).to_representation(value)
 
     def get_model_field(self, instance, **kwargs):
-        kwargs["decimal_places"] = (
-            0
-            if instance.number_type == NUMBER_TYPE_INTEGER
-            else instance.number_decimal_places
-        )
+        kwargs["decimal_places"] = instance.number_decimal_places
 
         return models.DecimalField(
             max_digits=self.MAX_DIGITS + kwargs["decimal_places"],
@@ -378,6 +370,7 @@ class NumberFieldType(FieldType):
         )
 
     def random_value(self, instance, fake, cache):
+        # TODO: change based on number_decimal_places
         if instance.number_type == NUMBER_TYPE_INTEGER:
             return fake.pyint(
                 min_value=-10000 if instance.number_negative else 1,
@@ -392,6 +385,7 @@ class NumberFieldType(FieldType):
             )
 
     def get_alter_column_prepare_new_value(self, connection, from_field, to_field):
+        # TODO: check
         if connection.vendor == "postgresql":
             decimal_places = 0
             if to_field.number_type == NUMBER_TYPE_DECIMAL:
@@ -419,6 +413,7 @@ class NumberFieldType(FieldType):
         return value if value is None else str(value)
 
     def to_baserow_formula_type(self, field: NumberField) -> BaserowFormulaType:
+        # TODO: check/change
         if field.number_type == NUMBER_TYPE_INTEGER:
             number_decimal_places = 0
         else:
@@ -428,6 +423,7 @@ class NumberFieldType(FieldType):
     def from_baserow_formula_type(
         self, formula_type: BaserowFormulaNumberType
     ) -> NumberField:
+        # TODO: check/change
         if formula_type.number_decimal_places == 0:
             number_type = NUMBER_TYPE_INTEGER
         else:

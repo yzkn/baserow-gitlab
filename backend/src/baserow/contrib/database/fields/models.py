@@ -1,8 +1,9 @@
+from decimal import Decimal
+
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils.functional import cached_property
 from django.core.validators import MinValueValidator, MaxValueValidator
-
 from baserow.contrib.database.fields.mixins import (
     BaseDateMixin,
     TimezoneMixin,
@@ -36,6 +37,7 @@ NUMBER_TYPE_CHOICES = (
 NUMBER_MAX_DECIMAL_PLACES = 5
 
 NUMBER_DECIMAL_PLACES_CHOICES = [
+    (0, "1"),
     (1, "1.0"),
     (2, "1.00"),
     (3, "1.000"),
@@ -211,18 +213,31 @@ class NumberField(Field):
     )
     number_decimal_places = models.IntegerField(
         choices=NUMBER_DECIMAL_PLACES_CHOICES,
-        default=1,
+        default=0,
         help_text="The amount of digits allowed after the point.",
     )
     number_negative = models.BooleanField(
         default=False, help_text="Indicates if negative values are allowed."
     )
 
+    # TODO: keep or remove number_type column?
+    #       add @property number_type instead?
+
+    # TODO: make number_decimal_places nullable? => probably not
+
     def save(self, *args, **kwargs):
         """Check if the number_type and number_decimal_places has a valid choice."""
 
+        # TODO: remove this validation?
         if not any(self.number_type in _tuple for _tuple in NUMBER_TYPE_CHOICES):
             raise ValueError(f"{self.number_type} is not a valid choice.")
+
+        # TODO: check if provided number_decimal_places correspond with provided optional 
+        # number_type ?
+
+        # self.number_decimal_places now distinguish between integer and decimal directly
+        self.number_type = "INTEGER" if self.number_decimal_places == 0 else "DECIMAL"
+        
         if not any(
             self.number_decimal_places in _tuple
             for _tuple in NUMBER_DECIMAL_PLACES_CHOICES

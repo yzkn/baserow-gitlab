@@ -207,17 +207,7 @@ def test_create_field(send_mock, data_fixture):
             user=user,
             table=table,
             type_name="number",
-            name="Test number field",
-            number_type="NOT_EXISTING",
-        )
-
-    with pytest.raises(ValueError):
-        handler.create_field(
-            user=user,
-            table=table,
-            type_name="number",
-            name="Test number field",
-            number_type="DECIMAL",
+            name="Test decimal with oversized decimal places value",
             number_decimal_places=9999,
         )
 
@@ -226,8 +216,7 @@ def test_create_field(send_mock, data_fixture):
         table=table,
         type_name="number",
         name="Test number field",
-        number_type="INTEGER",
-        number_decimal_places=2,
+        number_decimal_places=0,
         number_negative=True,
     )
 
@@ -236,7 +225,7 @@ def test_create_field(send_mock, data_fixture):
     assert number_field.order == 2
     assert number_field.table == table
     assert number_field.number_type == "INTEGER"
-    assert number_field.number_decimal_places == 2
+    assert number_field.number_decimal_places == 0
     assert number_field.number_negative
 
     handler.create_field(

@@ -391,7 +391,7 @@ def test_update_field(api_client, data_fixture):
     assert response_json["name"] == "Test 1"
     assert response_json["type"] == "number"
     assert response_json["number_type"] == "INTEGER"
-    assert response_json["number_decimal_places"] == 1
+    assert response_json["number_decimal_places"] == 0
     assert response_json["number_negative"]
 
     url = reverse("api:database:fields:item", kwargs={"field_id": text.id})
