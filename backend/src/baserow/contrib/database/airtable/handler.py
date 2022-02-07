@@ -294,7 +294,6 @@ def to_baserow_database_export(
 
     @TODO add the views.
     @TODO preserve the order of least one view.
-    @TODO fall back on another field if the primary field is not supported.
 
     :param init_data: The init_data, extracted from the initial page related to the
         shared base.
@@ -355,6 +354,7 @@ def to_baserow_database_export(
         # format.
         for column in table["columns"]:
             field_export, field_type = to_baserow_field_export(table, column)
+            converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
             # None means that none of the field types know how to parse this field,
             # so we must ignore it.
@@ -369,7 +369,6 @@ def to_baserow_database_export(
                 "baserow_field": field_export,
                 "baserow_field_type": field_type,
             }
-            converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
         # Create a list with all the primary fields so that we can check if it's
         # missing.

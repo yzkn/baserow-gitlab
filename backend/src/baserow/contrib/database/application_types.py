@@ -124,6 +124,9 @@ class DatabaseApplicationType(ApplicationType):
             (
                 # Creating each table
                 len(tables)
+                +
+                # Creating each model table
+                len(tables)
                 + sum(
                     [
                         # Inserting every field
@@ -164,6 +167,7 @@ class DatabaseApplicationType(ApplicationType):
         # Because view properties might depend on fields, we first want to create all
         # the fields.
         all_fields = []
+        none_field_count = 0
         for table in tables:
             for field in table["fields"]:
                 field_type = field_type_registry.get(field["type"])
@@ -174,8 +178,10 @@ class DatabaseApplicationType(ApplicationType):
                 if field_object:
                     table["_field_objects"].append(field_object)
                     all_fields.append((field_type, field_object))
+                else:
+                    none_field_count += 1
 
-            progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
+                progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         field_cache = FieldCache()
         for field_type, field in all_fields:
@@ -189,6 +195,7 @@ class DatabaseApplicationType(ApplicationType):
                 view_type.import_serialized(
                     table["_object"], view, id_mapping, files_zip, storage
                 )
+                progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
             # We don't need to create all the fields individually because the schema
             # editor can handle the creation of the table schema in one go.
@@ -266,5 +273,9 @@ class DatabaseApplicationType(ApplicationType):
             field_type.after_rows_imported(field, [], update_collector)
             update_collector.apply_updates_and_get_updated_fields()
             progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
+
+        # Add the remaining none fields that we must not include in the import
+        # because they were for example reversed link row fields.
+        progress.increment(none_field_count, state=IMPORT_SERIALIZED_IMPORTING)
 
         return database

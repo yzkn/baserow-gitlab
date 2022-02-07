@@ -72,8 +72,10 @@ class Command(BaseCommand):
             import_from_airtable_to_group(
                 group, share_id, parent_progress=(progress, 1000)
             )
+            progress_bar.close()
             self.stdout.write(f"Your base has been imported.")
         except AirtableBaseNotPublic:
+            progress_bar.close()
             self.stdout.write(
                 self.style.ERROR(
                     f"The Airtable base is not shared publicly. A base can be shared "
@@ -81,5 +83,3 @@ class Command(BaseCommand):
                     f"corner and then create a `Shared base link`."
                 )
             )
-        finally:
-            progress_bar.close()

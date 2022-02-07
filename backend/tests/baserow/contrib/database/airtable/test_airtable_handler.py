@@ -11,6 +11,7 @@ from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 
 from baserow.core.user_files.models import UserFile
+from baserow.core.utils import Progress
 from baserow.contrib.database.fields.models import TextField
 from baserow.contrib.database.airtable.handler import (
     fetch_publicly_shared_base,
@@ -351,10 +352,12 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
             body=file.read(),
         )
 
+    progress = Progress(1000)
     databases, id_mapping = import_from_airtable_to_group(
-        group, "shrXxmp0WmqsTkFWTzv", storage=storage
+        group, "shrXxmp0WmqsTkFWTzv", storage=storage, parent_progress=(progress, 1000)
     )
 
+    assert progress.progress == progress.total
     assert UserFile.objects.all().count() == 3
     file_path = tmpdir.join("user_files", UserFile.objects.all()[0].name)
     assert file_path.isfile()
