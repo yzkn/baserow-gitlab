@@ -113,7 +113,10 @@ def contains_filter(field_name, value, model_field, _) -> OptionallyAnnotatedQ:
     try:
         model_field.get_prep_value(value)
         return Q(**{f"{field_name}__icontains": value})
-    except Exception:
+        # Ignore sec linter as its very hard to figure out what exceptions
+        # get_prep_value throws and additionally it is not exceptional that it throws
+        # as we trying to see the value successfully converts by using it.
+    except Exception:  # nosec
         pass
     return Q()
 
@@ -149,8 +152,9 @@ def _build_filename_contains_raw_query(field, value):
         FROM JSONB_ARRAY_ELEMENTS("field_{field.id}") as attached_files
         WHERE UPPER(attached_files ->> 'visible_name') LIKE UPPER(%s)
     )
-"""
-    return RawSQL(
+"""  # nosec
+    # No user input goes into the sql constructed + escaped param is used so safe.
+    return RawSQL(  # nosec
         num_files_with_name_like_value,
         params=[f"%{value}%"],
         output_field=BooleanField(),

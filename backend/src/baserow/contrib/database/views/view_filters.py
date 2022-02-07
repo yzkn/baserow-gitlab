@@ -83,10 +83,14 @@ class EqualViewFilterType(ViewFilterType):
             return Q()
 
         # Check if the model_field accepts the value.
+        # noinspection PyBroadException
         try:
             model_field.get_prep_value(value)
             return Q(**{field_name: value})
-        except Exception:
+        # Ignore sec linter as its very hard to figure out what exceptions
+        # get_prep_value throws and additionally it is not exceptional that it throws
+        # as we trying to see the value successfully converts by using it.
+        except Exception:  # nosec
             pass
 
         return Q()
@@ -196,7 +200,7 @@ class LengthIsLowerThanViewFilterType(ViewFilterType):
                 annotation={f"{field_name}_len": Length(field_name)},
                 q={f"{field_name}_len__lt": int(value)},
             )
-        except Exception:
+        except ValueError:
             pass
 
         return Q()
@@ -230,10 +234,14 @@ class HigherThanViewFilterType(ViewFilterType):
             value = floor(decimal)
 
         # Check if the model_field accepts the value.
+        # noinspection PyBroadException
         try:
             model_field.get_prep_value(value)
             return Q(**{f"{field_name}__gt": value})
-        except Exception:
+        # Ignore sec linter as its very hard to figure out what exceptions
+        # get_prep_value throws and additionally it is not exceptional that it throws
+        # as we trying to see the value successfully converts by using it.
+        except Exception:  # nosec
             pass
 
         return Q()
@@ -267,10 +275,14 @@ class LowerThanViewFilterType(ViewFilterType):
             value = ceil(decimal)
 
         # Check if the model_field accepts the value.
+        # noinspection PyBroadException
         try:
             model_field.get_prep_value(value)
             return Q(**{f"{field_name}__lt": value})
-        except Exception:
+        # Ignore sec linter as its very hard to figure out what exceptions
+        # get_prep_value throws and additionally it is not exceptional that it throws
+        # as we trying to see the value successfully converts by using it.
+        except Exception:  # nosec
             pass
 
         return Q()
@@ -604,10 +616,14 @@ class BooleanViewFilterType(ViewFilterType):
         ]
 
         # Check if the model_field accepts the value.
+        # noinspection PyBroadException
         try:
             model_field.get_prep_value(value)
             return Q(**{field_name: value})
-        except Exception:
+        # Ignore sec linter as its very hard to figure out what exceptions
+        # get_prep_value throws and additionally it is not exceptional that it throws
+        # as we trying to see the value successfully converts by using it.
+        except Exception:  # nosec
             pass
 
         return Q()
@@ -770,10 +786,14 @@ class EmptyViewFilterType(ViewFilterType):
 
         # If the model field accepts an empty string as value we are going to add
         # that to the or statement.
+        # noinspection PyBroadException
         try:
             model_field.get_prep_value("")
             q.add(Q(**{f"{field_name}": ""}), Q.OR)
-        except Exception:
+        # Ignore sec linter as its very hard to figure out what exceptions
+        # get_prep_value throws and additionally it is not exceptional that it throws
+        # as we trying to see the value successfully converts by using it.
+        except Exception:  # nosec
             pass
 
         return q
