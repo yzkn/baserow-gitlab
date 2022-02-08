@@ -81,8 +81,6 @@ from .fields import (
 )
 from .handler import FieldHandler
 from .models import (
-    NUMBER_TYPE_INTEGER,
-    NUMBER_TYPE_DECIMAL,
     TextField,
     LongTextField,
     URLField,
@@ -370,14 +368,13 @@ class NumberFieldType(FieldType):
         )
 
     def random_value(self, instance, fake, cache):
-        # TODO: change based on number_decimal_places
-        if instance.number_type == NUMBER_TYPE_INTEGER:
+        if instance.number_decimal_places == 0:
             return fake.pyint(
                 min_value=-10000 if instance.number_negative else 1,
                 max_value=10000,
                 step=1,
             )
-        elif instance.number_type == NUMBER_TYPE_DECIMAL:
+        elif instance.number_decimal_places > 0:
             return fake.pydecimal(
                 min_value=-10000 if instance.number_negative else 1,
                 max_value=10000,
@@ -385,11 +382,8 @@ class NumberFieldType(FieldType):
             )
 
     def get_alter_column_prepare_new_value(self, connection, from_field, to_field):
-        # TODO: check
         if connection.vendor == "postgresql":
-            decimal_places = 0
-            if to_field.number_type == NUMBER_TYPE_DECIMAL:
-                decimal_places = to_field.number_decimal_places
+            decimal_places = to_field.number_decimal_places
 
             function = f"round(p_in::numeric, {decimal_places})"
 
@@ -413,23 +407,12 @@ class NumberFieldType(FieldType):
         return value if value is None else str(value)
 
     def to_baserow_formula_type(self, field: NumberField) -> BaserowFormulaType:
-        # TODO: check/change
-        if field.number_type == NUMBER_TYPE_INTEGER:
-            number_decimal_places = 0
-        else:
-            number_decimal_places = field.number_decimal_places
-        return BaserowFormulaNumberType(number_decimal_places=number_decimal_places)
+        return BaserowFormulaNumberType(number_decimal_places=field.number_decimal_places)
 
     def from_baserow_formula_type(
         self, formula_type: BaserowFormulaNumberType
     ) -> NumberField:
-        # TODO: check/change
-        if formula_type.number_decimal_places == 0:
-            number_type = NUMBER_TYPE_INTEGER
-        else:
-            number_type = NUMBER_TYPE_DECIMAL
         return NumberField(
-            number_type=number_type,
             number_decimal_places=formula_type.number_decimal_places,
             number_negative=True,
         )
