@@ -40,10 +40,7 @@ export default {
   mixins: [form, fieldSubForm],
   data() {
     return {
-      allowedValues: [
-        'number_decimal_places',
-        'number_negative',
-      ],
+      allowedValues: ['number_decimal_places', 'number_negative'],
       values: {
         number_decimal_places: 0,
         number_negative: false,
