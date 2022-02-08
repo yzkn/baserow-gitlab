@@ -223,8 +223,6 @@ class NumberField(Field):
     # TODO: keep or remove number_type column?
     #       add @property number_type instead?
 
-    # TODO: make number_decimal_places nullable? => probably not
-
     def save(self, *args, **kwargs):
         """Check if the number_type and number_decimal_places has a valid choice."""
 

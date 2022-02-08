@@ -315,7 +315,7 @@ class NumberFieldType(FieldType):
     type = "number"
     model_class = NumberField
     allowed_fields = ["number_type", "number_decimal_places", "number_negative"]
-    serializer_field_names = ["number_type", "number_decimal_places", "number_negative"]
+    serializer_field_names = ["number_decimal_places", "number_negative"]
 
     def prepare_value_for_db(self, instance, value):
         if value is not None:

@@ -280,7 +280,6 @@ def test_meta_submit_form_view(api_client, data_fixture):
         "field": {
             "id": number_field.id,
             "type": "number",
-            "number_type": "INTEGER",
             "number_decimal_places": 0,
             "number_negative": False,
         },

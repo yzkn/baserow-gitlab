@@ -51,7 +51,6 @@ def test_list_fields(api_client, data_fixture):
     assert response_json[1]["id"] == field_3.id
     assert response_json[1]["type"] == "number"
     assert not response_json[1]["primary"]
-    assert response_json[1]["number_type"] == field_3.number_type
     assert response_json[1]["number_decimal_places"] == field_3.number_decimal_places
     assert response_json[1]["number_negative"] == field_3.number_negative
 
@@ -390,7 +389,6 @@ def test_update_field(api_client, data_fixture):
     assert response.status_code == HTTP_200_OK
     assert response_json["name"] == "Test 1"
     assert response_json["type"] == "number"
-    assert response_json["number_type"] == "INTEGER"
     assert response_json["number_decimal_places"] == 0
     assert response_json["number_negative"]
 
@@ -398,7 +396,6 @@ def test_update_field(api_client, data_fixture):
     response = api_client.patch(
         url,
         {
-            "number_type": "DECIMAL",
             "number_decimal_places": 2,
             "number_negative": False,
         },
@@ -409,7 +406,6 @@ def test_update_field(api_client, data_fixture):
     assert response.status_code == HTTP_200_OK
     assert response_json["name"] == "Test 1"
     assert response_json["type"] == "number"
-    assert response_json["number_type"] == "DECIMAL"
     assert response_json["number_decimal_places"] == 2
     assert not response_json["number_negative"]
 
@@ -424,7 +420,6 @@ def test_update_field(api_client, data_fixture):
     assert response.status_code == HTTP_200_OK
     assert response_json["name"] == "Test 2"
     assert response_json["type"] == "boolean"
-    assert "number_type" not in response_json
     assert "number_decimal_places" not in response_json
     assert "number_negative" not in response_json
 
