@@ -487,5 +487,14 @@
         "selectApplicationTitle": "For which database do you want to see the documentation?",
         "signIn": "Sign in to get started",
         "back": "Back to dashboard"
+    },
+    "databaseForm": {
+        "importLabel": "Would you like to import existing data?",
+        "emptyLabel": "Start from scratch",
+        "airtableLabel": "Import from Airtable (beta)",
+        "airtableShareLinkTitle": "Share a link to your Base",
+        "airtableShareLinkDescription": "To import the structure of your Airtable, we need to have a sharing link to your entire base. Click on the share button in the top right corner after opening your Base. After that you must choose the access to base option. In the share modal you can click on the “Create a shared link the whole base” button and then on “Private read-only link”. Copy the public link and paste it in the input below.",
+        "airtableShareLinkBeta": "Note that this is a beta feature and that Baserow doesn’t have all the features of Airtable yet. It could be that data is missing after the import.",
+        "airtableShareLinkPaste": "Paste the link here"
     }
 }

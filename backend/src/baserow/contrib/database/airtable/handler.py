@@ -8,6 +8,8 @@ from io import BytesIO, IOBase
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from django.core.files.storage import Storage
+from django.contrib.auth import get_user_model
+from django.db import transaction
 
 from baserow.core.handler import CoreHandler
 from baserow.core.utils import Progress, remove_invalid_surrogate_characters
@@ -22,6 +24,11 @@ from baserow.contrib.database.airtable.constants import (
 )
 
 from .exceptions import AirtableBaseNotPublic
+from .models import AirtableImportJob
+from .tasks import run_import_from_airtable
+
+
+User = get_user_model()
 
 
 BASE_HEADERS = {
@@ -519,3 +526,24 @@ def import_from_airtable_to_group(
     )
 
     return databases, id_mapping
+
+
+def create_and_start_airtable_import_job(
+    user: User, group: Group, share_id: str
+) -> AirtableImportJob:
+    """
+    @TODO docs
+
+    :param user:
+    :param group:
+    :param share_id:
+    :return:
+    """
+
+    group.has_user(user, raise_error=True)
+
+    job = AirtableImportJob.objects.create(
+        user=user, group=group, airtable_share_id=share_id
+    )
+    transaction.on_commit(lambda: run_import_from_airtable.delay(job.id))
+    return job

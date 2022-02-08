@@ -3,6 +3,7 @@ import pytest
 import responses
 import json
 
+from unittest.mock import patch
 from copy import deepcopy
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -12,6 +13,7 @@ from django.conf import settings
 
 from baserow.core.user_files.models import UserFile
 from baserow.core.utils import Progress
+from baserow.core.exceptions import UserNotInGroup
 from baserow.contrib.database.fields.models import TextField
 from baserow.contrib.database.airtable.handler import (
     fetch_publicly_shared_base,
@@ -19,6 +21,7 @@ from baserow.contrib.database.airtable.handler import (
     extract_schema,
     to_baserow_database_export,
     import_from_airtable_to_group,
+    create_and_start_airtable_import_job,
 )
 
 
@@ -391,3 +394,29 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
     rows = data_model.objects.all()
     assert rows[0].checkbox is True
     assert rows[1].checkbox is False
+
+
+@pytest.mark.django_db(transaction=True)
+@responses.activate
+@patch("baserow.contrib.database.airtable.handler.run_import_from_airtable")
+def test_create_and_start_airtable_import_job(
+    mock_run_import_from_airtable, data_fixture
+):
+    user = data_fixture.create_user()
+    group = data_fixture.create_group(user=user)
+    group_2 = data_fixture.create_group()
+
+    with pytest.raises(UserNotInGroup):
+        create_and_start_airtable_import_job(user, group_2, "test")
+
+    job = create_and_start_airtable_import_job(user, group, "test")
+    assert job.user_id == user.id
+    assert job.group_id == group.id
+    assert job.airtable_share_id == "test"
+    assert job.progress_percentage == 0
+    assert job.state == "pending"
+    assert job.error == ""
+
+    mock_run_import_from_airtable.delay.assert_called_once()
+    args = mock_run_import_from_airtable.delay.call_args
+    assert args[0][0] == job.id
