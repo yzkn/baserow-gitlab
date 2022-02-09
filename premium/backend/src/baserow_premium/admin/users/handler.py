@@ -59,7 +59,7 @@ class UserAdminHandler:
         if is_staff is not None:
             user.is_staff = is_staff
         if is_active is not None:
-            user.is_active = is_active
+            user.is_running = is_active
         if password is not None:
             try:
                 validate_password(password, user)

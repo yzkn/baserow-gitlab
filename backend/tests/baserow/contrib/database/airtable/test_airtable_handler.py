@@ -15,6 +15,14 @@ from baserow.core.user_files.models import UserFile
 from baserow.core.utils import Progress
 from baserow.core.exceptions import UserNotInGroup
 from baserow.contrib.database.fields.models import TextField
+from baserow.contrib.database.airtable.constants import (
+    AIRTABLE_EXPORT_JOB_DOWNLOADING_PENDING,
+)
+from baserow.contrib.database.airtable.exceptions import (
+    AirtableImportJobAlreadyRunning,
+    AirtableImportJobDoesNotExist,
+)
+from baserow.contrib.database.airtable.models import AirtableImportJob
 from baserow.contrib.database.airtable.handler import (
     fetch_publicly_shared_base,
     fetch_table_data,
@@ -22,6 +30,7 @@ from baserow.contrib.database.airtable.handler import (
     to_baserow_database_export,
     import_from_airtable_to_group,
     create_and_start_airtable_import_job,
+    get_airtable_import_job,
 )
 
 
@@ -420,3 +429,30 @@ def test_create_and_start_airtable_import_job(
     mock_run_import_from_airtable.delay.assert_called_once()
     args = mock_run_import_from_airtable.delay.call_args
     assert args[0][0] == job.id
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_create_and_start_airtable_import_job_while_other_job_is_running(data_fixture):
+    user = data_fixture.create_user()
+    group = data_fixture.create_group(user=user)
+    data_fixture.create_airtable_import_job(
+        user=user, state=AIRTABLE_EXPORT_JOB_DOWNLOADING_PENDING
+    )
+
+    with pytest.raises(AirtableImportJobAlreadyRunning):
+        create_and_start_airtable_import_job(user, group, "test")
+
+
+@pytest.mark.django_db
+def test_get_airtable_import_job(data_fixture):
+    user = data_fixture.create_user()
+    job_1 = data_fixture.create_airtable_import_job(user=user)
+    job_2 = data_fixture.create_airtable_import_job()
+
+    with pytest.raises(AirtableImportJobDoesNotExist):
+        get_airtable_import_job(user, job_2.id)
+
+    job = get_airtable_import_job(user, job_1.id)
+    assert isinstance(job, AirtableImportJob)
+    assert job.id == job_1.id

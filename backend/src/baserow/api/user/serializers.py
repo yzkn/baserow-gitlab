@@ -131,7 +131,7 @@ class NormalizedEmailWebTokenSerializer(JSONWebTokenSerializer):
         validated_data = super().validate(attrs)
 
         user = validated_data["user"]
-        if not user.is_active:
+        if not user.is_running:
             msg = "User account is disabled."
             raise serializers.ValidationError(msg)
 

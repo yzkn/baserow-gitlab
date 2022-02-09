@@ -45,7 +45,7 @@ class PremiumLicenseSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "license_id",
-            "is_active",
+            "is_running",
             "last_check",
             "valid_from",
             "valid_through",

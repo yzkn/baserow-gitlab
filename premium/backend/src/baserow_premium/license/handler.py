@@ -66,7 +66,7 @@ def has_active_premium_license(user: DjangoUser) -> bool:
         try:
             if (
                 available_license.product_code == "premium"
-                and available_license.is_active
+                and available_license.is_running
             ):
                 return True
         except InvalidPremiumLicenseError:

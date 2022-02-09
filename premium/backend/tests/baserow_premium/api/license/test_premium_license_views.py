@@ -119,7 +119,7 @@ def test_admin_list_licenses(api_client, data_fixture, django_assert_num_queries
             response_json = response.json()
             assert len(response_json) == 2
             assert response_json[0]["license_id"] == "1"
-            assert response_json[0]["is_active"] is True
+            assert response_json[0]["is_running"] is True
             assert response_json[0]["last_check"] is None
             assert response_json[0]["valid_from"] == "2021-08-29T19:52:57.842696Z"
             assert response_json[0]["valid_through"] == "2021-09-29T19:52:57.842696Z"
@@ -130,7 +130,7 @@ def test_admin_list_licenses(api_client, data_fixture, django_assert_num_queries
             assert response_json[0]["issued_to_email"] == "bram@baserow.io"
             assert response_json[0]["issued_to_name"] == "Bram"
             assert response_json[1]["license_id"] == "2"
-            assert response_json[1]["is_active"] is True
+            assert response_json[1]["is_running"] is True
             assert response_json[1]["last_check"] == "2021-08-29T19:52:57.842696Z"
             assert response_json[1]["valid_from"] == "2021-08-29T19:53:37.092303Z"
             assert response_json[1]["valid_through"] == "2021-09-29T19:53:37.092303Z"
@@ -156,7 +156,7 @@ def test_admin_list_licenses(api_client, data_fixture, django_assert_num_queries
         response_json = response.json()
         assert len(response_json) == 2
         assert response_json[0]["license_id"] == "2"
-        assert response_json[0]["is_active"] is True
+        assert response_json[0]["is_running"] is True
         assert response_json[0]["last_check"] == "2021-08-29T19:52:57.842696Z"
         assert response_json[0]["valid_from"] == "2021-08-29T19:53:37.092303Z"
         assert response_json[0]["valid_through"] == "2021-09-29T19:53:37.092303Z"
@@ -167,7 +167,7 @@ def test_admin_list_licenses(api_client, data_fixture, django_assert_num_queries
         assert response_json[0]["issued_to_email"] == "bram@baserow.io"
         assert response_json[0]["issued_to_name"] == "Bram"
         assert response_json[1]["license_id"] == "1"
-        assert response_json[1]["is_active"] is False
+        assert response_json[1]["is_running"] is False
         assert response_json[1]["last_check"] is None
         assert response_json[1]["valid_from"] == "2021-08-29T19:52:57.842696Z"
         assert response_json[1]["valid_through"] == "2021-09-29T19:52:57.842696Z"
@@ -253,7 +253,7 @@ def test_admin_register_license(api_client, data_fixture):
         response_json = response.json()
         assert response_json["id"] == licenses[0].id
         assert response_json["license_id"] == "2"
-        assert response_json["is_active"] is True
+        assert response_json["is_running"] is True
         assert response_json["last_check"] is None
         assert response_json["valid_from"] == "2021-08-29T19:53:37.092303Z"
         assert response_json["valid_through"] == "2021-09-29T19:53:37.092303Z"
@@ -314,7 +314,7 @@ def test_admin_get_license(api_client, data_fixture, django_assert_num_queries):
             response_json = response.json()
             assert response_json["id"] == license.id
             assert response_json["license_id"] == "2"
-            assert response_json["is_active"] is True
+            assert response_json["is_running"] is True
             assert response_json["last_check"] is None
             assert response_json["valid_from"] == "2021-08-29T19:53:37.092303Z"
             assert response_json["valid_through"] == "2021-09-29T19:53:37.092303Z"

@@ -38,7 +38,7 @@ class UsersAdminView(AdminListingView):
     search_fields = ["username"]
     sort_field_mapping = {
         "id": "id",
-        "is_active": "is_active",
+        "is_running": "is_running",
         "name": "first_name",
         "username": "username",
         "date_joined": "date_joined",

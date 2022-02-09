@@ -16,7 +16,7 @@ def test_building_filter_with_and_type_ands_all_provided_qs_together(data_fixtur
     table = data_fixture.create_database_table(user=user)
     text_field = data_fixture.create_text_field(table=table, order=1, name="name")
     bool_field = data_fixture.create_boolean_field(
-        table=table, order=2, name="is_active"
+        table=table, order=2, name="is_running"
     )
 
     model = table.get_model()

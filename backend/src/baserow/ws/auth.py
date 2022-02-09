@@ -51,7 +51,7 @@ def get_user(token):
         except User.DoesNotExist:
             return
 
-        if not user.is_active:
+        if not user.is_running:
             return
 
         return user

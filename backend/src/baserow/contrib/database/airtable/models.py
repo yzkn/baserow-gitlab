@@ -1,12 +1,25 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from baserow.core.models import Group
 from baserow.core.mixins import CreatedAndUpdatedOnMixin
 
-from .constants import AIRTABLE_EXPORT_JOB_DOWNLOADING_PENDING
+from .constants import (
+    AIRTABLE_EXPORT_JOB_DOWNLOADING_PENDING,
+    AIRTABLE_EXPORT_JOB_DOWNLOADING_FINISHED,
+    AIRTABLE_EXPORT_JOB_DOWNLOADING_FAILED,
+)
 
 User = get_user_model()
+
+
+class AirtableImportJobQuerySet(models.QuerySet):
+    def is_running(self):
+        return self.filter(
+            ~Q(state=AIRTABLE_EXPORT_JOB_DOWNLOADING_FINISHED),
+            ~Q(state=AIRTABLE_EXPORT_JOB_DOWNLOADING_FAILED),
+        )
 
 
 class AirtableImportJob(CreatedAndUpdatedOnMixin, models.Model):
@@ -18,3 +31,5 @@ class AirtableImportJob(CreatedAndUpdatedOnMixin, models.Model):
         max_length=128, default=AIRTABLE_EXPORT_JOB_DOWNLOADING_PENDING
     )
     error = models.TextField(blank=True, default="")
+
+    objects = AirtableImportJobQuerySet.as_manager()

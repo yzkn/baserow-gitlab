@@ -110,7 +110,7 @@ def test_admin_can_modify_allowed_user_attributes(premium_data_fixture):
         **{
             "username": "new_email@example.com",
             "name": "new full name",
-            "is_active": True,
+            "is_running": True,
             "is_staff": True,
             "password": "new_password",
         },
@@ -120,7 +120,7 @@ def test_admin_can_modify_allowed_user_attributes(premium_data_fixture):
     assert user_to_modify.email == "new_email@example.com"
     assert user_to_modify.first_name == "new full name"
     assert user_to_modify.is_staff
-    assert user_to_modify.is_active
+    assert user_to_modify.is_running
     assert old_password != user_to_modify.password
 
 
@@ -164,7 +164,7 @@ def test_admin_can_deactive_and_unstaff_other_users(premium_data_fixture):
         is_active=False,
     )
     active_user.refresh_from_db()
-    assert not active_user.is_active
+    assert not active_user.is_running
 
 
 @pytest.mark.django_db
@@ -271,7 +271,7 @@ def test_admin_cant_deactivate_themselves(premium_data_fixture):
             is_active=False,
         )
     admin_user.refresh_from_db()
-    assert admin_user.is_active
+    assert admin_user.is_running
 
 
 @pytest.mark.django_db

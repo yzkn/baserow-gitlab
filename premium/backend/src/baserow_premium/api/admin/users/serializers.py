@@ -14,7 +14,7 @@ User = get_user_model()
 
 
 _USER_ADMIN_SERIALIZER_API_DOC_KWARGS = {
-    "is_active": {
+    "is_running": {
         "help_text": "Designates whether this user should be treated as active."
         " Set this to false instead of deleting accounts."
     },
@@ -58,7 +58,7 @@ class UserAdminResponseSerializer(ModelSerializer):
             "groups",
             "last_login",
             "date_joined",
-            "is_active",
+            "is_running",
             "is_staff",
         )
         extra_kwargs = _USER_ADMIN_SERIALIZER_API_DOC_KWARGS
@@ -79,7 +79,7 @@ class UserAdminUpdateSerializer(
 
     class Meta:
         model = User
-        fields = ("username", "name", "is_active", "is_staff", "password")
+        fields = ("username", "name", "is_running", "is_staff", "password")
         extra_kwargs = {
             **_USER_ADMIN_SERIALIZER_API_DOC_KWARGS,
         }

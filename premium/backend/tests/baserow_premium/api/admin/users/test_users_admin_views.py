@@ -101,7 +101,7 @@ def test_admin_can_see_admin_users_endpoint(api_client, premium_data_fixture):
                 ],
                 "id": staff_user.id,
                 "is_staff": True,
-                "is_active": True,
+                "is_running": True,
                 "last_login": None,
             }
         ],
@@ -228,7 +228,7 @@ def test_admin_can_search_users(api_client, premium_data_fixture):
                 "groups": [],
                 "id": searched_for_user.id,
                 "is_staff": False,
-                "is_active": True,
+                "is_running": True,
                 "last_login": None,
             }
         ],
@@ -271,7 +271,7 @@ def test_admin_can_sort_users(api_client, premium_data_fixture):
                 "groups": [],
                 "id": searched_for_user.id,
                 "is_staff": False,
-                "is_active": True,
+                "is_running": True,
                 "last_login": None,
             }
         ],
@@ -569,7 +569,7 @@ def test_admin_can_patch_user(api_client, premium_data_fixture):
         "groups": [],
         "id": user.id,
         "is_staff": True,
-        "is_active": True,
+        "is_running": True,
         "last_login": None,
     }
 
@@ -605,7 +605,7 @@ def test_admin_can_patch_user_without_providing_password(
         "groups": [],
         "id": user.id,
         "is_staff": True,
-        "is_active": True,
+        "is_running": True,
         "last_login": None,
     }
 
@@ -735,7 +735,7 @@ def test_error_returned_when_valid_and_invalid_fields_supplied_to_edit(
     # actually running the endpoint.
     response = api_client.patch(
         url,
-        json.dumps({"is_active": False, "date_joined": "2021-04-01T01:00:00Z"}),
+        json.dumps({"is_running": False, "date_joined": "2021-04-01T01:00:00Z"}),
         format="json",
         HTTP_AUTHORIZATION=f"JWT {token}",
     )

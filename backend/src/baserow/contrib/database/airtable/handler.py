@@ -23,7 +23,11 @@ from baserow.contrib.database.airtable.constants import (
     AIRTABLE_EXPORT_JOB_CONVERTING,
 )
 
-from .exceptions import AirtableBaseNotPublic
+from .exceptions import (
+    AirtableBaseNotPublic,
+    AirtableImportJobDoesNotExist,
+    AirtableImportJobAlreadyRunning,
+)
 from .models import AirtableImportJob
 from .tasks import run_import_from_airtable
 
@@ -528,6 +532,22 @@ def import_from_airtable_to_group(
     return databases, id_mapping
 
 
+def get_airtable_import_job(user: User, job_id: int) -> AirtableImportJob:
+    """
+
+    :param user:
+    :param job_id:
+    :return:
+    """
+
+    try:
+        return AirtableImportJob.objects.select_related("user", "group").get(
+            id=job_id, user_id=user.id
+        )
+    except AirtableImportJob.DoesNotExist:
+        raise AirtableImportJobDoesNotExist(f"The job with id {job_id} does not exist.")
+
+
 def create_and_start_airtable_import_job(
     user: User, group: Group, share_id: str
 ) -> AirtableImportJob:
@@ -541,6 +561,12 @@ def create_and_start_airtable_import_job(
     """
 
     group.has_user(user, raise_error=True)
+
+    running_jobs = AirtableImportJob.objects.filter(user_id=user.id).is_running()
+    if len(running_jobs) > 0:
+        raise AirtableImportJobAlreadyRunning(
+            f"Another job is already running with id {running_jobs[0].id}."
+        )
 
     job = AirtableImportJob.objects.create(
         user=user, group=group, airtable_share_id=share_id

@@ -48,7 +48,7 @@ class TokenAuthentication(BaseAuthentication):
                 {"detail": msg, "error": "ERROR_TOKEN_DOES_NOT_EXIST"}
             )
 
-        if not token.user.is_active:
+        if not token.user.is_running:
             raise AuthenticationFailed(
                 {
                     "detail": "The user related to the token is disabled.",

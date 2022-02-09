@@ -78,10 +78,10 @@ class AdminLicensesView(APIView):
     def get(self, request):
         licenses = License.objects.all().annotate(seats_taken=Count("users"))
         # We will sort the items in memory because we don't have access to the
-        # `is_active` and `valid_from` property after the instance has been
+        # `is_running` and `valid_from` property after the instance has been
         # generated. This is because it needs to decode the license. We first want to
         # show the active licenses because those are more important.
-        licenses = sorted(licenses, key=lambda x: (not x.is_active, x.valid_from))
+        licenses = sorted(licenses, key=lambda x: (not x.is_running, x.valid_from))
         return Response(PremiumLicenseSerializer(licenses, many=True).data)
 
     @extend_schema(
