@@ -352,6 +352,7 @@ def to_baserow_database_export(
 
         # Loop over all the columns in the table and try to convert them to Baserow
         # format.
+        primary = None
         for column in table["columns"]:
             field_export, field_type = to_baserow_field_export(table, column)
             converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
@@ -369,15 +370,10 @@ def to_baserow_database_export(
                 "baserow_field": field_export,
                 "baserow_field_type": field_type,
             }
+            if field_export["primary"]:
+                primary = field_export
 
-        # Create a list with all the primary fields so that we can check if it's
-        # missing.
-        primary_fields = list(
-            filter(
-                lambda value: value["baserow_field"]["primary"], field_mapping.values()
-            )
-        )
-        if len(primary_fields) == 0:
+        if primary is None:
             # First check if another field can act as the primary field type.
             found_existing_field = False
             for value in field_mapping.values():
