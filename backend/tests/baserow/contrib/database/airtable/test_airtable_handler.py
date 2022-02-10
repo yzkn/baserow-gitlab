@@ -13,13 +13,7 @@ from django.conf import settings
 from baserow.core.user_files.models import UserFile
 from baserow.core.utils import Progress
 from baserow.contrib.database.fields.models import TextField
-from baserow.contrib.database.airtable.handler import (
-    fetch_publicly_shared_base,
-    fetch_table_data,
-    extract_schema,
-    to_baserow_database_export,
-    import_from_airtable_to_group,
-)
+from baserow.contrib.database.airtable.handler import AirtableHandler
 
 
 @pytest.mark.django_db
@@ -37,7 +31,7 @@ def test_fetch_publicly_shared_base():
             headers={"Set-Cookie": "brw=test;"},
         )
 
-        request_id, init_data, cookies = fetch_publicly_shared_base(
+        request_id, init_data, cookies = AirtableHandler.fetch_publicly_shared_base(
             "shrXxmp0WmqsTkFWTzv"
         )
         assert request_id == "req8wbZoh7Be65osz"
@@ -61,7 +55,7 @@ def test_fetch_table():
             body=file,
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base(
+        request_id, init_data, cookies = AirtableHandler.fetch_publicly_shared_base(
             "shrXxmp0WmqsTkFWTzv"
         )
 
@@ -80,7 +74,7 @@ def test_fetch_table():
             status=200,
             body=application_response_file,
         )
-        application_response = fetch_table_data(
+        application_response = AirtableHandler.fetch_table_data(
             "tblRpq315qnnIcg5IjI",
             init_data,
             request_id,
@@ -96,7 +90,7 @@ def test_fetch_table():
             status=200,
             body=table_response_file,
         )
-        table_response = fetch_table_data(
+        table_response = AirtableHandler.fetch_table_data(
             "tbl7glLIGtH8C8zGCzb",
             init_data,
             request_id,
@@ -121,7 +115,7 @@ def test_extract_schema():
     user_table_json = json.loads(Path(user_table_path).read_text())
     data_table_json = json.loads(Path(data_table_path).read_text())
 
-    schema, tables = extract_schema([user_table_json, data_table_json])
+    schema, tables = AirtableHandler.extract_schema([user_table_json, data_table_json])
 
     assert "tableDatas" not in schema
     assert len(schema["tableSchemas"]) == 2
@@ -173,12 +167,12 @@ def test_to_baserow_database_export():
             body=file.read(),
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base(
+        request_id, init_data, cookies = AirtableHandler.fetch_publicly_shared_base(
             "shrXxmp0WmqsTkFWTzv"
         )
 
-    schema, tables = extract_schema([user_table_json, data_table_json])
-    baserow_database_export, files_buffer = to_baserow_database_export(
+    schema, tables = AirtableHandler.extract_schema([user_table_json, data_table_json])
+    baserow_database_export, files_buffer = AirtableHandler.to_baserow_database_export(
         init_data, schema, tables
     )
 
@@ -270,19 +264,19 @@ def test_to_baserow_database_export_without_primary_value():
             body=file.read(),
             headers={"Set-Cookie": "brw=test;"},
         )
-        request_id, init_data, cookies = fetch_publicly_shared_base(
+        request_id, init_data, cookies = AirtableHandler.fetch_publicly_shared_base(
             "shrXxmp0WmqsTkFWTzv"
         )
 
-    schema, tables = extract_schema(deepcopy([user_table_json]))
-    baserow_database_export, files_buffer = to_baserow_database_export(
+    schema, tables = AirtableHandler.extract_schema(deepcopy([user_table_json]))
+    baserow_database_export, files_buffer = AirtableHandler.to_baserow_database_export(
         init_data, schema, tables
     )
     assert baserow_database_export["tables"][0]["fields"][0]["primary"] is True
 
     user_table_json["data"]["tableSchemas"][0]["columns"] = []
-    schema, tables = extract_schema(deepcopy([user_table_json]))
-    baserow_database_export, files_buffer = to_baserow_database_export(
+    schema, tables = AirtableHandler.extract_schema(deepcopy([user_table_json]))
+    baserow_database_export, files_buffer = AirtableHandler.to_baserow_database_export(
         init_data, schema, tables
     )
     assert baserow_database_export["tables"][0]["fields"] == [
@@ -353,7 +347,7 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
         )
 
     progress = Progress(1000)
-    databases, id_mapping = import_from_airtable_to_group(
+    databases, id_mapping = AirtableHandler.import_from_airtable_to_group(
         group, "shrXxmp0WmqsTkFWTzv", storage=storage, parent_progress=(progress, 1000)
     )
 

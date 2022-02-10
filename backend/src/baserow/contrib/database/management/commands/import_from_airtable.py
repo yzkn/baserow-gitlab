@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 
 from baserow.core.models import Group
 from baserow.core.utils import Progress
-from baserow.contrib.database.airtable.handler import import_from_airtable_to_group
+from baserow.contrib.database.airtable.handler import AirtableHandler
 from baserow.contrib.database.airtable.exceptions import AirtableBaseNotPublic
 
 
@@ -69,7 +69,7 @@ class Command(BaseCommand):
         share_id = f"shr{result.group(1)}"
 
         try:
-            import_from_airtable_to_group(
+            AirtableHandler.import_from_airtable_to_group(
                 group, share_id, parent_progress=(progress, 1000)
             )
             progress_bar.close()
