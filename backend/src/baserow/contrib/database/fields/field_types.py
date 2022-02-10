@@ -881,11 +881,13 @@ class DateFieldType(FieldType):
     ):
         if value is None:
             return value
-        elif baserow_field["date_include_time"]:
-            value = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+        value = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+        if baserow_field["date_include_time"]:
             return f"{value.isoformat()}+00:00"
         else:
-            return value[0:10]
+            return value.strftime("%Y-%m-%d")
 
 
 class CreatedOnLastModifiedBaseFieldType(DateFieldType):
