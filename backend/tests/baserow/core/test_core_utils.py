@@ -16,6 +16,7 @@ from baserow.core.utils import (
     truncate_middle,
     split_comma_separated_string,
     remove_invalid_surrogate_characters,
+    grouper,
     Progress,
 )
 
@@ -109,6 +110,16 @@ def test_split_comma_separated_string():
 
 def test_remove_invalid_surrogate_characters():
     assert remove_invalid_surrogate_characters(b"test\uD83Dtest") == "testtest"
+
+
+def test_grouper():
+    assert list(grouper(2, [1, 2, 3, 4, 5])) == [(1, 2), (3, 4), (5,)]
+
+    def g():
+        for i in range(0, 10):
+            yield i
+
+    assert list(grouper(3, g())) == [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9,)]
 
 
 def test_progress():

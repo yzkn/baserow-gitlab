@@ -326,6 +326,9 @@ def grouper(n: int, iterable: Iterable):
     """
     Groups the iterable by `n` per chunk and yields it.
 
+    Solution from: https://stackoverflow.com/questions/8991506/iterate-an-iterator-by
+    -chunks-of-n-in-python
+
     :param n: The amount of items per chunk.
     :param iterable: The iterable that must be grouped
     """
