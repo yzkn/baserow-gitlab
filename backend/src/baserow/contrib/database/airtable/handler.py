@@ -15,6 +15,8 @@ from baserow.core.utils import (
     ChildProgressBuilder,
 )
 from baserow.core.models import Group
+from baserow.core.export_serialized import CoreExportSerializedStructure
+from baserow.contrib.database.export_serialized import DatabaseExportSerializedStructure
 from baserow.contrib.database.models import Database
 from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.fields.field_types import FieldType, field_type_registry
@@ -243,10 +245,9 @@ class AirtableHandler:
         :return: The converted row in Baserow export format.
         """
 
-        exported_row = {
-            "id": row["id"],
-            "order": f"{index + 1}.00000000000000000000",
-        }
+        exported_row = DatabaseExportSerializedStructure.row(
+            id=row["id"], order=f"{index + 1}.00000000000000000000"
+        )
 
         for column_id, column_value in row["cellValuesByColumnId"].items():
             if column_id not in column_mapping:
@@ -447,26 +448,26 @@ class AirtableHandler:
                 )
                 converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
-            exported_table = {
-                "id": table["id"],
-                "name": table["name"],
-                "order": table_index,
-                "fields": exported_fields,
-                "views": [],
-                "rows": exported_rows,
-            }
+            exported_table = DatabaseExportSerializedStructure.table(
+                id=table["id"],
+                name=table["name"],
+                order=table_index,
+                fields=exported_fields,
+                views=[],
+                rows=exported_rows,
+            )
             exported_tables.append(exported_table)
             converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
-        exported_database = {
-            "id": 1,
-            "name": init_data["rawApplications"][init_data["sharedApplicationId"]][
-                "name"
-            ],
-            "order": 1,
-            "type": DatabaseApplicationType.type,
-            "tables": exported_tables,
-        }
+        exported_database = CoreExportSerializedStructure.application(
+            id=1,
+            name=init_data["rawApplications"][init_data["sharedApplicationId"]]["name"],
+            order=1,
+            type=DatabaseApplicationType.type,
+        )
+        exported_database.update(
+            **DatabaseExportSerializedStructure.database(tables=exported_tables)
+        )
 
         # After all the tables have been converted to Baserow format, we can must
         # download all the user files. Because we first want to the whole conversion to

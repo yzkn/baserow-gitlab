@@ -8,6 +8,7 @@ from .registry import (
     APIUrlsInstanceMixin,
     ImportExportMixin,
 )
+from .export_serialized import CoreExportSerializedStructure
 from baserow.core.utils import ChildProgressBuilder
 from baserow.contrib.database.constants import IMPORT_SERIALIZED_IMPORTING
 
@@ -186,12 +187,12 @@ class ApplicationType(
         :rtype: dict
         """
 
-        return {
-            "id": application.id,
-            "name": application.name,
-            "order": application.order,
-            "type": self.type,
-        }
+        return CoreExportSerializedStructure.application(
+            id=application.id,
+            name=application.name,
+            order=application.order,
+            type=self.type,
+        )
 
     def import_serialized(
         self,

@@ -16,6 +16,7 @@ from baserow.core.trash.handler import TrashHandler
 from baserow.core.utils import grouper
 
 from .constants import IMPORT_SERIALIZED_IMPORTING, IMPORT_SERIALIZED_IMPORTING_TABLE
+from .export_serialized import DatabaseExportSerializedStructure
 
 
 class DatabaseApplicationType(ApplicationType):
@@ -78,7 +79,9 @@ class DatabaseApplicationType(ApplicationType):
             serialized_rows = []
             table_cache = {}
             for row in model.objects.all():
-                serialized_row = {"id": row.id, "order": str(row.order)}
+                serialized_row = DatabaseExportSerializedStructure.row(
+                    id=row.id, order=row.order
+                )
                 for field_object in model._field_objects.values():
                     field_name = field_object["name"]
                     field_type = field_object["type"]
@@ -88,18 +91,20 @@ class DatabaseApplicationType(ApplicationType):
                 serialized_rows.append(serialized_row)
 
             serialized_tables.append(
-                {
-                    "id": table.id,
-                    "name": table.name,
-                    "order": table.order,
-                    "fields": serialized_fields,
-                    "views": serialized_views,
-                    "rows": serialized_rows,
-                }
+                DatabaseExportSerializedStructure.table(
+                    id=table.id,
+                    name=table.name,
+                    order=table.order,
+                    fields=serialized_fields,
+                    views=serialized_views,
+                    rows=serialized_rows,
+                )
             )
 
         serialized = super().export_serialized(database, files_zip, storage)
-        serialized["tables"] = serialized_tables
+        serialized.update(
+            **DatabaseExportSerializedStructure.database(tables=serialized_tables)
+        )
         return serialized
 
     def import_serialized(
