@@ -16,8 +16,13 @@ from baserow.core.utils import (
 )
 from baserow.core.models import Group
 from baserow.contrib.database.models import Database
+from baserow.contrib.database.fields.models import Field
+from baserow.contrib.database.fields.field_types import FieldType, field_type_registry
 from baserow.contrib.database.application_types import DatabaseApplicationType
-from baserow.contrib.database.fields.registries import FieldType, field_type_registry
+from baserow.contrib.database.airtable.registry import (
+    AirtableColumnType,
+    airtable_column_type_registry,
+)
 from baserow.contrib.database.airtable.constants import (
     AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
     AIRTABLE_EXPORT_JOB_DOWNLOADING_FILES,
@@ -171,26 +176,28 @@ class AirtableHandler:
         return schema, tables
 
     @staticmethod
-    def to_baserow_field_export(
+    def to_baserow_field(
         table: dict, column: dict
-    ) -> Tuple[Union[dict, None], Union[FieldType, None]]:
+    ) -> Union[Tuple[None, None, None], Tuple[Field, FieldType, AirtableColumnType]]:
         """
-        Converts the provided Airtable column dict to Baserow export field format.
+        Converts the provided Airtable column dict to the righ a Baserow field object.
 
         :param table: The Airtable table dict. This is needed to figure out whether the
             field is the primary field.
         :param column: The Airtable column dict. These values will be converted to
             Baserow format.
-        :return: The converted column as a Baserow field export.
+        :return: The converted Baserow field, field type and the Airtable column type.
         """
 
         (
-            exported_field,
-            field_type,
-        ) = field_type_registry.from_airtable_field_to_serialized(column)
+            baserow_field,
+            airtable_column_type,
+        ) = airtable_column_type_registry.from_airtable_column_to_serialized(column)
 
-        if exported_field is None:
-            return None, None
+        if baserow_field is None:
+            return None, None, None
+
+        baserow_field_type = field_type_registry.get_by_model(baserow_field)
 
         try:
             order = next(
@@ -201,16 +208,15 @@ class AirtableHandler:
         except StopIteration:
             order = 32767
 
-        exported_field.update(
-            **{
-                "id": column["id"],
-                "name": column["name"],
-                "order": order,
-                "primary": field_type.can_be_primary_field
-                and table["primaryColumnId"] == column["id"],
-            }
+        baserow_field.id = column["id"]
+        baserow_field.name = column["name"]
+        baserow_field.order = order
+        baserow_field.primary = (
+            baserow_field_type.can_be_primary_field
+            and table["primaryColumnId"] == column["id"]
         )
-        return exported_field, field_type
+
+        return baserow_field, baserow_field_type, airtable_column_type
 
     @staticmethod
     def to_baserow_row_export(
@@ -246,17 +252,17 @@ class AirtableHandler:
             if column_id not in column_mapping:
                 continue
 
-            field_value = column_mapping[column_id]
-            value = field_value[
-                "baserow_field_type"
-            ].from_airtable_column_value_to_serialized(
+            mapping_values = column_mapping[column_id]
+            baserow_serialized_value = mapping_values[
+                "airtable_column_type"
+            ].to_baserow_export_serialized_value(
                 row_id_mapping,
-                field_value["airtable_field"],
-                field_value["baserow_field"],
+                mapping_values["raw_airtable_column"],
+                mapping_values["baserow_field"],
                 column_value,
                 files_to_download,
             )
-            exported_row[f"field_{column_id}"] = value
+            exported_row[f"field_{column_id}"] = baserow_serialized_value
 
         return exported_row
 
@@ -361,35 +367,42 @@ class AirtableHandler:
             # format.
             primary = None
             for column in table["columns"]:
-                field_export, field_type = cls.to_baserow_field_export(table, column)
+                (
+                    baserow_field,
+                    baserow_field_type,
+                    airtable_column_type,
+                ) = cls.to_baserow_field(table, column)
                 converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
 
                 # None means that none of the field types know how to parse this field,
                 # so we must ignore it.
-                if field_export is None:
+                if baserow_field is None:
                     continue
 
                 # Construct a mapping where the Airtable column id is the key and the
-                # value contains the row Airtable field values, Baserow field values and
+                # value contains the raw Airtable column values, Baserow field and
                 # the Baserow field type object for later use.
                 field_mapping[column["id"]] = {
-                    "airtable_field": column,
-                    "baserow_field": field_export,
-                    "baserow_field_type": field_type,
+                    "baserow_field": baserow_field,
+                    "baserow_field_type": baserow_field_type,
+                    "raw_airtable_column": column,
+                    "airtable_column_type": airtable_column_type,
                 }
-                if field_export["primary"]:
-                    primary = field_export
+                if baserow_field.primary:
+                    primary = baserow_field
 
             if primary is None:
                 # First check if another field can act as the primary field type.
                 found_existing_field = False
                 for value in field_mapping.values():
-                    if value["baserow_field_type"].can_be_primary_field:
-                        value["baserow_field"]["primary"] = True
+                    if field_type_registry.get_by_model(
+                        value["baserow_field"]
+                    ).can_be_primary_field:
+                        value["baserow_field"].primary = True
                         found_existing_field = True
                         break
 
-                # If none of the existing fields can be primary, we will create a new
+                # If none of the existing fields can be primary, we will add a new
                 # text field.
                 if not found_existing_field:
                     airtable_column = {
@@ -397,15 +410,24 @@ class AirtableHandler:
                         "name": "Primary field (auto created)",
                         "type": "text",
                     }
-                    field_export, field_type = cls.to_baserow_field_export(
-                        table, airtable_column
-                    )
+                    (
+                        baserow_field,
+                        baserow_field_type,
+                        airtable_column_type,
+                    ) = cls.to_baserow_field(table, airtable_column)
+                    baserow_field.primary = True
                     field_mapping["primary_id"] = {
-                        "airtable_field": airtable_column,
-                        "baserow_field": field_export,
-                        "baserow_field_type": field_type,
+                        "baserow_field": baserow_field,
+                        "baserow_field_type": baserow_field_type,
+                        "raw_airtable_column": airtable_column,
+                        "airtable_column_type": airtable_column_type,
                     }
-                    field_mapping["primary_id"]["baserow_field"]["primary"] = True
+
+            # Loop over all the fields and convert them to Baserow serialized format.
+            exported_fields = [
+                value["baserow_field_type"].export_serialized(value["baserow_field"])
+                for value in field_mapping.values()
+            ]
 
             # Loop over all the rows in the table and convert them to Baserow format. We
             # need to provide the `row_id_mapping` and `field_mapping` because there
@@ -429,7 +451,7 @@ class AirtableHandler:
                 "id": table["id"],
                 "name": table["name"],
                 "order": table_index,
-                "fields": [value["baserow_field"] for value in field_mapping.values()],
+                "fields": exported_fields,
                 "views": [],
                 "rows": exported_rows,
             }

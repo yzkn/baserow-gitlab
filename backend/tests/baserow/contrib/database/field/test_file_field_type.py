@@ -18,8 +18,6 @@ from baserow.core.user_files.handler import UserFileHandler
 from baserow.contrib.database.fields.models import FileField
 from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.rows.handler import RowHandler
-from baserow.contrib.database.fields.registries import field_type_registry
-from baserow.contrib.database.fields.field_types import FileFieldType
 
 
 @pytest.mark.django_db
@@ -303,65 +301,3 @@ def test_import_export_file_field(data_fixture, tmpdir):
     file_path = tmpdir.join("user_files", imported_user_file.name)
     assert file_path.isfile()
     assert file_path.open().read() == "Hello World"
-
-
-@pytest.mark.django_db
-def test_airtable_import_file_field(data_fixture, api_client):
-    airtable_field = {
-        "id": "fldwdy4qWUvC5PmW5yd",
-        "name": "Attachment",
-        "type": "multipleAttachment",
-        "typeOptions": {"unreversed": True},
-    }
-    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
-        airtable_field
-    )
-    assert baserow_field == {"type": FileFieldType.type}
-    assert isinstance(field_type, FileFieldType)
-
-    files_to_download = {}
-    assert field_type.from_airtable_column_value_to_serialized(
-        {},
-        airtable_field,
-        baserow_field,
-        [
-            {
-                "id": "attecVDNr3x7oE8Bj",
-                "url": "https://dl.airtable.com/.attachments/70e50b90fb83997d25e64937979b6b5b/f3f62d23/file-sample.txt",
-                "filename": "file-sample.txt",
-                "uploadsDmzS3Key": "YbuBlXi8SP2cMzT8F3Yo_file-sample.txt",
-                "servingS3Key": ".attachments/70e50b90fb83997d25e64937979b6b5b/f3f62d23/file-sample.txt",
-                "type": "application/pdf",
-                "size": 142786,
-                "smallThumbUrl": "https://dl.airtable.com/.attachmentThumbnails/1af3d5cef7ef07f39ec87eb18cbcf343/dbc2b9ab",
-                "smallThumbWidth": 25,
-                "smallThumbHeight": 36,
-                "largeThumbUrl": "https://dl.airtable.com/.attachmentThumbnails/ff0f3e6624ec60eb0c22b82fec23ee9a/9bf8fc2b",
-                "largeThumbWidth": 362,
-                "largeThumbHeight": 512,
-            },
-            {
-                "id": "attFE9KxOeLxbFn58",
-                "url": "https://dl.airtable.com/.attachments/e93dc201ce27080d9ad9df5775527d09/93e85b28/file-sample_500kB.doc",
-                "filename": "file-sample_500kB.doc",
-                "type": "application/msword",
-                "size": 503296,
-            },
-        ],
-        files_to_download,
-    ) == [
-        {
-            "name": "70e50b90fb83997d25e64937979b6b5b_f3f62d23_file-sample.txt",
-            "visible_name": "file-sample.txt",
-            "original_name": "file-sample.txt",
-        },
-        {
-            "name": "e93dc201ce27080d9ad9df5775527d09_93e85b28_file-sample_500kB.doc",
-            "visible_name": "file-sample_500kB.doc",
-            "original_name": "file-sample_500kB.doc",
-        },
-    ]
-    assert files_to_download == {
-        "70e50b90fb83997d25e64937979b6b5b_f3f62d23_file-sample.txt": "https://dl.airtable.com/.attachments/70e50b90fb83997d25e64937979b6b5b/f3f62d23/file-sample.txt",
-        "e93dc201ce27080d9ad9df5775527d09_93e85b28_file-sample_500kB.doc": "https://dl.airtable.com/.attachments/e93dc201ce27080d9ad9df5775527d09/93e85b28/file-sample_500kB.doc",
-    }

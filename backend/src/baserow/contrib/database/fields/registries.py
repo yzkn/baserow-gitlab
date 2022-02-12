@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Dict, Tuple, Union
+from typing import Any, List
 
 from django.db.models import Q
 
@@ -1073,47 +1073,6 @@ class FieldType(
         tables models which would be affected by this tables cache being invalidated.
         """
 
-    def from_airtable_field_to_serialized(self, values: dict) -> Optional[dict]:
-        """
-        Should check if the raw Airtable column values can be converted to this field
-        type. If so, it should return the Baserow field parameters in Baserow export
-        format. If the field type is not compatible with the provided column,
-        None must be returned.
-
-        :param values: The raw airtable column values.
-        :return: If compatible the Baserow export values must be returned, otherwise
-            None.
-        """
-
-        return None
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping: Dict[str, Dict[str, int]],
-        airtable_field: dict,
-        baserow_field: dict,
-        value: Any,
-        files_to_download: Dict[str, str],
-    ):
-        """
-        This method should convert a raw Airtable row value to a Baserow export row
-        value. This method is only called if the Airtable field is compatible with a
-        Baserow field type, this is determined by the
-        `from_airtable_field_to_serialized` method.
-
-        :param row_id_mapping: A mapping containing the table as key as the value is
-            another mapping where the Airtable row id maps the Baserow row id.
-        :param airtable_field: A dict containing the raw Airtable column values.
-        :param baserow_field: A dict containing the raw Baserow export field values.
-        :param value: The value that must be converted.
-        :param files_to_download: A dict that contains all the user file URLs that must
-            be downloaded. The key is the file name and the value the URL. Additional
-            files can be added to this dict.
-        :return: The converted value is Baserow export format.
-        """
-
-        return value
-
 
 class FieldTypeRegistry(
     APIUrlsRegistryMixin, CustomFieldsRegistryMixin, ModelRegistryMixin, Registry
@@ -1127,25 +1086,6 @@ class FieldTypeRegistry(
     name = "field"
     does_not_exist_exception_class = FieldTypeDoesNotExist
     already_registered_exception_class = FieldTypeAlreadyRegistered
-
-    def from_airtable_field_to_serialized(
-        self, values: dict
-    ) -> Union[Tuple[dict, FieldType], Tuple[None, None]]:
-        """
-        Loops over all the available field types and tries to find a compatible field
-        type to convert it into.
-
-        :param values: The raw Airtable column values.
-        :return: If a compatible field type is found, it will return the Baserow
-            export format values and the field type, otherwise None will be returned.
-        """
-
-        for type_name, instance in self.registry.items():
-            field = instance.from_airtable_field_to_serialized(values)
-            if field is not None:
-                return field, instance
-
-        return None, None
 
 
 class FieldConverter(Instance):

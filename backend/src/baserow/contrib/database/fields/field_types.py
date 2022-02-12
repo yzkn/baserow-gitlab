@@ -22,10 +22,6 @@ from django.utils.timezone import make_aware
 from pytz import timezone
 from rest_framework import serializers
 
-from baserow.contrib.database.airtable.helpers import (
-    import_airtable_date_type_options,
-    import_airtable_choices,
-)
 from baserow.contrib.database.api.fields.errors import (
     ERROR_LINK_ROW_TABLE_NOT_IN_SAME_DATABASE,
     ERROR_LINK_ROW_TABLE_NOT_PROVIDED,
@@ -188,20 +184,6 @@ class TextFieldMatchingRegexFieldType(FieldType, ABC):
     def from_baserow_formula_type(self, formula_type: BaserowFormulaCharType):
         return self.model_class()
 
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        try:
-            self.validator(value)
-            return value
-        except ValidationError:
-            return ""
-
 
 class CharFieldMatchingRegexFieldType(TextFieldMatchingRegexFieldType):
     """
@@ -278,10 +260,6 @@ class TextFieldType(FieldType):
     ) -> TextField:
         return TextField()
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "text" and "typeOptions" not in values:
-            return {"type": self.type}
-
 
 class LongTextFieldType(FieldType):
     type = "long_text"
@@ -315,25 +293,6 @@ class LongTextFieldType(FieldType):
     ) -> "LongTextField":
         return LongTextField()
 
-    def from_airtable_field_to_serialized(self, values):
-        field_type = values.get("type")
-        if field_type == "multilineText" or field_type == "richText":
-            return {"type": self.type}
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        if airtable_field["type"] == "richText":
-            # Remove the formatting because we don't support that.
-            return "".join([v["insert"] for v in value["documentValue"]])
-
-        return value
-
 
 class URLFieldType(TextFieldMatchingRegexFieldType):
     type = "url"
@@ -348,13 +307,6 @@ class URLFieldType(TextFieldMatchingRegexFieldType):
 
     def random_value(self, instance, fake, cache):
         return fake.url()
-
-    def from_airtable_field_to_serialized(self, values):
-        if (
-            values.get("type") == "text"
-            and values.get("typeOptions", {}).get("validatorName") == "url"
-        ):
-            return {"type": self.type}
 
 
 class NumberFieldType(FieldType):
@@ -486,34 +438,6 @@ class NumberFieldType(FieldType):
             number_negative=True,
         )
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "number":
-            type_options = values.get("typeOptions", {})
-            return {
-                "type": self.type,
-                "number_type": NUMBER_TYPE_DECIMAL
-                if type_options.get("format", "integer") == "decimal"
-                else NUMBER_TYPE_INTEGER,
-                "number_decimal_places": max(1, type_options.get("precision", 1)),
-                "number_negative": type_options.get("negative", True),
-            }
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        if value is not None:
-            value = Decimal(value)
-
-        if value is not None and not baserow_field["number_negative"] and value < 0:
-            value = None
-
-        return None if value is None else str(value)
-
 
 class RatingFieldType(FieldType):
     type = "rating"
@@ -619,13 +543,6 @@ class RatingFieldType(FieldType):
     ) -> "RatingField":
         return RatingField()
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "rating":
-            return {
-                "type": self.type,
-                "max_value": values.get("typeOptions", {}).get("max", 5),
-            }
-
 
 class BooleanFieldType(FieldType):
     type = "boolean"
@@ -657,20 +574,6 @@ class BooleanFieldType(FieldType):
         self, boolean_formula_type: BaserowFormulaBooleanType
     ) -> BooleanField:
         return BooleanField()
-
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "checkbox":
-            return {"type": self.type}
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        return "true" if value else "false"
 
 
 class DateFieldType(FieldType):
@@ -864,31 +767,6 @@ class DateFieldType(FieldType):
             date_time_format=formula_type.date_time_format,
         )
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "date":
-            type_options = values.get("typeOptions", {})
-            field = import_airtable_date_type_options(type_options)
-            field["type"] = self.type
-            return field
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        if value is None:
-            return value
-
-        value = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
-
-        if baserow_field["date_include_time"]:
-            return f"{value.isoformat()}+00:00"
-        else:
-            return value.strftime("%Y-%m-%d")
-
 
 class CreatedOnLastModifiedBaseFieldType(DateFieldType):
     read_only = True
@@ -900,7 +778,6 @@ class CreatedOnLastModifiedBaseFieldType(DateFieldType):
     }
     source_field_name = None
     model_field_kwargs = {}
-    airtable_display_type = ""
 
     def prepare_value_for_db(self, instance, value):
         """
@@ -1028,35 +905,12 @@ class CreatedOnLastModifiedBaseFieldType(DateFieldType):
     def random_value(self, instance, fake, cache):
         return getattr(instance, self.source_field_name)
 
-    def from_airtable_field_to_serialized(self, values):
-        type_options = values.get("typeOptions", {})
-
-        if (
-            values.get("type") == "formula"
-            and type_options.get("displayType", "") == self.airtable_display_type
-        ):
-            field = import_airtable_date_type_options(type_options)
-            field["type"] = self.type
-            field["timezone"] = "UTC"
-            return field
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        return None
-
 
 class LastModifiedFieldType(CreatedOnLastModifiedBaseFieldType):
     type = "last_modified"
     model_class = LastModifiedField
     source_field_name = "updated_on"
     model_field_kwargs = {"auto_now": True}
-    airtable_display_type = "lastModifiedTime"
 
 
 class CreatedOnFieldType(CreatedOnLastModifiedBaseFieldType):
@@ -1064,7 +918,6 @@ class CreatedOnFieldType(CreatedOnLastModifiedBaseFieldType):
     model_class = CreatedOnField
     source_field_name = "created_on"
     model_field_kwargs = {"auto_now_add": True}
-    airtable_display_type = "createdTime"
 
 
 class LinkRowFieldType(FieldType):
@@ -1591,26 +1444,6 @@ class LinkRowFieldType(FieldType):
     ):
         invalidate_single_table_in_model_cache(field.link_row_table_id)
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "foreignKey":
-            type_options = values.get("typeOptions", {})
-            return {
-                "type": self.type,
-                "link_row_table_id": type_options.get("foreignTableId"),
-                "link_row_related_field_id": type_options.get("symmetricColumnId"),
-            }
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        foreign_table_id = airtable_field["typeOptions"]["foreignTableId"]
-        return [row_id_mapping[foreign_table_id][v["foreignRowId"]] for v in value]
-
 
 class EmailFieldType(CharFieldMatchingRegexFieldType):
     type = "email"
@@ -1638,13 +1471,6 @@ class EmailFieldType(CharFieldMatchingRegexFieldType):
 
     def random_value(self, instance, fake, cache):
         return fake.email()
-
-    def from_airtable_field_to_serialized(self, values):
-        if (
-            values.get("type") == "text"
-            and values.get("typeOptions", {}).get("validatorName") == "email"
-        ):
-            return {"type": self.type}
 
 
 class FileFieldType(FieldType):
@@ -1834,32 +1660,6 @@ class FileFieldType(FieldType):
             files.append(value)
 
         setattr(row, field_name, files)
-
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "multipleAttachment":
-            return {"type": self.type}
-
-    def from_airtable_column_value_to_serialized(
-        self,
-        row_id_mapping,
-        airtable_field,
-        baserow_field,
-        value,
-        files_to_download,
-    ):
-        new_value = []
-        for file in value:
-            file_name = "_".join(file["url"].split("/")[-3:])
-            files_to_download[file_name] = file["url"]
-            new_value.append(
-                {
-                    "name": file_name,
-                    "visible_name": file["filename"],
-                    "original_name": file["filename"],
-                }
-            )
-
-        return new_value
 
 
 class SelectOptionBaseFieldType(FieldType):
@@ -2133,15 +1933,6 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
     def from_baserow_formula_type(self, formula_type) -> Field:
         return self.model_class()
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "select":
-            return {
-                "type": self.type,
-                "select_options": import_airtable_choices(
-                    values.get("typeOptions", {})
-                ),
-            }
-
 
 class MultipleSelectFieldType(SelectOptionBaseFieldType):
     type = "multiple_select"
@@ -2369,15 +2160,6 @@ class MultipleSelectFieldType(SelectOptionBaseFieldType):
         option_field_name = through_model_fields[2].name
         through_model.objects.filter(**{f"{option_field_name}__in": to_delete}).delete()
 
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "multiSelect":
-            return {
-                "type": self.type,
-                "select_options": import_airtable_choices(
-                    values.get("typeOptions", {})
-                ),
-            }
-
 
 class PhoneNumberFieldType(CharFieldMatchingRegexFieldType):
     """
@@ -2421,10 +2203,6 @@ class PhoneNumberFieldType(CharFieldMatchingRegexFieldType):
 
     def random_value(self, instance, fake, cache):
         return fake.phone_number()
-
-    def from_airtable_field_to_serialized(self, values):
-        if values.get("type") == "phone":
-            return {"type": self.type}
 
 
 class FormulaFieldType(FieldType):

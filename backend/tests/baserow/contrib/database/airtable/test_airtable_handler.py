@@ -212,6 +212,7 @@ def test_to_baserow_database_export():
         "name": "Name",
         "order": 0,
         "primary": True,
+        "text_default": "",
     }
     assert baserow_database_export["tables"][0]["fields"][1] == {
         "type": "email",
@@ -286,6 +287,7 @@ def test_to_baserow_database_export_without_primary_value():
             "name": "Primary field (auto created)",
             "order": 32767,
             "primary": True,
+            "text_default": "",
         }
     ]
 

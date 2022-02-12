@@ -8,8 +8,6 @@ from django.core.exceptions import ValidationError
 from baserow.core.handler import CoreHandler
 from baserow.contrib.database.fields.models import LastModifiedField
 from baserow.contrib.database.fields.handler import FieldHandler
-from baserow.contrib.database.fields.field_types import LastModifiedFieldType
-from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.rows.handler import RowHandler
 
 
@@ -225,74 +223,3 @@ def test_import_export_last_modified_field(data_fixture):
     assert getattr(
         imported_row, f"field_{imported_last_modified_field.id}"
     ) == datetime(2020, 1, 2, 12, 00, tzinfo=timezone("UTC"))
-
-
-@pytest.mark.django_db
-def test_airtable_import_last_modified_field(data_fixture, api_client):
-    airtable_field = {
-        "id": "fldws6n8xdrEJrMxJFJ",
-        "name": "Last",
-        "type": "formula",
-        "typeOptions": {
-            "isDateTime": False,
-            "dateFormat": "Local",
-            "displayType": "lastModifiedTime",
-            "timeZone": "client",
-            "formulaTextParsed": "LAST_MODIFIED_TIME()",
-            "dependencies": {
-                "referencedColumnIdsForValue": [],
-                "dependsOnAllColumnModifications": True,
-            },
-            "resultType": "date",
-            "resultIsArray": False,
-        },
-    }
-    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
-        airtable_field
-    )
-    assert baserow_field == {
-        "type": LastModifiedFieldType.type,
-        "date_format": "ISO",
-        "date_include_time": False,
-        "date_time_format": "24",
-        "timezone": "UTC",
-    }
-    assert isinstance(field_type, LastModifiedFieldType)
-
-    airtable_field = {
-        "id": "fldws6n8xdrEJrMxJFJ",
-        "name": "Last",
-        "type": "formula",
-        "typeOptions": {
-            "isDateTime": True,
-            "dateFormat": "US",
-            "displayType": "lastModifiedTime",
-            "timeZone": "client",
-            "formulaTextParsed": "LAST_MODIFIED_TIME()",
-            "dependencies": {
-                "referencedColumnIdsForValue": [],
-                "dependsOnAllColumnModifications": True,
-            },
-            "resultType": "date",
-            "resultIsArray": False,
-            "timeFormat": "12hour",
-        },
-    }
-    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
-        airtable_field
-    )
-    assert baserow_field == {
-        "type": LastModifiedFieldType.type,
-        "date_format": "US",
-        "date_include_time": True,
-        "date_time_format": "12",
-        "timezone": "UTC",
-    }
-    assert isinstance(field_type, LastModifiedFieldType)
-
-    assert (
-        field_type.from_airtable_column_value_to_serialized(
-            {}, airtable_field, baserow_field, "2022-01-03T14:51:00.000Z", {}
-        )
-        is None
-    )

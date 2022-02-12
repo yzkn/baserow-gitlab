@@ -8,8 +8,6 @@ from baserow.contrib.database.fields.models import (
     RatingField,
 )
 from baserow.contrib.database.rows.handler import RowHandler
-from baserow.contrib.database.fields.registries import field_type_registry
-from baserow.contrib.database.fields.field_types import RatingFieldType
 
 
 @pytest.mark.django_db
@@ -297,27 +295,3 @@ def test_rating_field_modification(data_fixture):
         (6, "0", Decimal("0"), Decimal("0.00"), False),
         (7, "0", Decimal("0"), Decimal("0.00"), False),
     ]
-
-
-@pytest.mark.django_db
-def test_airtable_import_rating_field(data_fixture, api_client):
-    airtable_field = {
-        "id": "fldp1IFu0zdgRy70RoX",
-        "name": "Rating",
-        "type": "rating",
-        "typeOptions": {"color": "yellow", "icon": "star", "max": 5},
-    }
-    baserow_field, field_type = field_type_registry.from_airtable_field_to_serialized(
-        airtable_field
-    )
-    assert baserow_field == {
-        "type": RatingFieldType.type,
-        "max_value": 5,
-    }
-    assert isinstance(field_type, RatingFieldType)
-    assert (
-        field_type.from_airtable_column_value_to_serialized(
-            {}, airtable_field, baserow_field, 5, {}
-        )
-        == 5
-    )
