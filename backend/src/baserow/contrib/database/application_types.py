@@ -2,7 +2,7 @@ from django.core.management.color import no_style
 from django.db import connection
 from django.urls import path, include
 
-from baserow.core.utils import Progress
+from baserow.core.utils import ChildProgressBuilder
 from baserow.contrib.database.api.serializers import DatabaseSerializer
 from baserow.contrib.database.fields.dependencies.update_collector import (
     CachingFieldUpdateCollector,
@@ -109,44 +109,49 @@ class DatabaseApplicationType(ApplicationType):
         id_mapping,
         files_zip,
         storage,
-        parent_progress=None,
+        progress_builder=None,
     ):
         """
         Imports a database application exported by the `export_serialized` method.
         """
 
         tables = serialized_values.pop("tables")
-        database = super().import_serialized(
-            group, serialized_values, id_mapping, files_zip, storage, parent_progress
-        )
 
-        progress = Progress(
-            (
-                # Creating each table
-                len(tables)
-                +
-                # Creating each model table
-                len(tables)
-                + sum(
-                    [
-                        # Inserting every field
-                        len(table["fields"]) +
-                        # Inserting every field
-                        len(table["views"]) +
-                        # Converting every row
-                        len(table["rows"]) +
-                        # Inserting every row
-                        len(table["rows"]) +
-                        # After each field
-                        len(table["fields"])
-                        for table in tables
-                    ]
-                )
+        child_total = (
+            # For the super application
+            1
+            +
+            # Creating each table
+            len(tables)
+            +
+            # Creating each model table
+            len(tables)
+            + sum(
+                [
+                    # Inserting every field
+                    len(table["fields"]) +
+                    # Inserting every field
+                    len(table["views"]) +
+                    # Converting every row
+                    len(table["rows"]) +
+                    # Inserting every row
+                    len(table["rows"]) +
+                    # After each field
+                    len(table["fields"])
+                    for table in tables
+                ]
             )
         )
+        progress = ChildProgressBuilder.build(progress_builder, child_total=child_total)
 
-        if parent_progress:
-            parent_progress[0].add_child(progress, parent_progress[1])
+        database = super().import_serialized(
+            group,
+            serialized_values,
+            id_mapping,
+            files_zip,
+            storage,
+            progress.create_child_builder(represents_progress=1),
+        )
 
         if "database_tables" not in id_mapping:
             id_mapping["database_tables"] = {}

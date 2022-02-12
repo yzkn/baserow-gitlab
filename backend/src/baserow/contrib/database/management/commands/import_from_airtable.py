@@ -57,29 +57,31 @@ class Command(BaseCommand):
                 )
             )
 
-        def progress_updated(percentage, state):
-            nonlocal progress_bar
-            progress_bar.set_description(state)
-            progress_bar.update(progress.progress - progress_bar.n)
+        with tqdm(total=1000) as progress_bar:
+            progress = Progress(1000)
 
-        progress = Progress(1000)
-        progress.register_updated_event(progress_updated)
-        progress_bar = tqdm(total=1000)
+            def progress_updated(percentage, state):
+                progress_bar.set_description(state)
+                progress_bar.update(progress.progress - progress_bar.n)
 
-        share_id = f"shr{result.group(1)}"
+            progress.register_updated_event(progress_updated)
 
-        try:
-            AirtableHandler.import_from_airtable_to_group(
-                group, share_id, parent_progress=(progress, 1000)
-            )
-            progress_bar.close()
-            self.stdout.write(f"Your base has been imported.")
-        except AirtableBaseNotPublic:
-            progress_bar.close()
-            self.stdout.write(
-                self.style.ERROR(
-                    f"The Airtable base is not shared publicly. A base can be shared "
-                    f"publicly by clicking on the `Share` button in the top right "
-                    f"corner and then create a `Shared base link`."
+            share_id = f"shr{result.group(1)}"
+
+            try:
+                AirtableHandler.import_from_airtable_to_group(
+                    group,
+                    share_id,
+                    progress_builder=progress.create_child_builder(
+                        represents_progress=progress.total
+                    ),
                 )
-            )
+                self.stdout.write(f"Your base has been imported.")
+            except AirtableBaseNotPublic:
+                self.stdout.write(
+                    self.style.ERROR(
+                        "The Airtable base is not shared publicly. A base can be "
+                        "shared publicly by clicking on the `Share` button in the "
+                        "top right corner and then create a `Shared base link`."
+                    )
+                )

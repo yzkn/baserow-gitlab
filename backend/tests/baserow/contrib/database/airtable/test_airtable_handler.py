@@ -348,7 +348,10 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
 
     progress = Progress(1000)
     databases, id_mapping = AirtableHandler.import_from_airtable_to_group(
-        group, "shrXxmp0WmqsTkFWTzv", storage=storage, parent_progress=(progress, 1000)
+        group,
+        "shrXxmp0WmqsTkFWTzv",
+        storage=storage,
+        progress_builder=progress.create_child_builder(represents_progress=1000),
     )
 
     assert progress.progress == progress.total

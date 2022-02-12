@@ -13,7 +13,7 @@ from django.db.models import Q, Count
 from django.core.files.storage import default_storage
 from django.utils import translation
 
-from baserow.core.utils import Progress
+from baserow.core.utils import ChildProgressBuilder
 from baserow.core.user.utils import normalize_email_address
 
 from .models import (
@@ -792,7 +792,7 @@ class CoreHandler:
         exported_applications,
         files_buffer,
         storage=None,
-        parent_progress=None,
+        progress_builder=None,
     ):
         """
         Imports multiple exported applications into the given group. It is compatible
@@ -810,18 +810,17 @@ class CoreHandler:
         :type files_buffer: IOBase
         :param storage: The storage where the files can be copied to.
         :type storage: Storage or None
-        :param parent_progress: If provided, the progress will be registered as child to
-            the `parent_progress`.
-        :type: Optional[Tuple[Progress, int]]
+        :param progress_builder: If provided will be used to build a child progress bar
+            and report on this methods progress to the parent of the progress_builder.
+        :type: Optional[ChildProgressBuilder]
         :return: The newly created applications based on the import and a dict
             containing a mapping of old ids to new ids.
         :rtype: list, dict
         """
 
-        progress = Progress(len(exported_applications) * 1000)
-
-        if parent_progress:
-            parent_progress[0].add_child(progress, parent_progress[1])
+        progress = ChildProgressBuilder.build(
+            progress_builder, len(exported_applications) * 1000
+        )
 
         if not storage:
             storage = default_storage
@@ -837,7 +836,9 @@ class CoreHandler:
                     id_mapping,
                     files_zip,
                     storage,
-                    parent_progress=(progress, 1000),
+                    progress_builder=progress.create_child_builder(
+                        represents_progress=1000
+                    ),
                 )
                 imported_applications.append(imported_application)
 

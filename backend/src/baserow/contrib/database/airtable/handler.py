@@ -10,7 +10,10 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from django.core.files.storage import Storage
 
 from baserow.core.handler import CoreHandler
-from baserow.core.utils import Progress, remove_invalid_surrogate_characters
+from baserow.core.utils import (
+    remove_invalid_surrogate_characters,
+    ChildProgressBuilder,
+)
 from baserow.core.models import Group
 from baserow.contrib.database.models import Database
 from baserow.contrib.database.application_types import DatabaseApplicationType
@@ -260,7 +263,7 @@ class AirtableHandler:
     @staticmethod
     def download_files_as_zip(
         files_to_download: Dict[str, str],
-        parent_progress: Optional[Tuple[Progress, int]] = None,
+        progress_builder: Optional[ChildProgressBuilder] = None,
     ) -> BytesIO:
         """
         Downloads all the user files in the provided dict and adds them to a zip file.
@@ -269,16 +272,15 @@ class AirtableHandler:
         :param files_to_download: A dict that contains all the user file URLs that must
             be downloaded. The key is the file name and the value the URL. Additional
             files can be added to this dict.
-        :param parent_progress: If provided, the progress will be registered as child to
-            the `parent_progress`.
+        :param progress_builder: If provided will be used to build a child progress bar
+            and report on this methods progress to the parent of the progress_builder.
         :return: An in memory buffer as zip file containing all the user files.
         """
 
         files_buffer = BytesIO()
-        progress = Progress(len(files_to_download.keys()))
-
-        if parent_progress:
-            parent_progress[0].add_child(progress, parent_progress[1])
+        progress = ChildProgressBuilder.build(
+            progress_builder, child_total=len(files_to_download.keys())
+        )
 
         with ZipFile(files_buffer, "a", ZIP_DEFLATED, False) as files_zip:
             for index, (file_name, url) in enumerate(files_to_download.items()):
@@ -294,7 +296,7 @@ class AirtableHandler:
         init_data: dict,
         schema: dict,
         tables: list,
-        parent_progress: Optional[Tuple[Progress, int]] = None,
+        progress_builder: Optional[ChildProgressBuilder] = None,
     ) -> Tuple[dict, IOBase]:
         """
         Converts the provided raw Airtable database dict to a Baserow export format and
@@ -307,15 +309,16 @@ class AirtableHandler:
             shared base.
         :param schema: An object containing the schema of the Airtable base.
         :param tables: a list containing the table data.
-        :param parent_progress: If provided, the progress will be registered as child to
-            the `parent_progress`.
+        :param progress_builder: If provided will be used to build a child progress bar
+            and report on this methods progress to the parent of the progress_builder.
         :return: The converted Airtable base in Baserow export format and a zip file
             containing the user files.
         """
 
-        progress = Progress(1000)
-        converting_progress = Progress(
-            sum(
+        progress = ChildProgressBuilder.build(progress_builder, child_total=1000)
+        converting_progress = progress.create_child(
+            represents_progress=500,
+            total=sum(
                 [
                     # Mapping progress
                     len(tables[table["id"]]["rows"])
@@ -327,12 +330,8 @@ class AirtableHandler:
                     + 1
                     for table in schema["tableSchemas"]
                 ]
-            )
+            ),
         )
-        progress.add_child(converting_progress, 500)
-
-        if parent_progress:
-            parent_progress[0].add_child(progress, parent_progress[1])
 
         # A list containing all the exported table in Baserow format.
         exported_tables = []
@@ -451,7 +450,9 @@ class AirtableHandler:
         # download all the user files. Because we first want to the whole conversion to
         # be completed and because we want this to be added to the progress bar, this is
         # done last.
-        user_files_zip = cls.download_files_as_zip(files_to_download, (progress, 500))
+        user_files_zip = cls.download_files_as_zip(
+            files_to_download, progress.create_child_builder(represents_progress=500)
+        )
 
         return exported_database, user_files_zip
 
@@ -461,7 +462,7 @@ class AirtableHandler:
         group: Group,
         share_id: str,
         storage: Optional[Storage] = None,
-        parent_progress: Optional[Tuple[Progress, int]] = None,
+        progress_builder: Optional[ChildProgressBuilder] = None,
     ) -> Tuple[List[Database], dict]:
         """
         Downloads all the data of the provided publicly shared Airtable base, converts
@@ -471,15 +472,12 @@ class AirtableHandler:
         :param group: The group where the copy of the Airtable must be added to.
         :param share_id: The shared Airtable ID that must be imported.
         :param storage: The storage where the user files must be saved to.
-        :param parent_progress: If provided, the progress will be registered as child to
-            the `parent_progress`.
+        :param progress_builder: If provided will be used to build a child progress bar
+            and report on this methods progress to the parent of the progress_builder.
         :return:
         """
 
-        progress = Progress(1000)
-
-        if parent_progress:
-            parent_progress[0].add_child(progress, parent_progress[1])
+        progress = ChildProgressBuilder.build(progress_builder, child_total=1000)
 
         # Execute the initial request to obtain the initial data that's needed to
         # make the request.
@@ -490,9 +488,13 @@ class AirtableHandler:
         # Airtable table data.
         tables = []
         raw_tables = list(init_data["rawTables"].keys())
-        table_progress = Progress(len(raw_tables))
-        progress.add_child(table_progress, 99)
-        for index, table_id in enumerate(raw_tables):
+        for index, table_id in enumerate(
+            progress.track(
+                represents_progress=99,
+                state=AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
+                iterable=raw_tables,
+            )
+        ):
             response = cls.fetch_table_data(
                 table_id=table_id,
                 init_data=init_data,
@@ -506,7 +508,6 @@ class AirtableHandler:
             )
             decoded_content = remove_invalid_surrogate_characters(response.content)
             tables.append(json.loads(decoded_content))
-            table_progress.increment(state=AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE)
 
         # Split database schema from the tables because we need this to be separated
         # later on..
@@ -515,7 +516,10 @@ class AirtableHandler:
         # Convert the raw Airtable data to Baserow export format so we can import that
         # later.
         baserow_database_export, files_buffer = cls.to_baserow_database_export(
-            init_data, schema, tables, (progress, 300)
+            init_data,
+            schema,
+            tables,
+            progress.create_child_builder(represents_progress=300),
         )
 
         # Import the converted data using the existing method to avoid duplicate code.
@@ -524,7 +528,7 @@ class AirtableHandler:
             [baserow_database_export],
             files_buffer,
             storage=storage,
-            parent_progress=(progress, 600),
+            progress_builder=progress.create_child_builder(represents_progress=600),
         )
 
         return databases, id_mapping

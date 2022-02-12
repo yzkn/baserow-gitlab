@@ -355,16 +355,15 @@ class Progress:
 
         for i in range(0, 10):
             sleep(0.1)
-            progress.increment("First")
+            progress.increment(state="First")
 
         sleep(1)
         progress.increment("Second", by=10)
 
-        sub_progress = Progress(2)
-        progress.add_child(sub_progress, 50)
-        sub_progress.increment("Sub first")
+        sub_progress = progress.create_child(50, 2)
+        sub_progress.increment(state="Sub first")
         sleep(1)
-        sub_progress.increment("Sub second")
+        sub_progress.increment(state="Sub second")
 
         progress.increment(by=40)
 
@@ -385,7 +384,12 @@ class Progress:
         100% None
     """
 
-    def __init__(self, total: int):
+    def __init__(
+        self,
+        total: int,
+        parent: Optional[Progress] = None,
+        represents_progress: Optional[int] = None,
+    ):
         """
         :param total: The total amount representing 100%. This means that the
             progress can be increment `total` times before reaching 100%.
@@ -394,6 +398,13 @@ class Progress:
         self.total = total
         self.progress = 0
         self.updated_events = []
+        self.parent = parent
+        self.represents_progress = represents_progress
+        self.last_parent_progress = 0
+
+    def reset_with_total(self, total):
+        self.progress = 0
+        self.total = total
 
     def register_updated_event(self, event):
         """
@@ -419,43 +430,74 @@ class Progress:
 
         self.progress += by
 
+        if self.parent is not None:
+            if self.progress >= self.total:
+                new_parent_progress = self.represents_progress
+            else:
+                new_parent_progress = math.ceil(
+                    (Decimal(self.progress) / self.total) * self.represents_progress
+                )
+            diff = new_parent_progress - self.last_parent_progress
+            self.last_parent_progress = new_parent_progress
+            if diff > 0:
+                self.parent.increment(diff, state)
+
         percentage = math.ceil(Decimal(self.progress) / self.total * 100)
         for event in self.updated_events:
             event(percentage, state)
 
-    def add_child(self, child_progress: Progress, represents_progress: int):
+    def create_child(self, represents_progress: int, total: int):
         """
-        Registers a child progress. Everytime the child progress increment, it will
+        Creates a child progress. Everytime the child progress increment, it will
         also update the current progress to reflect the increment.
 
-        :param child_progress: The child progress instance that must be registered.
+        :param represents_progress: How much the child progress represents in this
+            progress when it is at 100%. If this value would be `40` and the total is
+            `100` and the child progress reaches 100%, it will increment the progress
+            by 40.
+        :param total: The total amount representing 100% of the child. This means
+            that the progress can be increment `total` times before reaching 100%.
+        """
+
+        child_progress = Progress(
+            parent=self, represents_progress=represents_progress, total=total
+        )
+
+        if child_progress.progress >= child_progress.total:
+            self.increment(represents_progress)
+
+        return child_progress
+
+    def create_child_builder(self, represents_progress: int):
+        """
+        Creates a child progress. Everytime the child progress increment, it will
+        also update the current progress to reflect the increment.
+
         :param represents_progress: How much the child progress represents in this
             progress when it is at 100%. If this value would be `40` and the total is
             `100` and the child progress reaches 100%, it will increment the progress
             by 40.
         """
 
-        last_progress = 0
+        return ChildProgressBuilder(self, represents_progress)
 
-        def updated(percentage, state):
-            nonlocal last_progress
-            nonlocal represents_progress
-            nonlocal child_progress
+    def track(self, represents_progress: int, state, iterable):
+        child_progress = self.create_child(represents_progress, total=len(iterable))
+        for i in iterable:
+            yield i
+            child_progress.increment(state=state)
 
-            if child_progress.progress == child_progress.total:
-                new_progress = represents_progress
-            else:
-                new_progress = math.ceil(
-                    child_progress.progress / child_progress.total * represents_progress
-                )
-            diff = new_progress - last_progress
-            if diff > 0:
-                last_progress = new_progress
-                self.increment(diff, state)
 
-        child_progress.register_updated_event(updated)
+class ChildProgressBuilder:
+    def __init__(self, parent: Progress, represents_progress: int):
+        self.represents_progress = represents_progress
+        self.parent = parent
 
-        # If the progress is already at 100%, we must call the update event,
-        # otherwise the increment is never registered with the parent progress.
-        if child_progress.progress >= child_progress.total:
-            updated(100, None)
+    @classmethod
+    def build(cls, builder: Optional[ChildProgressBuilder], child_total: int):
+        if builder is not None:
+            parent = builder.parent
+            represents_progress = builder.represents_progress
+            return parent.create_child(represents_progress, child_total)
+        else:
+            return Progress(child_total)
