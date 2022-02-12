@@ -354,7 +354,7 @@
               "isDateTime":true,
               "dateFormat":"Local",
               "displayType":"createdTime",
-              "timeZone":"client",
+              "timeZone":"Europe/Amsterdam",
               "formulaTextParsed":"CREATED_TIME()",
               "dependencies":{
                 "referencedColumnIdsForValue":[

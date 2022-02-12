@@ -1,11 +1,15 @@
 from typing import Dict, Any, Union, Tuple
 
+from pytz import BaseTzInfo
+
 from baserow.core.registry import Instance, Registry
 from baserow.contrib.database.fields.models import Field
 
 
 class AirtableColumnType(Instance):
-    def to_baserow_field(self, raw_airtable_column: dict) -> Union[Field, None]:
+    def to_baserow_field(
+        self, raw_airtable_column: dict, timezone: BaseTzInfo
+    ) -> Union[Field, None]:
         """
         Converts the raw Airtable column to a Baserow field object. It should be
         possible to pass this object directly into the FieldType::export_serialized
@@ -13,6 +17,7 @@ class AirtableColumnType(Instance):
 
         :param raw_airtable_column: The raw Airtable column values that must be
             converted.
+        :param timezone: The main timezone used for date conversions if needed.
         :return: The Baserow field type relatd to the Airtable column. If None is
             provided, then the column is ignored in the conversion.
         """
@@ -25,6 +30,7 @@ class AirtableColumnType(Instance):
         raw_airtable_column: dict,
         baserow_field: Field,
         value: Any,
+        timezone: BaseTzInfo,
         files_to_download: Dict[str, str],
     ):
         """
@@ -38,6 +44,7 @@ class AirtableColumnType(Instance):
         :param raw_airtable_column: A dict containing the raw Airtable column values.
         :param baserow_field: The Baserow field that the column has been converted to.
         :param value: The raw Airtable value that must be converted.
+        :param timezone: The main timezone used for date conversions if needed.
         :param files_to_download: A dict that contains all the user file URLs that must
             be downloaded. The key is the file name and the value the URL. Additional
             files can be added to this dict.
@@ -51,13 +58,14 @@ class AirtableColumnTypeRegistry(Registry):
     name = "airtable_column"
 
     def from_airtable_column_to_serialized(
-        self, raw_airtable_column: dict
+        self, raw_airtable_column: dict, timezone: BaseTzInfo
     ) -> Union[Tuple[Field, AirtableColumnType], Tuple[None, None]]:
         """
         Tries to find a Baserow field that matches that raw Airtable column data. If
         None is returned, the column is not compatible with Baserow and must be ignored.
 
         :param raw_airtable_column: The raw Airtable column data that must be
+        :param timezone: The main timezone used for date conversions if needed.
         :return: The related Baserow field and AirtableColumnType that should be used
             for the conversion.
         """
@@ -65,7 +73,9 @@ class AirtableColumnTypeRegistry(Registry):
         try:
             type_name = raw_airtable_column.get("type", "")
             airtable_column_type = self.get(type_name)
-            baserow_field = airtable_column_type.to_baserow_field(raw_airtable_column)
+            baserow_field = airtable_column_type.to_baserow_field(
+                raw_airtable_column, timezone
+            )
 
             if baserow_field is None:
                 return None, None

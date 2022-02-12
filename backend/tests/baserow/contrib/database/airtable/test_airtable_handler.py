@@ -6,6 +6,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
+from pytz import UTC, timezone as pytz_timezone
 
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
@@ -173,7 +174,7 @@ def test_to_baserow_database_export():
 
     schema, tables = AirtableHandler.extract_schema([user_table_json, data_table_json])
     baserow_database_export, files_buffer = AirtableHandler.to_baserow_database_export(
-        init_data, schema, tables
+        init_data, schema, tables, pytz_timezone("Europe/Amsterdam")
     )
 
     with ZipFile(files_buffer, "r", ZIP_DEFLATED, False) as zip_file:
@@ -238,6 +239,10 @@ def test_to_baserow_database_export():
         "field_fldFh5wIL430N62LN6t": [2, 3, 1],
         "field_fldZBmr4L45mhjILhlA": "2",
     }
+    assert (
+        baserow_database_export["tables"][1]["rows"][0]["field_fldEB5dp0mNjVZu0VJI"]
+        == "2022-01-21T01:00:00+00:00"
+    )
 
 
 @pytest.mark.django_db
@@ -271,14 +276,14 @@ def test_to_baserow_database_export_without_primary_value():
 
     schema, tables = AirtableHandler.extract_schema(deepcopy([user_table_json]))
     baserow_database_export, files_buffer = AirtableHandler.to_baserow_database_export(
-        init_data, schema, tables
+        init_data, schema, tables, UTC
     )
     assert baserow_database_export["tables"][0]["fields"][0]["primary"] is True
 
     user_table_json["data"]["tableSchemas"][0]["columns"] = []
     schema, tables = AirtableHandler.extract_schema(deepcopy([user_table_json]))
     baserow_database_export, files_buffer = AirtableHandler.to_baserow_database_export(
-        init_data, schema, tables
+        init_data, schema, tables, UTC
     )
     assert baserow_database_export["tables"][0]["fields"] == [
         {
@@ -352,6 +357,7 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
     databases, id_mapping = AirtableHandler.import_from_airtable_to_group(
         group,
         "shrXxmp0WmqsTkFWTzv",
+        timezone=UTC,
         storage=storage,
         progress_builder=progress.create_child_builder(represents_progress=1000),
     )
