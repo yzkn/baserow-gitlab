@@ -3,6 +3,7 @@ import re
 from tqdm import tqdm
 from pytz import timezone as pytz_timezone
 from pytz.exceptions import UnknownTimeZoneError
+from tempfile import NamedTemporaryFile
 
 from django.db import transaction
 from django.core.management.base import BaseCommand
@@ -88,14 +89,16 @@ class Command(BaseCommand):
             share_id = f"shr{result.group(1)}"
 
             try:
-                AirtableHandler.import_from_airtable_to_group(
-                    group,
-                    share_id,
-                    timezone,
-                    progress_builder=progress.create_child_builder(
-                        represents_progress=progress.total
-                    ),
-                )
+                with NamedTemporaryFile() as download_files_buffer:
+                    AirtableHandler.import_from_airtable_to_group(
+                        group,
+                        share_id,
+                        timezone,
+                        progress_builder=progress.create_child_builder(
+                            represents_progress=progress.total
+                        ),
+                        download_files_buffer=download_files_buffer,
+                    )
                 self.stdout.write(f"Your base has been imported.")
             except AirtableBaseNotPublic:
                 self.stdout.write(

@@ -280,6 +280,7 @@ class AirtableHandler:
     def download_files_as_zip(
         files_to_download: Dict[str, str],
         progress_builder: Optional[ChildProgressBuilder] = None,
+        files_buffer: Union[None, IOBase] = None,
     ) -> BytesIO:
         """
         Downloads all the user files in the provided dict and adds them to a zip file.
@@ -290,10 +291,14 @@ class AirtableHandler:
             files can be added to this dict.
         :param progress_builder: If provided will be used to build a child progress bar
             and report on this methods progress to the parent of the progress_builder.
+        :param files_buffer: Optionally a file buffer can be provided to store the
+            downloaded files in. They will be stored in memory if not provided.
         :return: An in memory buffer as zip file containing all the user files.
         """
 
-        files_buffer = BytesIO()
+        if files_buffer is None:
+            files_buffer = BytesIO()
+
         progress = ChildProgressBuilder.build(
             progress_builder, child_total=len(files_to_download.keys())
         )
@@ -314,6 +319,7 @@ class AirtableHandler:
         tables: list,
         timezone: BaseTzInfo,
         progress_builder: Optional[ChildProgressBuilder] = None,
+        download_files_buffer: Union[None, IOBase] = None,
     ) -> Tuple[dict, IOBase]:
         """
         Converts the provided raw Airtable database dict to a Baserow export format and
@@ -329,6 +335,8 @@ class AirtableHandler:
         :param timezone: The main timezone used for date conversions if needed.
         :param progress_builder: If provided will be used to build a child progress bar
             and report on this methods progress to the parent of the progress_builder.
+        :param download_files_buffer: Optionally a file buffer can be provided to store
+            the downloaded files in. They will be stored in memory if not provided.
         :return: The converted Airtable base in Baserow export format and a zip file
             containing the user files.
         """
@@ -486,7 +494,9 @@ class AirtableHandler:
         # be completed and because we want this to be added to the progress bar, this is
         # done last.
         user_files_zip = cls.download_files_as_zip(
-            files_to_download, progress.create_child_builder(represents_progress=500)
+            files_to_download,
+            progress.create_child_builder(represents_progress=500),
+            download_files_buffer,
         )
 
         return exported_database, user_files_zip
@@ -499,6 +509,7 @@ class AirtableHandler:
         timezone: BaseTzInfo = UTC,
         storage: Optional[Storage] = None,
         progress_builder: Optional[ChildProgressBuilder] = None,
+        download_files_buffer: Union[None, IOBase] = None,
     ) -> Tuple[List[Database], dict]:
         """
         Downloads all the data of the provided publicly shared Airtable base, converts
@@ -511,7 +522,9 @@ class AirtableHandler:
         :param storage: The storage where the user files must be saved to.
         :param progress_builder: If provided will be used to build a child progress bar
             and report on this methods progress to the parent of the progress_builder.
-        :return:
+        :param download_files_buffer: Optionally a file buffer can be provided to store
+            the downloaded files in. They will be stored in memory if not provided.
+        :return: The imported database application representing the Airtable base.
         """
 
         progress = ChildProgressBuilder.build(progress_builder, child_total=1000)
@@ -558,6 +571,7 @@ class AirtableHandler:
             tables,
             timezone,
             progress.create_child_builder(represents_progress=300),
+            download_files_buffer,
         )
 
         # Import the converted data using the existing method to avoid duplicate code.
