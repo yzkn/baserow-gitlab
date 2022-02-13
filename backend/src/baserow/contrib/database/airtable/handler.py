@@ -254,7 +254,10 @@ class AirtableHandler:
         """
 
         exported_row = DatabaseExportSerializedStructure.row(
-            id=row["id"], order=f"{index + 1}.00000000000000000000"
+            id=row["id"],
+            order=f"{index + 1}.00000000000000000000",
+            created_on=None,
+            updated_on=None,
         )
 
         for column_id, column_value in row["cellValuesByColumnId"].items():

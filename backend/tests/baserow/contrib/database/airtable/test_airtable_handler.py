@@ -226,6 +226,8 @@ def test_to_baserow_database_export():
     assert baserow_database_export["tables"][0]["rows"][0] == {
         "id": 1,
         "order": "1.00000000000000000000",
+        "created_on": None,
+        "updated_on": None,
         "field_fldB7wkyR0buF1sRF9O": "bram@email.com",
         "field_fldG9y88Zw7q7u4Z7i4": "Bram 1",
         "field_fldFh5wIL430N62LN6t": [1],
@@ -234,6 +236,8 @@ def test_to_baserow_database_export():
     assert baserow_database_export["tables"][0]["rows"][1] == {
         "id": 2,
         "order": "2.00000000000000000000",
+        "created_on": None,
+        "updated_on": None,
         "field_fldB7wkyR0buF1sRF9O": "bram@test.nl",
         "field_fldG9y88Zw7q7u4Z7i4": "Bram 2",
         "field_fldFh5wIL430N62LN6t": [2, 3, 1],

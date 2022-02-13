@@ -15,10 +15,12 @@ class DatabaseExportSerializedStructure:
         }
 
     @staticmethod
-    def row(id, order):
+    def row(id, order, created_on, updated_on):
         return {
             "id": id,
             "order": order,
+            "created_on": created_on,
+            "updated_on": updated_on,
         }
 
     @staticmethod

@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from django.core.management.color import no_style
 from django.db import connection
 from django.urls import path, include
+from django.utils import timezone
 
 from baserow.core.utils import ChildProgressBuilder
 from baserow.contrib.database.api.serializers import DatabaseSerializer
@@ -80,7 +83,10 @@ class DatabaseApplicationType(ApplicationType):
             table_cache = {}
             for row in model.objects.all():
                 serialized_row = DatabaseExportSerializedStructure.row(
-                    id=row.id, order=row.order
+                    id=row.id,
+                    order=str(row.order),
+                    created_on=row.created_on.isoformat(),
+                    updated_on=row.updated_on.isoformat(),
                 )
                 for field_object in model._field_objects.values():
                     field_name = field_object["name"]
@@ -219,6 +225,11 @@ class DatabaseApplicationType(ApplicationType):
                 table["_model"] = model
                 schema_editor.create_model(model)
 
+                # This must be disabled because the export could contain created on
+                # and updated on values.
+                table["_model"]._meta.get_field("created_on").auto_now_add = False
+                table["_model"]._meta.get_field("updated_on").auto_now = False
+
             progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         # Now that everything is in place we can start filling the table with the rows
@@ -229,7 +240,25 @@ class DatabaseApplicationType(ApplicationType):
             rows_to_be_inserted = []
 
             for row in table["rows"]:
-                row_object = model(id=row["id"], order=row["order"])
+                created_on = row.get("created_on")
+                updated_on = row.get("updated_on")
+
+                if created_on:
+                    created_on = datetime.fromisoformat(created_on)
+                else:
+                    created_on = timezone.now()
+
+                if updated_on:
+                    updated_on = datetime.fromisoformat(updated_on)
+                else:
+                    updated_on = timezone.now()
+
+                row_object = model(
+                    id=row["id"],
+                    order=row["order"],
+                    created_on=created_on,
+                    updated_on=updated_on,
+                )
 
                 for field in table["fields"]:
                     field_type = field_type_registry.get(field["type"])
