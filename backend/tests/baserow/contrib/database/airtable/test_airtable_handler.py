@@ -109,6 +109,51 @@ def test_fetch_table():
 
 @pytest.mark.django_db
 @responses.activate
+def test_fetch_view():
+    base_path = os.path.join(settings.BASE_DIR, "../../../tests/airtable_responses")
+    path = os.path.join(base_path, "airtable_base.html")
+    view_response_path = os.path.join(base_path, "airtable_table.json")
+
+    with open(path, "rb") as file:
+        responses.add(
+            responses.GET,
+            "https://airtable.com/shrXxmp0WmqsTkFWTzv",
+            status=200,
+            body=file,
+            headers={"Set-Cookie": "brw=test;"},
+        )
+        request_id, init_data, cookies = AirtableHandler.fetch_publicly_shared_base(
+            "shrXxmp0WmqsTkFWTzv"
+        )
+
+    cookies = {
+        "brw": "brw",
+        "__Host-airtable-session": "__Host-airtable-session",
+        "__Host-airtable-session.sig": "__Host-airtable-session.sig",
+        "AWSELB": "AWSELB",
+        "AWSELBCORS": "AWSELBCORS",
+    }
+
+    with open(view_response_path, "rb") as table_response_file:
+        responses.add(
+            responses.GET,
+            "https://airtable.com/v0.3/view/viwDgBCKTEdCQoHTQKH/readData",
+            status=200,
+            body=table_response_file,
+        )
+        view_response = AirtableHandler.fetch_view_data(
+            "viwDgBCKTEdCQoHTQKH",
+            init_data,
+            request_id,
+            cookies,
+            stream=False,
+        )
+
+    assert view_response.json()["data"]["id"] == "tbl7glLIGtH8C8zGCzb"
+
+
+@pytest.mark.django_db
+@responses.activate
 def test_extract_schema():
     base_path = os.path.join(settings.BASE_DIR, "../../../tests/airtable_responses")
     user_table_path = os.path.join(base_path, "airtable_application.json")
@@ -353,6 +398,36 @@ def test_import_from_airtable_to_group(data_fixture, tmpdir):
         responses.add(
             responses.GET,
             "https://airtable.com/v0.3/table/tbl7glLIGtH8C8zGCzb/readData",
+            status=200,
+            body=file.read(),
+        )
+
+    with open(
+        os.path.join(base_path, "airtable_view_viwDgBCKTEdCQoHTQKH.json"), "rb"
+    ) as file:
+        responses.add(
+            responses.GET,
+            "https://airtable.com/v0.3/view/viwDgBCKTEdCQoHTQKH/readData",
+            status=200,
+            body=file.read(),
+        )
+
+    with open(
+        os.path.join(base_path, "airtable_view_viwsFAwnvkr98dfv8nm.json"), "rb"
+    ) as file:
+        responses.add(
+            responses.GET,
+            "https://airtable.com/v0.3/view/viwsFAwnvkr98dfv8nm/readData",
+            status=200,
+            body=file.read(),
+        )
+
+    with open(
+        os.path.join(base_path, "airtable_view_viwBAGnUgZ6X5Eyg5Wf.json"), "rb"
+    ) as file:
+        responses.add(
+            responses.GET,
+            "https://airtable.com/v0.3/view/viwBAGnUgZ6X5Eyg5Wf/readData",
             status=200,
             body=file.read(),
         )

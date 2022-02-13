@@ -149,6 +149,60 @@ class AirtableHandler:
             },
             cookies=cookies,
         )
+
+        return response
+
+    @staticmethod
+    def fetch_view_data(
+        view_id: str,
+        init_data: dict,
+        request_id: str,
+        cookies: dict,
+        stream=True,
+    ) -> Response:
+        """
+        Fetches the view data of a publicly shared Airtable table.
+
+        :param view_id: The Airtable table id that must be fetched. The id starts with
+            `tbl`.
+        :param init_data: The init_data returned by the initially requested shared base.
+        :param request_id: The request_id returned by the initially requested shared
+            base.
+        :param cookies: The cookies dict returned by the initially requested shared
+            base.
+        :param stream: Indicates whether the request should be streamed. This could be
+            useful if we want to show a progress bar. It will directly be passed into
+            the `requests` request.
+        :return: The `requests` response containing the result.
+        """
+
+        application_id = list(init_data["rawApplications"].keys())[0]
+        client_code_version = init_data["codeVersion"]
+        page_load_id = init_data["pageLoadId"]
+        access_policy = json.loads(init_data["accessPolicy"])
+
+        response = requests.get(
+            url=f"https://airtable.com/v0.3/view/{view_id}/readData",
+            stream=stream,
+            params={
+                "stringifiedObjectParams": {},
+                "requestId": request_id,
+                "accessPolicy": json.dumps(access_policy),
+            },
+            headers={
+                "x-airtable-application-id": application_id,
+                "x-airtable-client-queue-time": "45",
+                "x-airtable-inter-service-client": "webClient",
+                "x-airtable-inter-service-client-code-version": client_code_version,
+                "x-airtable-page-load-id": page_load_id,
+                "X-Requested-With": "XMLHttpRequest",
+                "x-time-zone": "Europe/Amsterdam",
+                "x-user-locale": "en",
+                **BASE_HEADERS,
+            },
+            cookies=cookies,
+        )
+
         return response
 
     @staticmethod
@@ -553,7 +607,7 @@ class AirtableHandler:
         raw_tables = list(init_data["rawTables"].keys())
         for index, table_id in enumerate(
             progress.track(
-                represents_progress=99,
+                represents_progress=50,
                 state=AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
                 iterable=raw_tables,
             )
@@ -575,6 +629,29 @@ class AirtableHandler:
         # Split database schema from the tables because we need this to be separated
         # later on..
         schema, tables = cls.extract_schema(tables)
+
+        # Fetch the missing view data.
+        for table_schema in progress.track(
+            represents_progress=49,
+            state=AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
+            iterable=schema["tableSchemas"],
+        ):
+            table_data = tables[table_schema["id"]]
+            existing_views = [view["id"] for view in table_data["viewDatas"]]
+
+            for view in table_schema["views"]:
+                if view["id"] in existing_views:
+                    continue
+
+                response = cls.fetch_view_data(
+                    view_id=view["id"],
+                    init_data=init_data,
+                    request_id=request_id,
+                    cookies=cookies,
+                    stream=False,
+                )
+                decoded_content = remove_invalid_surrogate_characters(response.content)
+                table_data["viewDatas"].append(json.loads(decoded_content)["data"])
 
         # Convert the raw Airtable data to Baserow export format so we can import that
         # later.
