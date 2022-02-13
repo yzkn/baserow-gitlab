@@ -4,6 +4,7 @@ from pytz import UTC, timezone as pytz_timezone
 
 from django.core.exceptions import ValidationError
 
+from baserow.contrib.database.export_serialized import DatabaseExportSerializedStructure
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.fields.models import (
     NUMBER_TYPE_INTEGER,
@@ -82,6 +83,8 @@ class RichTextTextAirtableColumnType(AirtableColumnType):
         timezone,
         files_to_download,
     ):
+        # We don't support rich text formatting yet, so this converts the value to
+        # plain text.
         return "".join([v["insert"] for v in value["documentValue"]])
 
 
@@ -161,13 +164,22 @@ class DateAirtableColumnType(AirtableColumnType):
         if value is None:
             return value
 
+        # Check if a timezone is provided in the type options, if so, we might want
+        # to use that timezone for the conversion later on.
         airtable_timezone = raw_airtable_column.get("typeOptions", {}).get(
             "timeZone", None
         )
 
+        # Baserow doesn't support a "client" option for the date field, so if that is
+        # provided, we must fallback on the main timezone chosen during the import.
+        # Otherwise, we can use the timezone of that value.
         if airtable_timezone is not None and airtable_timezone != "client":
             timezone = pytz_timezone(airtable_timezone)
 
+        # The provided Airtable date value is always in UTC format. Because Baserow
+        # doesn't support different timezones for the date field, we need to convert
+        # to the given timezone because then it will be visible in the correct
+        # timezone to the user.
         value = (
             datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
             .astimezone(timezone)
@@ -188,9 +200,14 @@ class FormulaAirtableColumnType(AirtableColumnType):
         display_type = type_options.get("displayType", "")
         airtable_timezone = type_options.get("timeZone", None)
 
+        # Baserow doesn't support a "client" option for the date field, so if that is
+        # provided, we must fallback on the main timezone chosen during the import.
+        # Otherwise, we can use the timezone of that field.
         if airtable_timezone is not None and airtable_timezone != "client":
             timezone = pytz_timezone(airtable_timezone)
 
+        # The formula conversion isn't support yet, but because the Created on and
+        # Last modified fields work as a formula, we can convert those.
         if display_type == "lastModifiedTime":
             return LastModifiedField(
                 timezone=str(timezone),
@@ -258,11 +275,11 @@ class MultipleAttachmentAirtableColumnType(AirtableColumnType):
             file_name = "_".join(file["url"].split("/")[-3:])
             files_to_download[file_name] = file["url"]
             new_value.append(
-                {
-                    "name": file_name,
-                    "visible_name": file["filename"],
-                    "original_name": file["filename"],
-                }
+                DatabaseExportSerializedStructure.file_field_value(
+                    name=file_name,
+                    visible_name=file["filename"],
+                    original_name=file["filename"],
+                )
             )
 
         return new_value

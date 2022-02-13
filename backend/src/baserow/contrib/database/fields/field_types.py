@@ -22,6 +22,7 @@ from django.utils.timezone import make_aware
 from pytz import timezone
 from rest_framework import serializers
 
+from baserow.contrib.database.export_serialized import DatabaseExportSerializedStructure
 from baserow.contrib.database.api.fields.errors import (
     ERROR_LINK_ROW_TABLE_NOT_IN_SAME_DATABASE,
     ERROR_LINK_ROW_TABLE_NOT_PROVIDED,
@@ -1633,11 +1634,11 @@ class FileFieldType(FieldType):
                 cache[cache_entry] = user_file
 
             file_names.append(
-                {
-                    "name": file["name"],
-                    "visible_name": file["visible_name"],
-                    "original_name": cache[cache_entry].original_name,
-                }
+                DatabaseExportSerializedStructure.file_field_value(
+                    name=file["name"],
+                    visible_name=file["visible_name"],
+                    original_name=cache[cache_entry].original_name,
+                )
             )
         return file_names
 

@@ -20,3 +20,11 @@ class DatabaseExportSerializedStructure:
             "id": id,
             "order": order,
         }
+
+    @staticmethod
+    def file_field_value(name, visible_name, original_name):
+        return {
+            "name": name,
+            "visible_name": visible_name,
+            "original_name": original_name,
+        }
