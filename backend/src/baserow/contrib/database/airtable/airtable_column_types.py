@@ -228,8 +228,19 @@ class FormulaAirtableColumnType(AirtableColumnType):
         timezone,
         files_to_download,
     ):
-        if isinstance(baserow_field, (CreatedOnField, LastModifiedField)):
+        if isinstance(baserow_field, CreatedOnField):
+            # If `None`, the value will automatically be populated from the
+            # `created_on` property of the row when importing, which already contains
+            # the correct value.
             return None
+        if isinstance(baserow_field, LastModifiedField):
+            # Because there isn't a last modified property in the Airtable data,
+            # we must use the value as provided here.
+            return (
+                datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+                .replace(tzinfo=UTC)
+                .isoformat()
+            )
 
 
 class ForeignKeyAirtableColumnType(AirtableColumnType):

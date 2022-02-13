@@ -76,6 +76,7 @@ class Command(BaseCommand):
                     f"https://airtable.com/shrxxxxxxxxxxxxxx)"
                 )
             )
+            sys.exit(1)
 
         with tqdm(total=1000) as progress_bar:
             progress = Progress(1000)
@@ -99,7 +100,6 @@ class Command(BaseCommand):
                         ),
                         download_files_buffer=download_files_buffer,
                     )
-                self.stdout.write(f"Your base has been imported.")
             except AirtableBaseNotPublic:
                 self.stdout.write(
                     self.style.ERROR(
@@ -108,3 +108,6 @@ class Command(BaseCommand):
                         "top right corner and then create a `Shared base link`."
                     )
                 )
+                sys.exit(1)
+
+        self.stdout.write(f"Your base has been imported.")

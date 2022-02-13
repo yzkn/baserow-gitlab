@@ -7,6 +7,7 @@ from typing import List, Tuple, Union, Dict, Optional
 from requests import Response
 from io import BytesIO, IOBase
 from zipfile import ZipFile, ZIP_DEFLATED
+from datetime import datetime
 
 from django.core.files.storage import Storage
 
@@ -253,10 +254,19 @@ class AirtableHandler:
         :return: The converted row in Baserow export format.
         """
 
+        created_on = row.get("createdTime")
+
+        if created_on:
+            created_on = (
+                datetime.strptime(created_on, "%Y-%m-%dT%H:%M:%S.%fZ")
+                .replace(tzinfo=UTC)
+                .isoformat()
+            )
+
         exported_row = DatabaseExportSerializedStructure.row(
             id=row["id"],
             order=f"{index + 1}.00000000000000000000",
-            created_on=None,
+            created_on=created_on,
             updated_on=None,
         )
 

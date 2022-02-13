@@ -225,10 +225,15 @@ class DatabaseApplicationType(ApplicationType):
                 table["_model"] = model
                 schema_editor.create_model(model)
 
-                # This must be disabled because the export could contain created on
-                # and updated on values.
-                table["_model"]._meta.get_field("created_on").auto_now_add = False
-                table["_model"]._meta.get_field("updated_on").auto_now = False
+                # The auto_now_add and auto_now must be disabled for all fields
+                # because the export contains correct values and we don't want them
+                # to be overwritten when importing.
+                for model_field in table["_model"]._meta.get_fields():
+                    if hasattr(model_field, "auto_now_add"):
+                        model_field.auto_now_add = False
+
+                    if hasattr(model_field, "auto_now"):
+                        model_field.auto_now = False
 
             progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 

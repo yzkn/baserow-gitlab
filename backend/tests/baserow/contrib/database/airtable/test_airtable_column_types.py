@@ -574,7 +574,7 @@ def test_airtable_import_last_modified_column(data_fixture, api_client):
         airtable_column_type.to_baserow_export_serialized_value(
             {}, airtable_field, baserow_field, "2022-01-03T14:51:00.000Z", UTC, {}
         )
-        is None
+        == "2022-01-03T14:51:00+00:00"
     )
 
 
