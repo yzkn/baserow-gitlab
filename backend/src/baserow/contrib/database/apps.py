@@ -64,7 +64,10 @@ class DatabaseConfig(AppConfig):
             formula_function_registry,
         )
         from .webhooks.registries import webhook_event_type_registry
-        from .airtable.registry import airtable_column_type_registry
+        from .airtable.registry import (
+            airtable_column_type_registry,
+            airtable_view_type_registry,
+        )
 
         from .plugins import DatabasePlugin
 
@@ -266,6 +269,10 @@ class DatabaseConfig(AppConfig):
         airtable_column_type_registry.register(MultilineTextAirtableColumnType())
         airtable_column_type_registry.register(MultipleAttachmentAirtableColumnType())
         airtable_column_type_registry.register(RichTextTextAirtableColumnType())
+
+        from .airtable.airtable_view_types import GridAirtableViewType
+
+        airtable_view_type_registry.register(GridAirtableViewType())
 
         # The signals must always be imported last because they use the registries
         # which need to be filled first.

@@ -14,7 +14,10 @@ from django.conf import settings
 from baserow.core.user_files.models import UserFile
 from baserow.core.utils import Progress
 from baserow.contrib.database.fields.models import TextField
+from baserow.contrib.database.views.models import GridView
+from baserow.contrib.database.views.view_types import GridViewType
 from baserow.contrib.database.airtable.handler import AirtableHandler
+from baserow.contrib.database.airtable.airtable_view_types import GridAirtableViewType
 
 
 @pytest.mark.django_db
@@ -169,6 +172,122 @@ def test_extract_schema():
     assert schema["tableSchemas"][1]["id"] == "tbl7glLIGtH8C8zGCzb"
     assert tables["tblRpq315qnnIcg5IjI"]["id"] == "tblRpq315qnnIcg5IjI"
     assert tables["tbl7glLIGtH8C8zGCzb"]["id"] == "tbl7glLIGtH8C8zGCzb"
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_to_baserow_view(django_assert_num_queries):
+    table = {
+        "id": "tblRpq315qnnIcg5IjI",
+        "name": "Users",
+        "primaryColumnId": "fldG9y88Zw7q7u4Z7i4",
+        "columns": [
+            {"id": "fldG9y88Zw7q7u4Z7i4", "name": "Name", "type": "text"},
+            {
+                "id": "fldB7wkyR0buF1sRF9O",
+                "name": "Email",
+                "type": "text",
+                "typeOptions": {"validatorName": "email"},
+            },
+            {
+                "id": "fldFh5wIL430N62LN6t",
+                "name": "Data",
+                "type": "foreignKey",
+                "typeOptions": {
+                    "foreignTableId": "tbl7glLIGtH8C8zGCzb",
+                    "symmetricColumnId": "fldQcEaGEe7xuhUEuPL",
+                    "relationship": "many",
+                    "unreversed": True,
+                },
+            },
+            {
+                "id": "fldZBmr4L45mhjILhlA",
+                "name": "Number",
+                "type": "number",
+                "typeOptions": {
+                    "format": "integer",
+                    "negative": False,
+                    "validatorName": "positive",
+                },
+            },
+        ],
+        "viewOrder": [
+            "viwcpYeEpAs6kZspktV",
+            "viwDgBCKTEdCQoHTQKH",
+            "viwsFAwnvkr98dfv8nm",
+            "viwBAGnUgZ6X5Eyg5Wf",
+        ],
+    }
+    airtable_view = {
+        "id": "viwDgBCKTEdCQoHTQKH",
+        "name": "Grid",
+        "type": "grid",
+        "personalForUserId": None,
+        "createdByUserId": "usrdGm7k7NIVWhK7W7L",
+    }
+    airtable_view_data = {
+        "id": "viwDgBCKTEdCQoHTQKH",
+        "frozenColumnCount": 1,
+        "columnOrder": [
+            {"columnId": "fldG9y88Zw7q7u4Z7i4", "visibility": True, "width": 100},
+            {"columnId": "fldB7wkyR0buF1sRF9O", "visibility": True},
+            {"columnId": "fldZBmr4L45mhjILhlA", "visibility": False},
+        ],
+        "filters": None,
+        "lastSortsApplied": {
+            "sortSet": [
+                {
+                    "id": "srtjGg4wXAf7HAQwV",
+                    "columnId": "fldG9y88Zw7q7u4Z7i4",
+                    "ascending": False,
+                },
+                {
+                    "id": "srtjGg4wXAf7HAQwV",
+                    "columnId": "fldB7wkyR0buF1sRF9O",
+                    "ascending": True,
+                },
+            ],
+            "shouldAutoSort": True,
+            "appliedTime": "2022-01-18T16:30:32.583Z",
+        },
+        "groupLevels": None,
+        "colorConfig": None,
+        "sharesById": {},
+        "description": None,
+        "createdByUserId": "usrdGm7k7NIVWhK7W7L",
+        "applicationTransactionNumber": 284,
+        "rowOrder": [
+            {"rowId": "recWkle1IOXcLmhILmO", "visibility": True},
+            {"rowId": "rec5pdtuKyE71lfK1Ah", "visibility": True},
+        ],
+    }
+    field_mapping = {
+        "fldG9y88Zw7q7u4Z7i4": {},
+        "fldB7wkyR0buF1sRF9O": {},
+        "fldFh5wIL430N62LN6t": {},
+        "fldZBmr4L45mhjILhlA": {},
+    }
+
+    grid_view, baserow_view_type, airtable_view_type = AirtableHandler.to_baserow_view(
+        table, airtable_view, airtable_view_data, field_mapping, UTC
+    )
+
+    assert isinstance(grid_view, GridView)
+    assert isinstance(baserow_view_type, GridViewType)
+    assert isinstance(airtable_view_type, GridAirtableViewType)
+
+    assert grid_view.name == "Grid"
+    assert grid_view.order == 2
+
+    with django_assert_num_queries(0):
+        sortings = grid_view.viewsort_set.all()
+
+    assert sortings[0].view_id == "viwDgBCKTEdCQoHTQKH"
+    assert sortings[0].field_id == "fldG9y88Zw7q7u4Z7i4"
+    assert sortings[0].order == "DESC"
+    assert sortings[1].view_id == "viwDgBCKTEdCQoHTQKH"
+    assert sortings[1].field_id == "fldB7wkyR0buF1sRF9O"
+    assert sortings[1].order == "ASC"
 
 
 @pytest.mark.django_db

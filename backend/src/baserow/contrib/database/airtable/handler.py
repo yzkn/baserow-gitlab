@@ -22,10 +22,19 @@ from baserow.contrib.database.export_serialized import DatabaseExportSerializedS
 from baserow.contrib.database.models import Database
 from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.fields.field_types import FieldType, field_type_registry
+from baserow.contrib.database.views.models import (
+    SORT_ORDER_ASC,
+    SORT_ORDER_DESC,
+    View,
+    ViewSort,
+)
+from baserow.contrib.database.views.registries import ViewType, view_type_registry
 from baserow.contrib.database.application_types import DatabaseApplicationType
 from baserow.contrib.database.airtable.registry import (
     AirtableColumnType,
+    AirtableViewType,
     airtable_column_type_registry,
+    airtable_view_type_registry,
 )
 from baserow.contrib.database.airtable.constants import (
     AIRTABLE_EXPORT_JOB_DOWNLOADING_BASE,
@@ -282,6 +291,66 @@ class AirtableHandler:
         return baserow_field, baserow_field_type, airtable_column_type
 
     @staticmethod
+    def to_baserow_view(
+        table: dict,
+        view: dict,
+        view_data: dict,
+        field_mapping: dict,
+        timezone: BaseTzInfo,
+    ) -> Union[Tuple[None, None, None], Tuple[View, ViewType, AirtableViewType]]:
+        """
+        Converts the provided Airtable column dict to the righ a Baserow view object.
+
+        @TODO add filters
+
+        :param table: @TODO
+        :param view: @TODO
+        :param view_data: @TODO
+        :param field_mapping: @TODO
+        :param timezone: The main timezone used for date conversions if needed.
+        :return: The converted Baserow view and the Airtable view type.
+        """
+
+        (
+            baserow_view,
+            airtable_view_type,
+        ) = airtable_view_type_registry.from_airtable_view_to_instance(
+            table, view, view_data, field_mapping, timezone
+        )
+
+        if baserow_view is None:
+            return None, None, None
+
+        baserow_view_type = view_type_registry.get_by_model(baserow_view)
+
+        try:
+            order = next(
+                index
+                for index, value in enumerate(table["viewOrder"])
+                if value == view["id"]
+            )
+        except StopIteration:
+            order = 32767
+
+        baserow_view.name = view["name"]
+        baserow_view.order = order + 1
+        baserow_view._prefetched_objects_cache = {}
+
+        last_sorts_applied = view_data.get("lastSortsApplied", None)
+        if baserow_view_type.can_sort and last_sorts_applied:
+            sort_set = last_sorts_applied.get("sortSet", [])
+            baserow_view._prefetched_objects_cache["viewsort_set"] = [
+                ViewSort(
+                    view_id=view["id"],
+                    field_id=sort["columnId"],
+                    order=SORT_ORDER_ASC if sort["ascending"] else SORT_ORDER_DESC,
+                )
+                for index, sort in enumerate(sort_set)
+            ]
+
+        return baserow_view, baserow_view_type, airtable_view_type
+
+    @staticmethod
     def to_baserow_row_export(
         row_id_mapping: Dict[str, Dict[str, int]],
         column_mapping: Dict[str, dict],
@@ -392,8 +461,7 @@ class AirtableHandler:
         Converts the provided raw Airtable database dict to a Baserow export format and
         an in memory zip file containing all the downloaded user files.
 
-        @TODO add the views.
-        @TODO preserve the order of least one view.
+        @TODO preserve the row order of least one view.
 
         :param init_data: The init_data, extracted from the initial page related to the
             shared base.
@@ -417,6 +485,8 @@ class AirtableHandler:
                     len(tables[table["id"]]["rows"])
                     # Table column progress
                     + len(table["columns"])
+                    # Table view progress
+                    + len(table["views"])
                     # Table rows progress
                     + len(tables[table["id"]]["rows"])
                     # The table itself.
@@ -503,7 +573,7 @@ class AirtableHandler:
                         airtable_column_type,
                     ) = cls.to_baserow_field(table, airtable_column, timezone)
                     baserow_field.primary = True
-                    field_mapping["primary_id"] = {
+                    field_mapping["primary_field"] = {
                         "baserow_field": baserow_field,
                         "baserow_field_type": baserow_field_type,
                         "raw_airtable_column": airtable_column,
@@ -515,6 +585,29 @@ class AirtableHandler:
                 value["baserow_field_type"].export_serialized(value["baserow_field"])
                 for value in field_mapping.values()
             ]
+
+            # Loop over all the views and convert them to Baserow serialized format.
+            exported_views = []
+            for view in table["views"]:
+                view_data = next(
+                    value
+                    for value in tables[table["id"]]["viewDatas"]
+                    if view["id"] == view["id"]
+                )
+                (
+                    baserow_view,
+                    baserow_view_type,
+                    airtable_view_type,
+                ) = cls.to_baserow_view(table, view, view_data, field_mapping, timezone)
+                converting_progress.increment(state=AIRTABLE_EXPORT_JOB_CONVERTING)
+
+                if baserow_view is None:
+                    continue
+
+                serialized = baserow_view_type.export_serialized(
+                    baserow_view, BytesIO(), None
+                )
+                exported_views.append(serialized)
 
             # Loop over all the rows in the table and convert them to Baserow format. We
             # need to provide the `row_id_mapping` and `field_mapping` because there
@@ -540,7 +633,7 @@ class AirtableHandler:
                 name=table["name"],
                 order=table_index,
                 fields=exported_fields,
-                views=[],
+                views=exported_views,
                 rows=exported_rows,
             )
             exported_tables.append(exported_table)

@@ -4,6 +4,7 @@ from pytz import BaseTzInfo
 
 from baserow.core.registry import Instance, Registry
 from baserow.contrib.database.fields.models import Field
+from baserow.contrib.database.views.models import View
 
 
 class AirtableColumnType(Instance):
@@ -85,6 +86,71 @@ class AirtableColumnTypeRegistry(Registry):
             return None, None
 
 
+class AirtableViewType(Instance):
+    def to_baserow_view(
+        self,
+        table: dict,
+        raw_airtable_view: dict,
+        raw_airtable_view_data: dict,
+        field_mapping: dict,
+        timezone: BaseTzInfo,
+    ) -> Union[View, None]:
+        """
+        @TODO docs
+
+        :param table: @TODO
+        :param raw_airtable_view:
+        :param raw_airtable_view_data:
+        :param field_mapping: @TODO
+        :param timezone:
+        :return:
+        """
+
+        raise NotImplementedError("The `to_baserow_field` must be implemented.")
+
+
+class AirtableViewTypeRegistry(Registry):
+    name = "airtable_view"
+
+    def from_airtable_view_to_instance(
+        self,
+        table: dict,
+        raw_airtable_view: dict,
+        raw_airtable_view_data: dict,
+        field_mapping: dict,
+        timezone: BaseTzInfo,
+    ) -> Union[Tuple[Field, AirtableColumnType], Tuple[None, None]]:
+        """
+        @TODO
+
+        :param table: @TODO
+        :param raw_airtable_view: @TODO
+        :param raw_airtable_view_data: @TODO
+        :param field_mapping: @TODO
+        :param timezone: The main timezone used for date conversions if needed.
+        :return: The related Baserow view and AirtableViewType.
+        """
+
+        try:
+            type_name = raw_airtable_view.get("type", "")
+            airtable_view_type = self.get(type_name)
+            baserow_view = airtable_view_type.to_baserow_view(
+                table,
+                raw_airtable_view,
+                raw_airtable_view_data,
+                field_mapping,
+                timezone,
+            )
+
+            if baserow_view is None:
+                return None, None
+            else:
+                return baserow_view, airtable_view_type
+        except self.does_not_exist_exception_class:
+            return None, None
+
+
 # A default view type registry is created here, this is the one that is used
 # throughout the whole Baserow application to add a new view type.
 airtable_column_type_registry = AirtableColumnTypeRegistry()
+airtable_view_type_registry = AirtableViewTypeRegistry()
