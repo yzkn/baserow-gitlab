@@ -407,7 +407,9 @@ class NumberFieldType(FieldType):
         return value if value is None else str(value)
 
     def to_baserow_formula_type(self, field: NumberField) -> BaserowFormulaType:
-        return BaserowFormulaNumberType(number_decimal_places=field.number_decimal_places)
+        return BaserowFormulaNumberType(
+            number_decimal_places=field.number_decimal_places
+        )
 
     def from_baserow_formula_type(
         self, formula_type: BaserowFormulaNumberType

@@ -19,13 +19,14 @@ def construct_all_possible_field_kwargs(
         "email": [{"name": "email"}],
         "number": [
             {
-                "name": "negative_int", 
+                "name": "negative_int",
                 "number_negative": True,
-                "number_decimal_places": 0},
+                "number_decimal_places": 0,
+            },
             {
                 "name": "positive_int",
                 "number_negative": False,
-                "number_decimal_places": 0
+                "number_decimal_places": 0,
             },
             {
                 "name": "negative_decimal",

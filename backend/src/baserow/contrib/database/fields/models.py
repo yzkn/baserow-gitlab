@@ -213,7 +213,7 @@ class NumberField(Field):
 
     def save(self, *args, **kwargs):
         """Check if the number_decimal_places has a valid choice."""
-        
+
         if not any(
             self.number_decimal_places in _tuple
             for _tuple in NUMBER_DECIMAL_PLACES_CHOICES

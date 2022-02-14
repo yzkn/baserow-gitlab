@@ -6,13 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('database', '0060_set_ordering_on_tablewebhook_models'),
+        ("database", "0060_set_ordering_on_tablewebhook_models"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='numberfield',
-            name='number_decimal_places',
-            field=models.IntegerField(choices=[(0, '1'), (1, '1.0'), (2, '1.00'), (3, '1.000'), (4, '1.0000'), (5, '1.00000')], default=0, help_text='The amount of digits allowed after the point.'),
+            model_name="numberfield",
+            name="number_decimal_places",
+            field=models.IntegerField(
+                choices=[
+                    (0, "1"),
+                    (1, "1.0"),
+                    (2, "1.00"),
+                    (3, "1.000"),
+                    (4, "1.0000"),
+                    (5, "1.00000"),
+                ],
+                default=0,
+                help_text="The amount of digits allowed after the point.",
+            ),
         ),
     ]
