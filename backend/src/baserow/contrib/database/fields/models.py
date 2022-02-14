@@ -27,6 +27,7 @@ from baserow.core.mixins import (
 )
 from baserow.core.utils import to_snake_case, remove_special_characters
 
+# TODO: Delete
 NUMBER_TYPE_INTEGER = "INTEGER"
 NUMBER_TYPE_DECIMAL = "DECIMAL"
 NUMBER_TYPE_CHOICES = (
@@ -208,9 +209,6 @@ class URLField(Field):
 
 
 class NumberField(Field):
-    number_type = models.CharField(
-        max_length=32, choices=NUMBER_TYPE_CHOICES, default=NUMBER_TYPE_INTEGER
-    )
     number_decimal_places = models.IntegerField(
         choices=NUMBER_DECIMAL_PLACES_CHOICES,
         default=0,
@@ -220,21 +218,8 @@ class NumberField(Field):
         default=False, help_text="Indicates if negative values are allowed."
     )
 
-    # TODO: keep or remove number_type column?
-    #       add @property number_type instead?
-
     def save(self, *args, **kwargs):
-        """Check if the number_type and number_decimal_places has a valid choice."""
-
-        # TODO: remove this validation?
-        if not any(self.number_type in _tuple for _tuple in NUMBER_TYPE_CHOICES):
-            raise ValueError(f"{self.number_type} is not a valid choice.")
-
-        # TODO: check if provided number_decimal_places correspond with provided optional 
-        # number_type ?
-
-        # self.number_decimal_places now distinguish between integer and decimal directly
-        self.number_type = "INTEGER" if self.number_decimal_places == 0 else "DECIMAL"
+        """Check if the number_decimal_places has a valid choice."""
         
         if not any(
             self.number_decimal_places in _tuple

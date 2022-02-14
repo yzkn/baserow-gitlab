@@ -50,7 +50,7 @@ export default {
     let values = { number_decimal_places: 0 }
 
     if (this.allowSetNumberNegative) {
-      allowedValues = [ ...allowedValues, 'number_negative']
+      allowedValues = [...allowedValues, 'number_negative']
       values = { ...values, number_negative: false }
     }
 
