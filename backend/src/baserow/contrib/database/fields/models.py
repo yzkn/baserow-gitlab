@@ -27,13 +27,6 @@ from baserow.core.mixins import (
 )
 from baserow.core.utils import to_snake_case, remove_special_characters
 
-# TODO: Delete
-NUMBER_TYPE_INTEGER = "INTEGER"
-NUMBER_TYPE_DECIMAL = "DECIMAL"
-NUMBER_TYPE_CHOICES = (
-    ("INTEGER", "Integer"),
-    ("DECIMAL", "Decimal"),
-)
 
 NUMBER_MAX_DECIMAL_PLACES = 5
 
