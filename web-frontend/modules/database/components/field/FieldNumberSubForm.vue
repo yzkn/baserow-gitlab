@@ -19,7 +19,7 @@
         </Dropdown>
       </div>
     </div>
-    <div class="control">
+    <div v-if="allowSetNumberNegative" class="control">
       <div class="control__elements">
         <Checkbox v-model="values.number_negative">{{
           $t('fieldNumberSubForm.allowNegative')
@@ -38,13 +38,25 @@ import fieldSubForm from '@baserow/modules/database/mixins/fieldSubForm'
 export default {
   name: 'FieldNumberSubForm',
   mixins: [form, fieldSubForm],
+  props: {
+    allowSetNumberNegative: {
+      type: Boolean,
+      required: false,
+      default: true,
+    },
+  },
   data() {
+    let allowedValues = ['number_decimal_places']
+    let values = { number_decimal_places: 0 }
+
+    if (this.allowSetNumberNegative) {
+      allowedValues = [ ...allowedValues, 'number_negative']
+      values = { ...values, number_negative: false }
+    }
+
     return {
-      allowedValues: ['number_decimal_places', 'number_negative'],
-      values: {
-        number_decimal_places: 0,
-        number_negative: false,
-      },
+      allowedValues,
+      values,
     }
   },
   validations: {

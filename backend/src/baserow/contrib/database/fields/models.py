@@ -409,7 +409,7 @@ class FormulaField(Field):
         null=True,
     )
     number_decimal_places = models.IntegerField(
-        choices=[(0, "1")] + NUMBER_DECIMAL_PLACES_CHOICES,
+        choices=NUMBER_DECIMAL_PLACES_CHOICES,
         default=None,
         null=True,
         help_text="The amount of digits allowed after the point.",

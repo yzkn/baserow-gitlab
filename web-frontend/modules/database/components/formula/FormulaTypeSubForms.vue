@@ -4,6 +4,7 @@
       v-if="formulaType === 'number'"
       :default-values="defaultValues"
       :table="table"
+      :allow-set-number-negative="false"
     >
     </FieldNumberSubForm>
     <FieldDateSubForm
@@ -15,7 +16,6 @@
   </div>
 </template>
 <script>
-// import FieldFormulaNumberSubForm from '@baserow/modules/database/components/field/FieldFormulaNumberSubForm'
 import FieldNumberSubForm from '@baserow/modules/database/components/field/FieldNumberSubForm'
 import FieldDateSubForm from '@baserow/modules/database/components/field/FieldDateSubForm'
 import form from '@baserow/modules/core/mixins/form'
