@@ -7,10 +7,10 @@ if [[ ! -f /app/data/.secret ]]; then
 fi
 source /app/data/.secret
 
+mkdir -p /app/data/redis
+
 redis-server /etc/redis/redis.conf --daemonize yes
 export REDIS_HOST="localhost"
-
-mkdir -p /app/data/redis
 
 echo "==> Executing database migrations"
 /app/code/env/bin/python /app/code/baserow/backend/src/baserow/manage.py migrate --settings=cloudron.settings
