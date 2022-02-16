@@ -5,12 +5,12 @@ set -eu
 if [[ ! -f /app/data/.secret ]]; then
     echo "export SECRET_KEY=$(tr -dc 'a-z0-9' < /dev/urandom | head -c50)" > /app/data/.secret
 fi
+printf "export REDIS_HOST=localhost\nexport DJANGO_SETTINGS_MODULE=cloudron.settings" > /app/data/.env
 source /app/data/.secret
+source /app/data/.env
 
 mkdir -p /app/data/redis
-
 redis-server /etc/redis/redis.conf --daemonize yes
-export REDIS_HOST="localhost"
 
 echo "==> Executing database migrations"
 /app/code/env/bin/python /app/code/baserow/backend/src/baserow/manage.py migrate --settings=cloudron.settings
