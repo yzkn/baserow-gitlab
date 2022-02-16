@@ -7,7 +7,7 @@ if [[ ! -f /app/data/.secret ]]; then
 fi
 source /app/data/.secret
 
-redis-server --daemonize yes
+redis-server /etc/redis/redis.conf --daemonize yes
 export REDIS_HOST="localhost"
 
 mkdir -p /app/data/redis
@@ -18,7 +18,7 @@ echo "==> Executing database migrations"
 echo "==> Syncing templates"
 /app/code/env/bin/python /app/code/baserow/backend/src/baserow/manage.py sync_templates --settings=cloudron.settings
 
-redis-server stop
+redis-cli shutdown
 
 chown -R cloudron:cloudron /app/data
 
