@@ -272,7 +272,7 @@ class DatabaseConfig(AppConfig):
         import baserow.contrib.database.ws.signals  # noqa: F403, F401
 
         post_migrate.connect(safely_update_formula_versions, sender=self)
-        # post_migrate.connect(clear_generated_model_cache_receiver, sender=self)
+        post_migrate.connect(clear_generated_model_cache_receiver, sender=self)
 
 
 # noinspection PyPep8Naming

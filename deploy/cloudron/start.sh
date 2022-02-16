@@ -6,6 +6,8 @@ if [[ ! -f /app/data/.secret ]]; then
     echo "export SECRET_KEY=$(tr -dc 'a-z0-9' < /dev/urandom | head -c50)" > /app/data/.secret
 fi
 source /app/data/.secret
+
+redis-server --daemonize yes
 export REDIS_HOST="localhost"
 
 mkdir -p /app/data/redis
@@ -15,6 +17,8 @@ echo "==> Executing database migrations"
 
 echo "==> Syncing templates"
 /app/code/env/bin/python /app/code/baserow/backend/src/baserow/manage.py sync_templates --settings=cloudron.settings
+
+redis-server stop
 
 chown -R cloudron:cloudron /app/data
 
