@@ -287,7 +287,6 @@ class MultipleAttachmentAirtableColumnType(AirtableColumnType):
         timezone,
         files_to_download,
     ):
-        return []
         new_value = []
         for file in value:
             file_name = "_".join(file["url"].split("/")[-3:])
