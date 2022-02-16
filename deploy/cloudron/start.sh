@@ -6,6 +6,7 @@ if [[ ! -f /app/data/.secret ]]; then
     echo "export SECRET_KEY=$(tr -dc 'a-z0-9' < /dev/urandom | head -c50)" > /app/data/.secret
 fi
 source /app/data/.secret
+export REDIS_HOST="localhost"
 
 mkdir -p /app/data/redis
 
