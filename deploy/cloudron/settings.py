@@ -14,6 +14,8 @@ EMAIL_PORT = os.environ["CLOUDRON_MAIL_SMTP_PORT"]
 EMAIL_HOST_USER = os.environ["CLOUDRON_MAIL_SMTP_USERNAME"]
 EMAIL_HOST_PASSWORD = os.environ["CLOUDRON_MAIL_SMTP_PASSWORD"]
 
+USER_FILE_SIZE_LIMIT = 1024 * 1024 * 1024 * 1024  # 1024GB / 1TB
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
