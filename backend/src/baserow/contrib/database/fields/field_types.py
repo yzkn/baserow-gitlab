@@ -747,10 +747,13 @@ class DateFieldType(FieldType):
         if not value:
             return value
 
-        if isinstance(row._meta.get_field(field_name), models.DateTimeField):
-            value = datetime.fromisoformat(value)
-        else:
-            value = date.fromisoformat(value)
+        try:
+            if isinstance(row._meta.get_field(field_name), models.DateTimeField):
+                value = datetime.fromisoformat(value)
+            else:
+                value = date.fromisoformat(value)
+        except ValueError:
+            return None
 
         setattr(row, field_name, value)
 
