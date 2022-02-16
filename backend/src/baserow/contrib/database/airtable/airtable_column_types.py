@@ -180,11 +180,14 @@ class DateAirtableColumnType(AirtableColumnType):
         # doesn't support different timezones for the date field, we need to convert
         # to the given timezone because then it will be visible in the correct
         # timezone to the user.
-        value = (
-            datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
-            .astimezone(timezone)
-            .replace(tzinfo=UTC)
-        )
+        try:
+            value = (
+                datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+                .astimezone(timezone)
+                .replace(tzinfo=UTC)
+            )
+        except ValueError:
+            return None
 
         if baserow_field.date_include_time:
             return f"{value.isoformat()}"
@@ -236,11 +239,14 @@ class FormulaAirtableColumnType(AirtableColumnType):
         if isinstance(baserow_field, LastModifiedField):
             # Because there isn't a last modified property in the Airtable data,
             # we must use the value as provided here.
-            return (
-                datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
-                .replace(tzinfo=UTC)
-                .isoformat()
-            )
+            try:
+                return (
+                    datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    .replace(tzinfo=UTC)
+                    .isoformat()
+                )
+            except ValueError:
+                return None
 
 
 class ForeignKeyAirtableColumnType(AirtableColumnType):
