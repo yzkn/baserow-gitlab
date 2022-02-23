@@ -236,6 +236,11 @@ echo "./dev.sh running docker-compose commands:
 ------------------------------------------------
 "
 
+export COMPOSE_DOCKER_CLI_BUILD=1
+export DOCKER_BUILDKIT=1
+# TODO: Remove once the problem is solved
+export BUILDKIT_PROGRESS=plain
+
 if [ "$down" = true ] ; then
 # Remove the containers and remove the anonymous volumes for cleanliness sake.
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml rm -s -v -f

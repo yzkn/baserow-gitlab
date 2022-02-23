@@ -1,3 +1,4 @@
+# syntax = docker/dockerfile:1.3
 FROM python:3.7-slim-buster
 
 # Default to 1000 as this is probably the running users UID.
@@ -34,8 +35,8 @@ COPY --chown=$UID:$GID ./backend/docker/mime.types /etc/
 # Disable the path warn as we set the correct path in the entrypoint when it is easy
 # to know the users $HOME/.local/bin location. Changing path in the docker image does
 # not work as we do not know where $HOME when using an ENV command.
-RUN pip3 install --no-warn-script-location -r /baserow/requirements/base.txt -r /baserow/requirements/dev.txt
-
+ENV PIP_CACHE_DIR=/home/baserow_docker_user/.cache/pip
+RUN --mount=type=cache,mode=777,target=$PIP_CACHE_DIR pip3 install --no-warn-script-location -r /baserow/requirements/base.txt -r /baserow/requirements/dev.txt
 COPY --chown=$UID:$GID ./docs /baserow/docs
 COPY --chown=$UID:$GID ./backend /baserow/backend
 COPY --chown=$UID:$GID ./premium/backend /baserow/premium/backend
