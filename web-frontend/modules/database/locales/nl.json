@@ -409,7 +409,8 @@
     "viewContext": {
         "exportView": "Weergave exporteren",
         "renameView": "Weergave hernoemen",
-        "deleteView": "Weergave verwijderen"
+        "deleteView": "Weergave verwijderen",
+        "webhooks": "Webhooks"
     },
     "deleteViewModal": {
         "title": "Verwijder {name}",
@@ -487,5 +488,11 @@
         "selectApplicationTitle": "Voor welke database wilt je de documentatie zien?",
         "signIn": "Log in om te beginnen",
         "back": "Terug naar dashboard"
+    },
+    "viewAggregationType": {
+        "emptyCount": "Leeg",
+        "notEmptyCount": "Gevuld",
+        "emptyPercentage": "Percentage leeg",
+        "notEmptyPercentage": "Percentage gevuld"
     }
 }
