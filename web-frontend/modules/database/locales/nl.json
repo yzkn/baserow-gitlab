@@ -493,6 +493,23 @@
         "emptyCount": "Leeg",
         "notEmptyCount": "Gevuld",
         "emptyPercentage": "Percentage leeg",
-        "notEmptyPercentage": "Percentage gevuld"
+        "notEmptyPercentage": "Percentage gevuld",
+        "latestDate": "Laatste datum",
+        "checkedPercentage": "Percentage aan",
+        "sum": "Som",
+        "earliestDateShort": "Vroegste",
+        "min": "Min",
+        "max": "Max",
+        "latestDateShort": "Laatste",
+        "uniqueCount": "Uniek",
+        "average": "Gemiddelde",
+        "variance": "Variantie",
+        "checkedCount": "Aangevinkt",
+        "notCheckedPercentage": "Percentage uit",
+        "notCheckedCount": "Uitgevinkt",
+        "earliestDate": "Vroegste datum",
+        "median": "Mediaan",
+        "stdDev": "Standaardafwijking",
+        "stdDevShort": "Std dev"
     }
 }
