@@ -487,5 +487,28 @@
         "selectApplicationTitle": "Für welche Datenbank möchten Sie die Dokumentation sehen?",
         "signIn": "Anmelden, um zu starten",
         "back": "Zurück zum Dashboard"
+    },
+    "viewAggregationType": {
+        "min": "Min",
+        "max": "Max",
+        "earliestDate": "Frühestes Datum",
+        "checkedCount": "Markiert",
+        "notCheckedCount": "Nicht markiert",
+        "checkedPercentage": "Prozent markiert",
+        "notCheckedPercentage": "Prozent nicht markiert",
+        "earliestDateShort": "Früheste",
+        "latestDate": "Letztes Datum",
+        "latestDateShort": "Letztes",
+        "uniqueCount": "Eindeutig",
+        "sum": "Summe",
+        "median": "Median",
+        "stdDev": "Standardabweichung",
+        "variance": "Varianz",
+        "average": "Durchschnitt",
+        "stdDevShort": "Std Abw",
+        "emptyCount": "Leer",
+        "notEmptyCount": "Gefüllt",
+        "emptyPercentage": "Prozent leer",
+        "notEmptyPercentage": "Prozent gefüllt"
     }
 }
