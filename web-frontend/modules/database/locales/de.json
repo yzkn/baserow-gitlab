@@ -409,7 +409,8 @@
     "viewContext": {
         "exportView": "Ansicht exportieren",
         "renameView": "Ansicht umbenennen",
-        "deleteView": "Ansicht löschen"
+        "deleteView": "Ansicht löschen",
+        "webhooks": "Webhooks"
     },
     "deleteViewModal": {
         "title": "Löschen {name}",
