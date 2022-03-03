@@ -429,7 +429,9 @@
     "gridViewFieldType": {
         "createFilter": "Définir un filtre",
         "sortField": "Trier",
-        "hideField": "Cacher un champ"
+        "hideField": "Cacher un champ",
+        "insertRight": "Insérer à droite",
+        "insertLeft": "Insérer à gauche"
     },
     "gridViewRow": {
         "rowNotMatchingFilters": "La ligne est filtrée",
@@ -511,5 +513,29 @@
         "notEmptyCount": "Renseignées",
         "emptyCount": "Vides",
         "emptyPercentage": "Pourcentage de vides"
+    },
+    "databaseForm": {
+        "importLabel": "Souhaitez-vous importer des données existantes ?",
+        "airtableLabel": "Importer à partir d'Airtable (beta)",
+        "emptyLabel": "Base de donnée vierge"
+    },
+    "importFromAirtable": {
+        "airtableShareLinkTitle": "Partager un lien vers votre Base",
+        "airtableShareLinkDescription": "Pour importer une base Airtable, vous devez au préalable créer un lien de partage de la base que vous souhaitez copier. Dans Airtable cliquez sur le bouton « share » dans le coin en haut à droite après avoir ouvert votre base. Ensuite, vous devez choisir l'option « Access to base ». Dans la fenêtre modale qui s'ouvre puis cliquez sur le bouton « Create a shared link to the whole base » et enfin cliquez sur « Private read-only link ». Copiez alors le lien publique généré et collez-le dans le champ suivant.",
+        "airtableShareLinkBeta": "Attention : cette fonctionnalité est encore en version beta, vos tables, champs (sauf les formules, les champs rapportés et les calculs) et les données seront importés. En revanche, les vues ne le seront pas.",
+        "airtableShareLinkPaste": "Collez le lien ici",
+        "importButtonLabel": "Importer à partir de Airtable",
+        "openButtonLabel": "Ouvrir la base importée",
+        "importError": "Une erreur est survenue",
+        "statePending": "En attente",
+        "stateFailed": "Échec",
+        "stateFinished": "Terminé",
+        "stateDownloadingBase": "Téléchargement du schéma de la base",
+        "stateConverting": "Conversion vers Baserow",
+        "stateDownloadingFiles": "Téléchargement des fichiers",
+        "stateImporting": "Import en cours",
+        "stateImportingTable": "Import de la table {table}",
+        "errorJobAlreadyRunningTitle": "Déjà en cours",
+        "errorJobAlreadyRunningDescription": "Une autre tâche est déjà en cours. Vous devez attendre que celle-ci finisse avant d'en démarrer une autre."
     }
 }
