@@ -243,5 +243,9 @@
         "enabled": "ingeschakeld",
         "settingAllowSignupsViaGroupInvitationsName": "Aanmeldingen via groepsuitnodigingen toestaan",
         "settingAllowSignupsViaGroupInvitationDescription": "Zelfs als het aanmaken van nieuwe accounts is uitgeschakeld, kunnen direct uitgenodigde gebruikers met deze optie toch een account aanmaken."
+    },
+    "copyingNotification": {
+        "title": "Kopiëren...",
+        "content": "Uw gegevens voorbereiden"
     }
 }
