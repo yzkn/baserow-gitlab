@@ -243,5 +243,9 @@
         "enabled": "Autoriser",
         "settingAllowSignupsViaGroupInvitationsName": "Autoriser la création de compte sur invitation",
         "settingAllowSignupsViaGroupInvitationDescription": "Cette option permet aux utilisateurs invités par d'autres de créer des comptes même si la création de compte à été désactivée de manière globale."
+    },
+    "copyingNotification": {
+        "title": "Copie en cours...",
+        "content": "Préparation des données"
     }
 }
