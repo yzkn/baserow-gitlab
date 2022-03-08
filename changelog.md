@@ -3,6 +3,7 @@
 ## Unreleased
 
 * Fixed Airtable import bug where the import would fail if a row is empty.
+* Pin backend python dependencies using pip-tools.
 
 ## Released (2022-03-03 1.9.1)
 
