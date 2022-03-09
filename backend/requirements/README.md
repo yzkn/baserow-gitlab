@@ -30,7 +30,8 @@ dev backend image is the one used when running `./dev.sh restart --build` etc.
 2. In the `backend lint` tab opened by running `./dev.sh --build`, or an active virtual
    environment with `pip-tools` installed.
 3. Ensure you are using python 3.7 if not using `./dev.sh --build`
-4. Run `pip-compile --output-file=base.txt base.in`, review the changes to base.txt,
+4. `cd requirements`
+5. Run `pip-compile --output-file=base.txt base.in`, review the changes to base.txt,
    commit and push them to your MR.
 
 ### Add a new dev dependency
@@ -38,9 +39,10 @@ dev backend image is the one used when running `./dev.sh restart --build` etc.
 2. In the `backend lint` tab opened by running `./dev.sh --build`, or an active virtual
    environment with `pip-tools` installed.
 3. Ensure you are using python 3.7 if not using `./dev.sh --build`
+4. `cd requirements`
 4. Run `pip-compile --output-file=dev.txt dev.in`, review the changes to dev.txt,
    commit and push them to your MR.
 
 ### Upgrade an existing dependency
 1. Change the version in the corresponding `.in` file.
-2. Follow steps 2, 3 and 4 above depending on if you changed the `dev.in` or `base.in`.
+2. Follow from step 2 above depending on which `.in` file you edited.
