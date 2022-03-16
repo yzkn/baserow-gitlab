@@ -1,0 +1,3 @@
+dbaeumer.vscode-eslint
+ms-python.python
+octref.vetur

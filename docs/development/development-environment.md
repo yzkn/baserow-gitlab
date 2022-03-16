@@ -15,6 +15,8 @@ found in the root of the Baserow repo.
   the dev environment.
 - See [intellij setup](intellij-setup.md) for how to configure Intellij 
   to work well with Baserow for development purposes.
+  - See [vscode setup](vscode-setup.md) for how to configure Visual Studio Code
+  to work well with Baserow for development purposes.
 
 ## Fixing git blame
 

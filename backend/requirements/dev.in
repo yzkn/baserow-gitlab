@@ -26,3 +26,4 @@ pytest-split==0.6.0
 bandit==1.7.2
 pip-tools==6.5.1
 autopep8==1.5.7
+debugpy==1.5.1

@@ -26,6 +26,7 @@ services:
         GID: $GID
     ports:
       - "${HOST_PUBLISH_IP:-127.0.0.1}:8000:8000"
+      - "${HOST_PUBLISH_IP:-127.0.0.1}:${BACKEND_PORT:-5678}:5678"
     volumes:
       - ./backend:/baserow/backend
       - ./premium/backend/:/baserow/premium/backend
