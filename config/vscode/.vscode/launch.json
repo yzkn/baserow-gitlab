@@ -1,0 +1,59 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "client: chrome",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:3000",
+            "cwd": "${workspaceFolder}/web-frontend",
+            "webRoot": "${workspaceFolder}/web-frontend"
+        },
+        {
+            "name": "frontend: nuxt",
+            "type": "node",
+            "runtimeVersion": "12.22.2",
+            "request": "launch",
+            "args": [
+                "dev"
+            ],
+            "program": "${workspaceFolder}/web-frontend/node_modules/.bin/nuxt",
+            "cwd": "${workspaceFolder}/web-frontend",
+            "env": {
+                "PRIVATE_BACKEND_URL": "http://localhost:8000"
+            }
+        },
+        {
+            "name": "backend: django",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/baserow"
+                }
+            ]
+        },
+        {
+            "name": "frontend: jests",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/web-frontend",
+            "runtimeArgs": [
+              "--inspect-brk",
+              "${workspaceRoot}/web-frontend/node_modules/.bin/jest",
+              "--runInBand"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "port": 9229
+        }
+    ]
+}
