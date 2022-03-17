@@ -32,8 +32,8 @@ automatic style fixers to make your life as easy as possible.
            made.
         1. There will most likely be an existing `Python 3.8 (baserow)` virtualenv SDK
            which is red. Delete this first.
-        1. Then you will most likely need to add it as a new SDK by navigating to
-            1. Ctrl + Shift + P
+        1. Then you will most likely need to select it as default interpreter for the project:
+            1. Type: Ctrl + Shift + P to open the command palette
             1. Python: select interpreter
             1. Find and select your virtualenvs `bin/python` executable
 1. Install and get a postgresql database running locally:
