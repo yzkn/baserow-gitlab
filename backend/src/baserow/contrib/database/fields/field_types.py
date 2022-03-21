@@ -966,7 +966,7 @@ class LinkRowFieldType(FieldType):
     _can_order_by = False
     can_be_primary_field = False
 
-    def enhance_queryset(self, queryset, field, name):
+    def get_related_prefetch_queryset(self, model, field, name):
         """
         Makes sure that the related rows are prefetched by Django. We also want to
         enhance the primary field of the related queryset. If for example the primary
@@ -974,7 +974,7 @@ class LinkRowFieldType(FieldType):
         prefetched in order to prevent many queries.
         """
 
-        remote_model = queryset.model._meta.get_field(name).remote_field.model
+        remote_model = model._meta.get_field(name).remote_field.model
         related_queryset = remote_model.objects.all()
 
         try:
@@ -993,9 +993,7 @@ class LinkRowFieldType(FieldType):
             # need to enhance the queryset.
             pass
 
-        return queryset.prefetch_related(
-            models.Prefetch(name, queryset=related_queryset)
-        )
+        return related_queryset
 
     def get_export_value(self, value, field_object):
         def map_to_export_value(inner_value, inner_field_object):
@@ -1123,10 +1121,10 @@ class LinkRowFieldType(FieldType):
         # Store the current table's model into the manytomany_models object so that the
         # related ManyToMany field can use that one. Otherwise we end up in a recursive
         # loop.
-        manytomany_models[instance.table.id] = model
+        manytomany_models[instance.table_id] = model
 
         # Check if the related table model is already in the manytomany_models.
-        related_model = manytomany_models.get(instance.link_row_table.id)
+        related_model = manytomany_models.get(instance.link_row_table_id)
 
         # If we do not have a related table model already we can generate a new one.
         if not related_model:
@@ -1143,8 +1141,8 @@ class LinkRowFieldType(FieldType):
         for related_field in related_model._field_objects.values():
             if (
                 isinstance(related_field["field"], self.model_class)
-                and related_field["field"].link_row_related_field
-                and related_field["field"].link_row_related_field.id == instance.id
+                and related_field["field"].link_row_related_field_id
+                and related_field["field"].link_row_related_field_id == instance.id
             ):
                 related_name = related_field["name"]
 
@@ -1718,15 +1716,13 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
 
     def get_serializer_field(self, instance, **kwargs):
         required = kwargs.get("required", False)
-        field_serializer = serializers.PrimaryKeyRelatedField(
+        return serializers.IntegerField(
             **{
-                "queryset": SelectOption.objects.filter(field=instance),
                 "required": required,
                 "allow_null": not required,
                 **kwargs,
             }
         )
-        return field_serializer
 
     def get_response_serializer_field(self, instance, **kwargs):
         required = kwargs.get("required", False)
@@ -1739,10 +1735,8 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
             }
         )
 
-    def enhance_queryset(self, queryset, field, name):
-        return queryset.prefetch_related(
-            models.Prefetch(name, queryset=SelectOption.objects.using("default").all())
-        )
+    def get_related_prefetch_queryset(self, model, field, name):
+        return SelectOption.objects.using("default").all()
 
     def prepare_value_for_db(self, instance, value):
         if value is None:
@@ -1977,9 +1971,8 @@ class MultipleSelectFieldType(SelectOptionBaseFieldType):
 
     def get_serializer_field(self, instance, **kwargs):
         required = kwargs.get("required", False)
-        field_serializer = serializers.PrimaryKeyRelatedField(
+        field_serializer = serializers.IntegerField(
             **{
-                "queryset": SelectOption.objects.filter(field=instance),
                 "required": required,
                 "allow_null": not required,
                 **kwargs,
@@ -1998,15 +1991,12 @@ class MultipleSelectFieldType(SelectOptionBaseFieldType):
             }
         )
 
-    def enhance_queryset(self, queryset, field, name):
-        remote_field = queryset.model._meta.get_field(name).remote_field
+    def get_related_prefetch_queryset(self, model, field, name):
+        remote_field = model._meta.get_field(name).remote_field
         remote_model = remote_field.model
         through_model = remote_field.through
-        related_queryset = remote_model.objects.all().extra(
+        return remote_model.objects.all().extra(
             order_by=[f"{through_model._meta.db_table}.id"]
-        )
-        return queryset.prefetch_related(
-            models.Prefetch(name, queryset=related_queryset)
         )
 
     def prepare_value_for_db(self, instance, value):
@@ -2022,6 +2012,19 @@ class MultipleSelectFieldType(SelectOptionBaseFieldType):
             raise AllProvidedMultipleSelectValuesMustBeSelectOption
 
         return value
+
+    def prepare_value_for_db_in_bulk(self, instance, values_list):
+        all_values = set()
+        for values in values_list:
+            for value in values:
+                all_values.add(value)
+
+        count = SelectOption.objects.filter(field=instance, id__in=all_values).count()
+
+        if count != len(all_values):
+            raise AllProvidedMultipleSelectValuesMustBeSelectOption
+
+        return values_list
 
     def get_serializer_help_text(self, instance):
         return (

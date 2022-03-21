@@ -16,9 +16,22 @@ from baserow.ws.registries import page_registry
 @receiver(row_signals.row_created)
 def row_created(sender, row, before, user, table, model, **kwargs):
     table_page_type = page_registry.get("table")
-    transaction.on_commit(
-        lambda: table_page_type.broadcast(
-            RealtimeRowMessages.row_created(
+    def after_commit():
+        # This is of course not the right way to do this, but it's just for
+        # demonstration purposes to show how it could be done.
+        if isinstance(row, list):
+            message = RealtimeRowMessages.row_created(
+                table_id=table.id,
+                serialized_row=get_row_serializer_class(
+                    model, RowSerializer, is_response=True
+                )(row, many=True).data,
+                metadata=row_metadata_registry.generate_and_merge_metadata_for_rows(
+                    table, (r.pk for r in row)
+                ),
+                before=before,
+            )
+        else:
+            message = RealtimeRowMessages.row_created(
                 table_id=table.id,
                 serialized_row=get_row_serializer_class(
                     model, RowSerializer, is_response=True
@@ -27,11 +40,14 @@ def row_created(sender, row, before, user, table, model, **kwargs):
                     table, row.id
                 ),
                 before=before,
-            ),
+            )
+        table_page_type.broadcast(
+            message,
             getattr(user, "web_socket_id", None),
             table_id=table.id,
         )
-    )
+
+    transaction.on_commit(after_commit)
 
 
 @receiver(row_signals.before_row_update)

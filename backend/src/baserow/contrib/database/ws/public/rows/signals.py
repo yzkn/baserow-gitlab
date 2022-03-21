@@ -71,6 +71,12 @@ def _send_row_deleted_event_to_views(
 
 @receiver(row_signals.row_created)
 def public_row_created(sender, row, before, user, table, model, **kwargs):
+    if isinstance(row, list):
+        # When broadcasting a list of rows to the publicly shared views, we must also
+        # do a bulk operation to check which views belong in the view.
+        print('@TODO cannot broadcast to publicly shared views')
+        return
+
     row_checker = ViewHandler().get_public_views_row_checker(
         table, model, only_include_views_which_want_realtime_events=True
     )

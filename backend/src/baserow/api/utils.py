@@ -119,6 +119,7 @@ def validate_data(
     serializer_class,
     data,
     partial=False,
+    many=False,
     exception_to_raise=RequestBodyValidationException,
 ):
     """
@@ -132,6 +133,10 @@ def validate_data(
     :type data: dict
     :param partial: Whether the data is a partial update.
     :type partial: bool
+    :param many: @TODO
+    :type many: bool
+    :param exception_to_raise: @TODO
+    :type exception_to_raise:
     :return: The data after being validated by the serializer.
     :rtype: dict
     """
@@ -146,7 +151,7 @@ def validate_data(
         else:
             return {"error": force_str(error), "code": error.code}
 
-    serializer = serializer_class(data=data, partial=partial)
+    serializer = serializer_class(data=data, partial=partial, many=many)
     if not serializer.is_valid():
         detail = serialize_errors_recursive(serializer.errors)
         raise exception_to_raise(detail)

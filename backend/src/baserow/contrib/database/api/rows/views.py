@@ -733,3 +733,108 @@ class RowMoveView(APIView):
         )
         serializer = serializer_class(row)
         return Response(serializer.data)
+
+
+class RowsBatchCreateView(APIView):
+    authentication_classes = APIView.authentication_classes + [TokenAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="table_id",
+                location=OpenApiParameter.PATH,
+                type=OpenApiTypes.INT,
+                description="Creates a row in the table related to the provided "
+                "value.",
+            ),
+            OpenApiParameter(
+                name="before",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.INT,
+                description="If provided then the newly created row will be "
+                "positioned before the row with the provided id.",
+            ),
+            OpenApiParameter(
+                name="user_field_names",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.BOOL,
+                description=(
+                    "A flag query parameter which if provided this endpoint will "
+                    "expect and return the user specified field names instead of "
+                    "internal Baserow field names (field_123 etc)."
+                ),
+            ),
+        ],
+        tags=["Database table rows"],
+        operation_id="create_database_table_row_in_bulk",
+        description=("@TODO"),
+        request=get_example_row_serializer_class(False, user_field_names=True)(
+            many=True
+        ),
+        responses={
+            200: get_example_row_serializer_class(True, user_field_names=True)(
+                many=True
+            ),
+            400: get_error_schema(
+                ["ERROR_USER_NOT_IN_GROUP", "ERROR_REQUEST_BODY_VALIDATION"]
+            ),
+            401: get_error_schema(["ERROR_NO_PERMISSION_TO_TABLE"]),
+            404: get_error_schema(
+                ["ERROR_TABLE_DOES_NOT_EXIST", "ERROR_ROW_DOES_NOT_EXIST"]
+            ),
+        },
+    )
+    @transaction.atomic
+    @map_exceptions(
+        {
+            UserNotInGroup: ERROR_USER_NOT_IN_GROUP,
+            TableDoesNotExist: ERROR_TABLE_DOES_NOT_EXIST,
+            NoPermissionToTable: ERROR_NO_PERMISSION_TO_TABLE,
+            UserFileDoesNotExist: ERROR_USER_FILE_DOES_NOT_EXIST,
+        }
+    )
+    @validate_query_parameters(CreateRowQueryParamsSerializer)
+    def post(self, request, table_id, query_params):
+        table = TableHandler().get_table(table_id)
+
+        TokenHandler().check_table_permissions(request, "create", table, False)
+        user_field_names = "user_field_names" in request.GET
+
+        model = table.get_model()
+        validation_serializer = get_row_serializer_class(
+            model, user_field_names=user_field_names
+        )
+
+        # In this example, I've not changed the existing validation logic. Just
+        # changed this to `many=True` and that worked out of the box. I realize in your
+        # initial design, you wanted to go for a structure where the new rows are
+        # provided as `{"items": [...]}`, but this was an easy fix that worked for me
+        # for now.
+        data = validate_data(validation_serializer, request.data, many=True)
+
+        before_id = query_params.get("before")
+        before = (
+            RowHandler().get_row(request.user, table, before_id, model)
+            if before_id
+            else None
+        )
+
+        try:
+            rows = RowHandler().create_rows_in_bulk(
+                request.user,
+                table,
+                data,
+                model,
+                before=before,
+                user_field_names=user_field_names,
+            )
+        except ValidationError as e:
+            raise RequestBodyValidationException(detail=e.message)
+
+        serializer_class = get_row_serializer_class(
+            model, RowSerializer, is_response=True, user_field_names=user_field_names
+        )
+        serializer = serializer_class(rows, many=True)
+
+        return Response(serializer.data)

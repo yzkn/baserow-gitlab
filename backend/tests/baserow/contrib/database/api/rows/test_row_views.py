@@ -2,6 +2,8 @@ from decimal import Decimal
 
 import pytest
 from django.shortcuts import reverse
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
@@ -1555,3 +1557,255 @@ def test_list_rows_returns_https_next_url(api_client, data_fixture, settings):
         response_json["next"] == "https://testserver:80/api/database/rows/table/"
         f"{table.id}/?page=2"
     )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_rows_in_batch(api_client, data_fixture, django_assert_num_queries):
+    user, jwt_token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user, name="table")
+    text_field = data_fixture.create_text_field(
+        table=table, order=0, name="Color", text_default="white"
+    )
+    number_field = data_fixture.create_number_field(
+        table=table, order=1, name="Horsepower"
+    )
+    boolean_field = data_fixture.create_boolean_field(
+        table=table, order=2, name="For sale"
+    )
+    multi_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        name="Multi",
+        type_name="multiple_select",
+    )
+    option_a = data_fixture.create_select_option(
+        field=multi_field, value="A", color="red"
+    )
+    option_b = data_fixture.create_select_option(
+        field=multi_field, value="B", color="blue"
+    )
+    formula_field = FieldHandler().create_field(
+        user=user, table=table, type_name="formula", name="formula", formula="'test'"
+    )
+
+    table_2 = data_fixture.create_database_table(
+        database=table.database, name="table_2"
+    )
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        link_row_table=table_2,
+        name="link",
+    )
+    formula_field_2 = FieldHandler().create_field(
+        user=user,
+        table=table_2,
+        type_name="formula",
+        name="formula",
+        formula="lookup('table', 'Color')",
+    )
+    table_2_model = table_2.get_model()
+    table_2_row_1 = table_2_model.objects.create()
+    table_2_row_2 = table_2_model.objects.create()
+
+    response = api_client.post(
+        reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id}),
+        {
+            f"field_{text_field.id}": "Green",
+            f"field_{number_field.id}": -10,
+            f"field_{boolean_field.id}": None,
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response_json["error"] == "ERROR_REQUEST_BODY_VALIDATION"
+    assert response_json["detail"]["non_field_errors"][0]["code"] == "not_a_list"
+
+    response = api_client.post(
+        reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id}),
+        [
+            {
+                f"field_{text_field.id}": "Green",
+                f"field_{number_field.id}": -10,
+                f"field_{boolean_field.id}": None,
+            }
+        ],
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+    response_json = response.json()
+    assert response_json["error"] == "ERROR_REQUEST_BODY_VALIDATION"
+    assert len(response_json["detail"]) == 1
+    assert len(response_json["detail"][0]) == 2
+    assert (
+        response_json["detail"][0][f"field_{number_field.id}"][0]["code"] == "min_value"
+    )
+    assert response_json["detail"][0][f"field_{boolean_field.id}"][0]["code"] == "null"
+
+    with CaptureQueriesContext(connection) as captured_1:
+        response = api_client.post(
+            reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id}),
+            [
+                {
+                    f"field_{text_field.id}": "Green",
+                    f"field_{number_field.id}": 5,
+                    f"field_{boolean_field.id}": True,
+                    f"field_{multi_field.id}": [option_a.id, option_b.id],
+                    f"field_{link_row_field.id}": [table_2_row_1.id],
+                },
+                {
+                    f"field_{text_field.id}": "Orange",
+                    f"field_{number_field.id}": 10,
+                    f"field_{boolean_field.id}": False,
+                    f"field_{multi_field.id}": [option_b.id],
+                    f"field_{link_row_field.id}": [table_2_row_2.id],
+                },
+            ],
+            format="json",
+            HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+        )
+
+    response_json = response.json()
+    assert response_json == [
+        {
+            "id": 1,
+            "order": "1.00000000000000000000",
+            f"field_{text_field.id}": "Green",
+            f"field_{number_field.id}": "5",
+            f"field_{boolean_field.id}": True,
+            f"field_{multi_field.id}": [
+                {"id": option_a.id, "value": "A", "color": "red"},
+                {"id": option_b.id, "value": "B", "color": "blue"},
+            ],
+            f"field_{formula_field.id}": "test",
+            f"field_{link_row_field.id}": [{"id": 1, "value": "unnamed row 1"}],
+        },
+        {
+            "id": 2,
+            "order": "2.00000000000000000000",
+            f"field_{text_field.id}": "Orange",
+            f"field_{number_field.id}": "10",
+            f"field_{boolean_field.id}": False,
+            f"field_{multi_field.id}": [
+                {"id": option_b.id, "value": "B", "color": "blue"}
+            ],
+            f"field_{formula_field.id}": "test",
+            f"field_{link_row_field.id}": [{"id": 2, "value": "unnamed row 2"}],
+        },
+    ]
+
+    # Check if depending values in the related table has updated.
+    table_2_model = table_2.get_model()
+    table_2_results = table_2_model.objects.all()
+    assert getattr(table_2_results[0], f"field_{formula_field_2.id}") == [
+        {"id": 1, "value": "Green"}
+    ]
+    assert getattr(table_2_results[1], f"field_{formula_field_2.id}") == [
+        {"id": 2, "value": "Orange"}
+    ]
+
+    with CaptureQueriesContext(connection) as captured_2:
+        response = api_client.post(
+            reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id}) +
+            "?user_field_names=true",
+            [
+                {
+                    f"{text_field.name}": "Green",
+                    f"{number_field.name}": 5,
+                    f"{boolean_field.name}": True,
+                    f"{multi_field.name}": [option_a.id, option_b.id],
+                    f"{link_row_field.name}": [table_2_row_1.id],
+                },
+            ],
+            format="json",
+            HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+        )
+
+    response_json = response.json()
+    assert response_json == [
+        {
+            "id": 3,
+            "order": "3.00000000000000000000",
+            f"{text_field.name}": "Green",
+            f"{number_field.name}": "5",
+            f"{boolean_field.name}": True,
+            f"{multi_field.name}": [
+                {"id": option_a.id, "value": "A", "color": "red"},
+                {"id": option_b.id, "value": "B", "color": "blue"},
+            ],
+            f"{formula_field.name}": "test",
+            f"{link_row_field.name}": [{"id": 1, "value": "unnamed row 1"}],
+        },
+    ]
+
+    # The amount of queries should be the same whether you import one or two rows.
+    assert len(captured_1.captured_queries) == len(captured_2.captured_queries)
+
+    response = api_client.post(
+        reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id}),
+        [
+            {},
+            {},
+        ],
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+    response_json = response.json()
+    assert response_json[0]["order"] == "4.00000000000000000000"
+    assert response_json[1]["order"] == "5.00000000000000000000"
+
+    response = api_client.post(
+        reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id})
+        + "?before=2",
+        [
+            {},
+            {},
+            {},
+        ],
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+    response_json = response.json()
+    assert response_json[0]["order"] == "1.99999999999999999997"
+    assert response_json[1]["order"] == "1.99999999999999999998"
+    assert response_json[2]["order"] == "1.99999999999999999999"
+
+    response = api_client.post(
+        reverse("api:database:rows:bulk-create", kwargs={"table_id": table.id})
+        + "?before=8",
+        [
+            {},
+            {},
+        ],
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+        )
+    response_json = response.json()
+    assert response_json[0]["order"] == "1.99999999999999999997"
+    assert response_json[1]["order"] == "1.99999999999999999998"
+
+    model = table.get_model()
+    results = model.objects.all()
+    assert results[0].id == 1
+    assert results[0].order == Decimal("1.00000000000000000000")
+    assert results[1].id == 6
+    assert results[1].order == Decimal("1.99999999999999999995")
+    assert results[2].id == 7
+    assert results[2].order == Decimal("1.99999999999999999996")
+    assert results[3].id == 9
+    assert results[3].order == Decimal("1.99999999999999999997")
+    assert results[4].id == 10
+    assert results[4].order == Decimal("1.99999999999999999998")
+    assert results[5].id == 8
+    assert results[5].order == Decimal("1.99999999999999999999")
+    assert results[6].id == 2
+    assert results[6].order == Decimal("2.00000000000000000000")
+    assert results[7].id == 3
+    assert results[7].order == Decimal("3.00000000000000000000")
+    assert results[8].id == 4
+    assert results[8].order == Decimal("4.00000000000000000000")
+    assert results[9].id == 5
+    assert results[9].order == Decimal("5.00000000000000000000")

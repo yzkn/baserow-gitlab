@@ -58,6 +58,8 @@ class PathBasedUpdateStatementCollector:
                 path_to_starting_table_id_column = (
                     "__".join(path_to_starting_table) + "__id"
                 )
+            if isinstance(starting_row_id, list):
+                path_to_starting_table_id_column += "__in"
             qs = qs.filter(**{path_to_starting_table_id_column: starting_row_id})
         qs.update(**self.update_statements)
 

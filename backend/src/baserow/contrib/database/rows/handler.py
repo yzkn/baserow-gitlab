@@ -1,10 +1,12 @@
+import pprint
 import re
 from decimal import Decimal
 from math import floor, ceil
+from collections import defaultdict
 
 from django.db import transaction
-from django.db.models import Max, F
-from django.db.models.fields.related import ManyToManyField
+from django.db.models import Max, F, prefetch_related_objects, Prefetch
+from django.db.models.fields.related import ManyToManyField, ForeignKey
 
 from baserow.core.trash.handler import TrashHandler
 from .exceptions import RowDoesNotExist
@@ -44,6 +46,47 @@ class RowHandler:
             for field_id, field in fields.items()
             if field_id in values or field["name"] in values
         }
+
+    def prepare_values_in_bulk(self, fields, values_list):
+        """
+        Implemented this very quick and dirty, probably won't work in every scenario,
+        but it worked for my test. We can come up with a much more effecient way of
+        doing this. Of the field types that execute a query on every
+        `prepare_value_for_db`, only the multiple select field has the correct method
+        implement, although that's also quick and dirty. The other ones must still be
+        implemented.
+        """
+
+        prepared_values = defaultdict(list)
+        for values in values_list:
+            for field_id, field in fields.items():
+                if field_id in values or field["name"] in values:
+                    prepared_values[field["name"]].append(
+                        values[field_id]
+                        if field_id in values
+                        else values[field["name"]]
+                    )
+
+        for field_id, field in fields.items():
+            if field_id in prepared_values or field["name"] in prepared_values:
+                prepared_values[field["name"]] = field[
+                    "type"
+                ].prepare_value_for_db_in_bulk(
+                    field["field"],
+                    prepared_values[field_id]
+                    if field_id in prepared_values
+                    else prepared_values[field["name"]],
+                )
+
+        new_values_list = []
+        for index, values in enumerate(values_list):
+            new_values = {}
+            for field_id, field in fields.items():
+                if field_id in values or field["name"] in values:
+                    new_values[field["name"]] = prepared_values[field["name"]][index]
+            new_values_list.append(new_values)
+
+        return new_values_list
 
     def extract_field_ids_from_dict(self, values):
         """
@@ -92,7 +135,7 @@ class RowHandler:
 
         return values, manytomany_values
 
-    def get_order_before_row(self, before, model):
+    def get_order_before_row(self, before, model, amount=1):
         """
         Calculates a new unique order which will be before the provided before row
         order. This order can be used by an existing or new row. Several other rows
@@ -102,6 +145,8 @@ class RowHandler:
         :type before: Table
         :param model: The model of the related table
         :type model: Model
+        :param amount:
+        :param amount:
         :return: The new order.
         :rtype: Decimal
         """
@@ -115,20 +160,18 @@ class RowHandler:
             change = Decimal("0.00000000000000000001")
             order = before.order - change
             model.objects.filter(order__gt=floor(order), order__lte=order).update(
-                order=F("order") - change
+                order=F("order") - (change * amount)
             )
         else:
             # Because the row is by default added as last, we have to figure out what
             # the highest order is and increase that by one. Because the order of new
             # rows should always be a whole number we round it up.
-            order = (
-                ceil(
-                    model.objects.aggregate(max=Max("order")).get("max") or Decimal("0")
-                )
-                + 1
-            )
+            change = Decimal("1.00000000000000000000")
+            order = ceil(
+                model.objects.aggregate(max=Max("order")).get("max") or Decimal("0")
+            ) + (change * amount)
 
-        return order
+        return order, change
 
     def get_row(self, user, table, row_id, model=None):
         """
@@ -280,7 +323,7 @@ class RowHandler:
 
         values = self.prepare_values(model._field_objects, values)
         values, manytomany_values = self.extract_manytomany_values(values, model)
-        values["order"] = self.get_order_before_row(before, model)
+        values["order"], step = self.get_order_before_row(before, model)
         instance = model.objects.create(**values)
 
         for name, value in manytomany_values.items():
@@ -308,6 +351,150 @@ class RowHandler:
         update_collector.apply_updates_and_get_updated_fields()
 
         return instance
+
+    def create_rows_in_bulk(
+        self,
+        user,
+        table,
+        values_list=None,
+        model=None,
+        before=None,
+        user_field_names=False,
+    ):
+        if not model:
+            model = table.get_model()
+
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        if user_field_names:
+            values_list = [
+                self.map_user_field_name_dict_to_internal(model._field_objects, values)
+                for values in values_list
+            ]
+
+        rows = []
+        # Slightly refactored the `get_order_before_row` method so that we can
+        # provide an amount of rows that we want to insert. It will return the
+        # highest order and a step value, so that we can calculate that the order of
+        # each row should be.
+        highest_order, step = self.get_order_before_row(
+            before, model, amount=len(values_list)
+        )
+        prepared_values = self.prepare_values_in_bulk(model._field_objects, values_list)
+        for index, values in enumerate(values_list, start=-len(values_list)):
+            values = prepared_values[index]
+            values, manytomany_values = self.extract_manytomany_values(values, model)
+            values["order"] = highest_order - (step * (abs(index + 1)))
+            instance = model(**values)
+            relations = {
+                field_name: value
+                for field_name, value in manytomany_values.items()
+                if value and len(value) > 0
+            }
+            rows.append((instance, relations))
+
+        # The code below is almost exactly the same as in
+        # backend/src/baserow/contrib/database/management/commands/fill_table_rows.py.
+        # We might want to change that.
+
+        # First create the rows in bulk because that's more efficient than creating them
+        # one by one.
+        inserted_rows = model.objects.bulk_create([row for (row, relations) in rows])
+
+        # Construct an object where the key is the field name of the many to many field
+        # that must be populated. The value contains the objects that must be inserted
+        # in bulk.
+        many_to_many = defaultdict(list)
+        for (row, relations) in rows:
+            for field_name, value in relations.items():
+                through = getattr(model, field_name).through
+                through_fields = through._meta.get_fields()
+                value_column = None
+                row_column = None
+
+                # Figure out which field in the many to many through table holds the row
+                # value and which on contains the value.
+                for field in through_fields:
+                    if type(field) is not ForeignKey:
+                        continue
+
+                    if field.remote_field.model == model:
+                        row_column = field.get_attname_column()[1]
+                    else:
+                        value_column = field.get_attname_column()[1]
+
+                for i in value:
+                    many_to_many[field_name].append(
+                        getattr(model, field_name).through(
+                            **{
+                                row_column: row.id,
+                                value_column: i,
+                            }
+                        )
+                    )
+
+        # Loop over the manytomany values that must be inserted in bulk.
+        for field_name, values in many_to_many.items():
+            through = getattr(model, field_name).through
+            through.objects.bulk_create(values)
+
+            # Prefetch the related fields in the newly inserted rows, so that when
+            # listing the rows in the response, they don't execute N queries.
+            for field_object in model._field_objects.values():
+                if field_object["name"] == field_name:
+                    prefetch_related_objects(
+                        inserted_rows,
+                        Prefetch(
+                            field_name,
+                            queryset=field_object["type"].get_related_prefetch_queryset(
+                                model, field_object["field"], field_name
+                            ),
+                        ),
+                    )
+
+        # Update the related rows and fields. Made a small change in the
+        # `CachingFieldUpdateCollector`, so that it accepts multiple row ids.
+        updated_fields = [field["field"] for field in model._field_objects.values()]
+        update_collector = CachingFieldUpdateCollector(
+            table, starting_row_id=[r.id for r in inserted_rows], existing_model=model
+        )
+        for field in updated_fields:
+            for (
+                dependant_field,
+                dependant_field_type,
+                path_to_starting_table,
+            ) in field.dependant_fields_with_types(update_collector):
+                dependant_field_type.row_of_dependency_created(
+                    dependant_field, instance, update_collector, path_to_starting_table
+                )
+        update_collector.apply_updates_and_get_updated_fields()
+
+        # @TODO This needs to be fixed. Somehow, the refreshed values don't contain the
+        # correct value. This only happens if you have a formula like `row_id()`
+        if model.fields_requiring_refresh_after_insert():
+            fields_to_be_refreshed = model.fields_requiring_refresh_after_insert()
+            refreshed = (
+                model.objects.filter(id__in=[r.id for r in inserted_rows])
+                .order_by("id")
+                .values(*fields_to_be_refreshed)
+            )
+            for index, refreshed_value in enumerate(refreshed):
+                for key, value in refreshed_value.items():
+                    setattr(inserted_rows[index], key, value)
+
+        # Trigger the `row_created` signal with a list of newly created rows. The
+        # receivers itself need to be modified so that they accept an array of values.
+        row_created.send(
+            self,
+            row=inserted_rows,
+            before=before,
+            user=user,
+            table=table,
+            model=model,
+        )
+
+        return inserted_rows
 
     # noinspection PyMethodMayBeStatic
     def map_user_field_name_dict_to_internal(
@@ -470,7 +657,7 @@ class RowHandler:
             self, row=row, user=user, table=table, model=model, updated_field_ids=[]
         )
 
-        row.order = self.get_order_before_row(before, model)
+        row.order, step = self.get_order_before_row(before, model)
         row.save()
 
         updated_fields = [

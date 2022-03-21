@@ -94,6 +94,24 @@ class FieldType(
 
         return value
 
+    def prepare_value_for_db_in_bulk(self, instance, values_list):
+        """
+        This method will work for every `prepare_value_for_db` that doesn't have
+        execute a query. The `multiple_select` field already overrides this method
+        for demonstration purposes of how this could work.
+        """
+
+        return [self.prepare_value_for_db(instance, values) for values in values_list]
+
+    def get_related_prefetch_queryset(self, model, field, name):
+        """
+        This method is also for demo purposes. We needed to have a way to prefetch
+        values based on a list of rows after a bulk insert and this was an easy way
+        of implementing this.
+        """
+
+        return None
+
     def enhance_queryset(self, queryset, field, name):
         """
         This hook can be used to enhance a queryset when fetching multiple rows of a
@@ -116,6 +134,13 @@ class FieldType(
         :return: The enhanced queryset.
         :rtype: QuerySet
         """
+
+        related_queryset = self.get_related_prefetch_queryset(queryset.model, field, name)
+
+        if related_queryset is not None:
+            queryset = queryset.prefetch_related(
+                django_models.Prefetch(name, queryset=related_queryset)
+            )
 
         return queryset
 

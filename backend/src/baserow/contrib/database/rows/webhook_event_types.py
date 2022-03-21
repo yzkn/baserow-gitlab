@@ -18,8 +18,17 @@ class RowEventType(WebhookEventType):
 
     def get_payload(self, event_id, webhook, model, table, row, **kwargs):
         payload = super().get_payload(event_id, webhook, **kwargs)
-        payload["row_id"] = row.id
-        payload["values"] = self.get_row_serializer(webhook, model)(row).data
+
+        # This is probably not the best way of doing this, but it's more for
+        # demonstration purposes how it could be done.
+        if isinstance(row, list):
+            serialized_rows = self.get_row_serializer(webhook, model)(
+                row, many=True
+            ).data
+            payload["rows"] = serialized_rows
+        else:
+            payload["row_id"] = row.id
+            payload["values"] = self.get_row_serializer(webhook, model)(row).data
         return payload
 
 
