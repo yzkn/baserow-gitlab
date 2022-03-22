@@ -1,6 +1,6 @@
 import logging
 from collections import OrderedDict
-from typing import List, Union
+from typing import List, Union, Optional
 
 from rest_framework import serializers
 
@@ -26,6 +26,7 @@ def serialize_row_fast(
     row: Union[List[GeneratedTableModel], GeneratedTableModel],
     many: bool = False,
     user_field_names: bool = False,
+    field_ids: Optional[List[int]] = None,
 ) -> Union[List[dict], dict]:
     """
     Serializes the row via native python code instead of using the Django REST
@@ -36,15 +37,27 @@ def serialize_row_fast(
     :param many: Indicates whether multiple rows must be serialized instead of just one.
     :param user_field_names: Indicates whether the serialized keys must be user field
         names.
+    :param field_ids: If provided only the field ids in the list will be
+        included in the serializer. By default all the fields of the model are going
+        to be included. Note that the field id must exist in the model in
+        order to work.
     :return: The serialized row or a list of serialized rows.
     """
 
     if many:
-        return [serialize_row_fast(r, user_field_names=user_field_names) for r in row]
+        return [
+            serialize_row_fast(
+                r, user_field_names=user_field_names, field_ids=field_ids
+            )
+            for r in row
+        ]
 
     serialized = OrderedDict({"id": row.id, "order": str(row.order)})
 
     for field_id, field_object in row._field_objects.items():
+        if field_ids is not None and field_id not in field_ids:
+            continue
+
         name = field_object["field"].name if user_field_names else field_object["name"]
         serialized[name] = field_object["type"].fast_serialize(
             field_object["field"], getattr(row, field_object["name"])
@@ -87,6 +100,9 @@ def get_row_serializer_class(
         to be included. Note that the field name must exist in the model in
         order to work.
     :type field_names_to_include: list or None
+    :param user_field_names: Whether or not the values are keyed by the internal
+        Baserow field name (field_1,field_2 etc) or by the user field names.
+    :type user_field_names: bool
     :param field_kwargs: A dict containing additional kwargs per field. The key must
         be the field name and the value a dict containing the kwargs.
     :type field_kwargs: dict

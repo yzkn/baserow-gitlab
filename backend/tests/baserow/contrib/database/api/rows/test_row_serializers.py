@@ -345,3 +345,39 @@ def test_fast_serialize_with_user_field_names_has_the_same_results(data_fixture)
     assert serializer_instance.data == serialize_row_fast(
         queryset, many=True, user_field_names=True
     )
+
+
+@pytest.mark.django_db
+def test_fast_serialize_with_field_ids(data_fixture):
+    table, user, row, _ = setup_interesting_test_table(data_fixture)
+    model = table.get_model()
+    queryset = model.objects.all().enhance_by_fields()
+    fields = table.field_set.all()
+
+    assert serialize_row_fast(
+        queryset,
+        many=True,
+        user_field_names=False,
+        field_ids=[fields[0].id],
+    ) == [
+        {"id": 1, "order": "1.00000000000000000000", f"field_{fields[0].id}": None},
+        {
+            "id": 2,
+            "order": "1.00000000000000000000",
+            f"field_{fields[0].id}": "text",
+        },
+    ]
+
+    assert serialize_row_fast(
+        queryset,
+        many=True,
+        user_field_names=True,
+        field_ids=[fields[0].id],
+    ) == [
+        {"id": 1, "order": "1.00000000000000000000", "text": None},
+        {
+            "id": 2,
+            "order": "1.00000000000000000000",
+            "text": "text",
+        },
+    ]

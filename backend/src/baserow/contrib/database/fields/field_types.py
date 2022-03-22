@@ -378,11 +378,7 @@ class NumberFieldType(FieldType):
         if not isinstance(value, Decimal):
             value = Decimal(str(value).strip())
 
-        decimal_places = (
-            0
-            if instance.number_type == NUMBER_TYPE_INTEGER
-            else instance.number_decimal_places
-        )
+        decimal_places = instance.number_decimal_places
         max_digits = self.MAX_DIGITS + decimal_places
 
         context = getcontext().copy()

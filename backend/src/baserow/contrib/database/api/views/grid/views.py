@@ -257,8 +257,9 @@ class GridViewView(APIView):
             paginator = PageNumberPagination()
 
         page = paginator.paginate_queryset(queryset, request, self)
-        # @TODO add field_ids
-        response = paginator.get_paginated_response(serialize_row_fast(page, many=True))
+        response = paginator.get_paginated_response(
+            serialize_row_fast(page, many=True, field_ids=field_ids)
+        )
 
         if field_options:
             context = {"fields": [o["field"] for o in model._field_objects.values()]}
