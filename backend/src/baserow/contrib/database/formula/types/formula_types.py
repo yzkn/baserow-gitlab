@@ -478,8 +478,6 @@ class BaserowFormulaArrayType(BaserowFormulaValidType):
             field_type,
         ) = self.sub_type.get_baserow_field_instance_and_type()
 
-        print(type(field_type))
-
         results = []
         for lookup_value in value:
             id = lookup_value.get("id")
