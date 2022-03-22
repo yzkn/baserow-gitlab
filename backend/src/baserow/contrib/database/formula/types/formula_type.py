@@ -193,6 +193,9 @@ class BaserowFormulaType(abc.ABC):
         field_instance = baserow_field_type.from_baserow_formula_type(self)
         return field_instance, baserow_field_type
 
+    def fast_serialize(self, instance, lookup_value):
+        return lookup_value
+
     def should_recreate_when_old_type_was(self, old_type: "BaserowFormulaType") -> bool:
         """
         :param old_type: The previous type of a formula field.

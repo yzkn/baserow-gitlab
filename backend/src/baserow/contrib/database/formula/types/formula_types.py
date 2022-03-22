@@ -478,6 +478,8 @@ class BaserowFormulaArrayType(BaserowFormulaValidType):
             field_type,
         ) = self.sub_type.get_baserow_field_instance_and_type()
 
+        print(type(field_type))
+
         results = []
         for lookup_value in value:
             id = lookup_value.get("id")
@@ -566,6 +568,9 @@ class BaserowFormulaSingleSelectType(BaserowFormulaValidType):
     def get_serializer_field(self, *args, **kwargs) -> Optional[Field]:
         instance, field_type = super().get_baserow_field_instance_and_type()
         return field_type.get_response_serializer_field(instance, **kwargs)
+
+    def fast_serialize(self, instance, lookup_value):
+        return lookup_value
 
     def get_export_value(self, value, field_object) -> Any:
         if value is None:
