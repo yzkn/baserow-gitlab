@@ -1,11 +1,19 @@
+from copy import deepcopy
+
 from .base import *  # noqa: F403, F401
 
+
+# This is a hardcoded key for test runs only.
+SECRET_KEY = "test_hardcoded_secret_key"  # nosec
 
 CELERY_BROKER_BACKEND = "memory"
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+
+# Open a second database connection that can be used to test transactions.
+DATABASES["default-copy"] = deepcopy(DATABASES["default"])  # noqa: F405
 
 USER_FILES_DIRECTORY = "user_files"
 USER_THUMBNAILS_DIRECTORY = "thumbnails"

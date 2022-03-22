@@ -10,6 +10,7 @@
       :key="'row-' + '-' + row.id"
       :row="row"
       :fields="fields"
+      :all-fields="allFields"
       :field-widths="fieldWidths"
       :include-row-details="includeRowDetails"
       :read-only="readOnly"
@@ -32,6 +33,10 @@ export default {
   mixins: [gridViewHelpers],
   props: {
     fields: {
+      type: Array,
+      required: true,
+    },
+    allFields: {
       type: Array,
       required: true,
     },
@@ -61,7 +66,7 @@ export default {
   computed: {
     fieldWidths() {
       const fieldWidths = {}
-      this.fields.forEach((field) => {
+      this.allFields.forEach((field) => {
         fieldWidths[field.id] = this.getFieldWidth(field.id)
       })
       return fieldWidths

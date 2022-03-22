@@ -18,6 +18,7 @@ from baserow.contrib.database.rows.registries import (
     row_metadata_registry,
 )
 from baserow.contrib.database.views.models import GridView
+from baserow.contrib.database.views.registries import view_aggregation_type_registry
 from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.core.trash.handler import TrashHandler
 from baserow.test_utils.helpers import register_instance_temporarily
@@ -407,6 +408,189 @@ def test_list_filtered_rows(api_client, data_fixture):
 
 
 @pytest.mark.django_db
+def test_field_aggregation(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token(
+        email="test@test.nl", password="password", first_name="Test1"
+    )
+    table = data_fixture.create_database_table(user=user)
+    text_field = data_fixture.create_text_field(
+        table=table, order=0, name="Color", text_default="white"
+    )
+    number_field = data_fixture.create_number_field(
+        table=table, order=1, name="Horsepower"
+    )
+    boolean_field = data_fixture.create_boolean_field(
+        table=table, order=2, name="For sale"
+    )
+    grid = data_fixture.create_grid_view(table=table)
+    grid_2 = data_fixture.create_grid_view()
+
+    table2 = data_fixture.create_database_table(user=user)
+    text_field2 = data_fixture.create_text_field(
+        table=table2, order=0, name="Color", text_default="white"
+    )
+
+    # Test missing grid view
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": 9999, "field_id": text_field.id},
+    )
+    response = api_client.get(
+        url + f"?type=empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json()["error"] == "ERROR_GRID_DOES_NOT_EXIST"
+
+    # Test aggregation on missing field
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": grid.id, "field_id": 9999},
+    )
+    response = api_client.get(
+        url + f"?type=empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json()["error"] == "ERROR_FIELD_DOES_NOT_EXIST"
+
+    # Test user not authorized
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": grid_2.id, "field_id": text_field.id},
+    )
+    response = api_client.get(
+        url + f"?type=empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json()["error"] == "ERROR_USER_NOT_IN_GROUP"
+
+    # Test field not in table
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": grid.id, "field_id": text_field2.id},
+    )
+    response = api_client.get(
+        url + f"?type=empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json()["error"] == "ERROR_FIELD_NOT_IN_TABLE"
+
+    # Test missing auth token
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": grid.id, "field_id": text_field.id},
+    )
+    response = api_client.get(url)
+    assert response.status_code == HTTP_401_UNAUTHORIZED
+
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": grid.id, "field_id": text_field.id},
+    )
+
+    # Test bad aggregation type
+    response = api_client.get(
+        url + f"?type=bad_aggregation_type",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json()["error"] == "ERROR_AGGREGATION_TYPE_DOES_NOT_EXIST"
+
+    # Test normal response with no data
+    response = api_client.get(
+        url + f"?type=empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    assert response.status_code == HTTP_200_OK
+    response_json = response.json()
+
+    assert response_json == {f"value": 0}
+
+    # Add more data
+    model = grid.table.get_model()
+    model.objects.create(
+        **{
+            f"field_{text_field.id}": "Green",
+            f"field_{number_field.id}": 10,
+            f"field_{boolean_field.id}": False,
+        }
+    )
+    model.objects.create()
+    model.objects.create(
+        **{
+            f"field_{text_field.id}": "",
+            f"field_{number_field.id}": 0,
+            f"field_{boolean_field.id}": False,
+        }
+    )
+
+    model.objects.create(
+        **{
+            f"field_{text_field.id}": None,
+            f"field_{number_field.id}": 1200,
+            f"field_{boolean_field.id}": True,
+        }
+    )
+
+    # Count empty "Color" field
+    response = api_client.get(
+        url + f"?type=empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+
+    assert response_json == {f"value": 2}
+
+    url = reverse(
+        "api:database:views:grid:field-aggregation",
+        kwargs={"view_id": grid.id, "field_id": boolean_field.id},
+    )
+
+    # Count not empty "For sale" field
+    response = api_client.get(
+        url + f"?type=not_empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+
+    assert response_json == {
+        "value": 1,
+    }
+
+    # Count with total
+    response = api_client.get(
+        url + f"?type=not_empty_count&include=total",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+
+    assert response_json == {"value": 1, "total": 4}
+
+    # Does it works with filter
+    data_fixture.create_view_filter(
+        view=grid, field=number_field, type="higher_than", value="10"
+    )
+
+    # Count with total
+    response = api_client.get(
+        url + f"?type=not_empty_count",
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+
+    assert response_json == {"value": 1}
+
+
+@pytest.mark.django_db
 def test_patch_grid_view_field_options(api_client, data_fixture):
     user, token = data_fixture.create_user_and_token(
         email="test@test.nl", password="password", first_name="Test1"
@@ -433,19 +617,34 @@ def test_patch_grid_view_field_options(api_client, data_fixture):
     assert response_json["field_options"][str(text_field.id)]["width"] == 300
     assert response_json["field_options"][str(text_field.id)]["hidden"] is True
     assert response_json["field_options"][str(text_field.id)]["order"] == 32767
+    assert response_json["field_options"][str(text_field.id)]["aggregation_type"] == ""
+    assert (
+        response_json["field_options"][str(text_field.id)]["aggregation_raw_type"] == ""
+    )
     assert response_json["field_options"][str(number_field.id)]["width"] == 200
     assert response_json["field_options"][str(number_field.id)]["hidden"] is False
     assert response_json["field_options"][str(number_field.id)]["order"] == 32767
+    assert (
+        response_json["field_options"][str(number_field.id)]["aggregation_type"] == ""
+    )
+    assert (
+        response_json["field_options"][str(number_field.id)]["aggregation_raw_type"]
+        == ""
+    )
     options = grid.get_field_options()
     assert len(options) == 2
     assert options[0].field_id == text_field.id
     assert options[0].width == 300
     assert options[0].hidden is True
     assert options[0].order == 32767
+    assert options[0].aggregation_type == ""
+    assert options[0].aggregation_raw_type == ""
     assert options[1].field_id == number_field.id
     assert options[1].width == 200
     assert options[1].hidden is False
     assert options[1].order == 32767
+    assert options[1].aggregation_type == ""
+    assert options[1].aggregation_raw_type == ""
 
     url = reverse("api:database:views:field_options", kwargs={"view_id": grid.id})
     response = api_client.patch(
@@ -546,6 +745,41 @@ def test_patch_grid_view_field_options(api_client, data_fixture):
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response_json["error"] == "ERROR_REQUEST_BODY_VALIDATION"
     assert response_json["detail"]["field_options"][0]["code"] == "invalid_value"
+
+    # Test unregistered aggregation type
+    url = reverse("api:database:views:field_options", kwargs={"view_id": grid.id})
+    response = api_client.patch(
+        url,
+        {"field_options": {text_field.id: {"aggregation_raw_type": "foo"}}},
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response_json["error"] == "ERROR_REQUEST_BODY_VALIDATION"
+    assert response_json["detail"]["field_options"][0]["code"] == "invalid_value"
+
+    # Test aggregation type that doesn't support the field
+    # Fake incompatible field
+    empty_count = view_aggregation_type_registry.get("empty_count")
+    empty_count.field_is_compatible = lambda _: False
+
+    url = reverse("api:database:views:field_options", kwargs={"view_id": grid.id})
+    response = api_client.patch(
+        url,
+        {"field_options": {text_field.id: {"aggregation_raw_type": "empty_count"}}},
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response_json["error"] == "ERROR_AGGREGATION_DOES_NOT_SUPPORTED_FIELD"
+    assert (
+        response_json["detail"]
+        == "The aggregation type does not support the given field."
+    )
+
+    empty_count.field_is_compatible = lambda _: True
 
 
 @pytest.mark.django_db
@@ -983,6 +1217,8 @@ def test_list_rows_public_doesnt_show_hidden_columns(api_client, data_fixture):
                 "hidden": False,
                 "order": public_field_option.order,
                 "width": public_field_option.width,
+                "aggregation_type": "",
+                "aggregation_raw_type": "",
             },
         },
     }
@@ -1436,3 +1672,147 @@ def test_grid_view_link_row_lookup_view(api_client, data_fixture):
     assert len(response_json["results"]) == 1
     assert response_json["results"][0]["id"] == i2.id
     assert response_json["results"][0]["value"] == "Test 2"
+
+
+@pytest.mark.django_db
+def test_list_rows_include_fields(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token(
+        email="test@test.nl", password="password", first_name="Test1"
+    )
+    table = data_fixture.create_database_table(user=user)
+    table_2 = data_fixture.create_database_table(database=table.database)
+    text_field = data_fixture.create_text_field(
+        table=table, order=0, name="Color", text_default="white"
+    )
+    number_field = data_fixture.create_number_field(
+        table=table, order=1, name="Horsepower"
+    )
+    boolean_field = data_fixture.create_boolean_field(
+        table=table, order=2, name="For sale"
+    )
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Link",
+        link_row_table=table_2,
+    )
+    primary_field = data_fixture.create_text_field(table=table_2, primary=True)
+    lookup_model = table_2.get_model()
+    i1 = lookup_model.objects.create(**{f"field_{primary_field.id}": "Test 1"})
+    i2 = lookup_model.objects.create(**{f"field_{primary_field.id}": "Test 2"})
+    i3 = lookup_model.objects.create(**{f"field_{primary_field.id}": "Test 3"})
+
+    grid = data_fixture.create_grid_view(table=table)
+    data_fixture.create_grid_view_field_option(grid, link_row_field, hidden=False)
+
+    model = grid.table.get_model()
+    row_1 = model.objects.create(
+        **{
+            f"field_{text_field.id}": "Green",
+            f"field_{number_field.id}": 10,
+            f"field_{boolean_field.id}": False,
+        }
+    )
+    getattr(row_1, f"field_{link_row_field.id}").add(i1.id)
+    row_2 = model.objects.create(
+        **{
+            f"field_{text_field.id}": "Orange",
+            f"field_{number_field.id}": 100,
+            f"field_{boolean_field.id}": True,
+        }
+    )
+    getattr(row_2, f"field_{link_row_field.id}").add(i2.id)
+    row_3 = model.objects.create(
+        **{
+            f"field_{text_field.id}": "Purple",
+            f"field_{number_field.id}": 1000,
+            f"field_{boolean_field.id}": False,
+        }
+    )
+    getattr(row_3, f"field_{link_row_field.id}").add(i3.id)
+
+    url = reverse("api:database:views:grid:list", kwargs={"view_id": grid.id})
+    response = api_client.get(
+        url,
+        {
+            "include_fields": f"\
+                field_{text_field.id},\
+                field_{number_field.id},\
+                field_{link_row_field.id}",
+            "exclude_fields": f"field_{number_field.id}",
+        },
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+
+    # Confirm that text_field is included
+    assert response_json["results"][0][f"field_{text_field.id}"] == "Green"
+    assert response_json["results"][1][f"field_{text_field.id}"] == "Orange"
+    assert response_json["results"][2][f"field_{text_field.id}"] == "Purple"
+
+    # Confirm that number_field is excluded
+    assert f"field_{number_field.id}" not in response_json["results"][0]
+    assert f"field_{number_field.id}" not in response_json["results"][1]
+    assert f"field_{number_field.id}" not in response_json["results"][2]
+
+    # Confirm that boolean_field is not returned
+    assert f"field_{boolean_field.id}" not in response_json["results"][0]
+    assert f"field_{boolean_field.id}" not in response_json["results"][1]
+    assert f"field_{boolean_field.id}" not in response_json["results"][2]
+
+    # Confirm that link_row_field is included
+    assert (
+        response_json["results"][0][f"field_{link_row_field.id}"][0]["value"]
+        == "Test 1"
+    )
+    assert (
+        response_json["results"][1][f"field_{link_row_field.id}"][0]["value"]
+        == "Test 2"
+    )
+    assert (
+        response_json["results"][2][f"field_{link_row_field.id}"][0]["value"]
+        == "Test 3"
+    )
+
+    # Confirm that id and order are still returned
+    assert "id" in response_json["results"][0]
+    assert "id" in response_json["results"][1]
+    assert "id" in response_json["results"][2]
+    assert "order" in response_json["results"][0]
+    assert "order" in response_json["results"][1]
+    assert "order" in response_json["results"][2]
+
+    # include_fields is empty
+    response = api_client.get(
+        url,
+        {"include_fields": ""},
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+
+    # Should return response with no fields
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+    assert "id" in response_json["results"][0]
+    assert "order" in response_json["results"][0]
+    assert f"field_{text_field.id}" not in response_json["results"][0]
+    assert f"field_{number_field.id}" not in response_json["results"][0]
+    assert f"field_{boolean_field.id}" not in response_json["results"][0]
+
+    # Test invalid fields
+    response = api_client.get(
+        url,
+        {"include_fields": "field_9999"},
+        **{"HTTP_AUTHORIZATION": f"JWT {token}"},
+    )
+
+    # Should also return response with no fields
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+    assert "id" in response_json["results"][0]
+    assert "id" in response_json["results"][0]
+    assert "order" in response_json["results"][0]
+    assert f"field_{text_field.id}" not in response_json["results"][0]
+    assert f"field_{number_field.id}" not in response_json["results"][0]
+    assert f"field_{boolean_field.id}" not in response_json["results"][0]

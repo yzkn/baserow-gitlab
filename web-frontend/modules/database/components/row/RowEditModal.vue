@@ -34,7 +34,7 @@
         <CreateFieldContext
           ref="createFieldContext"
           :table="table"
-          @refresh="$emit('refresh', $event)"
+          @field-created="$emit('field-created', $event)"
         ></CreateFieldContext>
       </div>
     </template>
@@ -117,6 +117,10 @@ export default {
         this.$store.dispatch('rowModal/doesNotExist')
       } else if (row !== undefined && !this.rowExists) {
         this.$store.dispatch('rowModal/doesExist', { row })
+      } else if (row !== undefined) {
+        // If the row already exists and it has changed, we need to replace it,
+        // otherwise we might loose reactivity.
+        this.$store.dispatch('rowModal/replace', { row })
       }
     },
   },

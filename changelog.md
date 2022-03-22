@@ -2,12 +2,88 @@
 
 ## Unreleased
 
+* Fixed bug where the arrow keys of a selected cell didn't work when they were not
+  rendered.
+* Select new view immediately after creation.
+* Added group context menu to sidebar.
+* Fixed Airtable import bug where the import would fail if a row is empty.
+* Fixed a problem where a form view with link row fields sends duplicate lookup requests.
+* Pin backend python dependencies using pip-tools.
+* Fixed the reactivity of the row values of newly created fields in some cases.
+* Fixed a bug that made it possible to delete created on/modified by fields on the web frontend.
+* Allow the setting of max request page size via environment variable.
+* Boolean field converts the word `checked` to `True` value.
+* Fixed a bug where the backend would fail hard updating token permissions for deleted tables.
+* Fixed the unchecked percent aggregation calculation
+* Raise Airtable import task error and fixed a couple of minor import bugs.
+
+## Released (2022-03-03 1.9.1)
+
+* Fixed bug when importing a formula or lookup field with an incorrect empty value.
+* New templates:
+    * Non-profit Organization Management
+    * Elementary School Management
+    * Call Center Log
+    * Individual Medical Record
+    * Trip History
+    * Favorite Food Places
+    * Wedding Client Planner
+* Updated templates:
+    * Holiday Shopping
+    * Company Asset Tracker
+    * Personal Health Log
+    * Recipe Book
+    * Student Planner
+    * Political Campaign Contributions
+* Upgraded `drf-spectacular`. Flag-style query parameters like `count` will now be displayed
+  as `boolean` instead of `any` in the OpenAPI documentation. However, the behavior of these 
+  flags is still the same.
+* Fixed API docs enum warnings. Removed `number_type` is no longer displayed in the API docs.
+* Fix the Baserow Heroku install filling up the hobby postgres by disabling template 
+  syncing by default.
+
+## Released (2022-03-02 1.9)
+
+* Added accept `image/*` attribute to the form cover and logo upload. 
+* Added management to import a shared Airtable base.
+* Added web-frontend interface to import a shared Airtable base.
+* Fixed adding new fields in the edit row popup that require refresh in Kanban and Form views.
 * Cache model fields when generating model.
 * Fixed `'<' not supported between instances of 'NoneType' and 'int'` error. Blank 
   string for a decimal value is now converted to `None` when using the REST API.
 * Moved the in component `<i18n>` translations to JSON files. 
 * Fix restoring table linking to trashed tables creating invalid link field. 
 * Fixed not being able to create or convert a single select field with edge case name.
+* Add Kanban view filters.
+* Fix missing translation when importing empty CSV
+* Fixed OpenAPI spec. The specification is now valid and can be used for imports to other
+  tools, e.g. to various REST clients.
+* Added search to gallery views.
+* Views supporting search are properly updated when a column with a matching default value is added.
+* Allow for group registrations while public registration is closed
+* Allow for signup via group invitation while public registration is closed.
+* **breaking change** Number field has been changed and doesn't use `number_type` property 
+  anymore. The property `number_decimal_places` can be now set to `0` to indicate integers
+  instead.
+* Fixed error when the select row modal is closed immediately after opening.
+* Add footer aggregations to grid view
+* Hide "Export view" button if there is no valid exporter available
+* Fix Django's default index naming scheme causing index name collisions.
+* Added multi-cell selection and copying.
+* Add "insert left" and "insert right" field buttons to grid view head context buttons.
+* Workaround bug in Django's schema editor sometimes causing incorrect transaction 
+  rollbacks resulting in the connection to the database becoming unusable.
+* Rework Baserow docker images so they can be built and tested by gitlab CI.
+* Bumped some backend and web-frontend dependencies.
+* Remove runtime mjml service and pre-render email templates at build time.
+* Add the all-in-one Baserow docker image.
+* Migrate the Baserow Cloudron and Heroku images to work from the all-in-one.
+* **breaking change** docker-compose.yml now requires secrets to be setup by the user,
+  listens by default on 0.0.0.0:80 with a Caddy reverse proxy, use BASEROW_PUBLIC_URL 
+  and BASEROW_CADDY_ADDRESSES now to configure a domain with optional auto https.
+* Add health checks for all services.
+* Ensure error logging is enabled in the Backend even when DEBUG is off.
+* Removed upload file size limit.
 
 ## Released (2022-01-13 1.8.2)
 

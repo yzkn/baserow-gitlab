@@ -214,7 +214,7 @@ export const actions = {
     postData.type = type
 
     const { data } = await ViewService(this.$client).create(table.id, postData)
-    dispatch('forceCreate', { data })
+    return await dispatch('forceCreate', { data })
   },
   /**
    * Forcefully create a new view without making a request to the server.
@@ -419,7 +419,7 @@ export const actions = {
     return { filter }
   },
   /**
-   * Forcefully create a new view filterwithout making a request to the backend.
+   * Forcefully create a new view filter without making a request to the backend.
    */
   forceCreateFilter({ commit }, { view, values }) {
     const filter = Object.assign({}, values)

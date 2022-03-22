@@ -1,5 +1,9 @@
 <template>
-  <div v-scroll="scroll" class="grid-view">
+  <div
+    v-scroll="scroll"
+    class="grid-view"
+    :class="{ 'grid-view--disable-selection': isMultiSelectActive }"
+  >
     <Scrollbars
       ref="scrollbars"
       horizontal="getHorizontalScrollbarElement"
@@ -20,9 +24,13 @@
       :store-prefix="storePrefix"
       :style="{ width: leftWidth + 'px' }"
       @refresh="$emit('refresh', $event)"
+      @field-created="fieldCreated"
       @row-hover="setRowHover($event.row, $event.value)"
       @row-context="showRowContext($event.event, $event.row)"
       @row-dragging="rowDragStart"
+      @cell-mousedown-left="multiSelectStart"
+      @cell-mouseover="multiSelectHold"
+      @cell-mouseup-left="multiSelectStop"
       @add-row="addRow()"
       @update="updateValue"
       @edit="editValue"
@@ -30,12 +38,11 @@
       @unselected="unselectedCell($event)"
       @select-next="selectNextCell($event)"
       @edit-modal="$refs.rowEditModal.show($event.id)"
+      @scroll="scroll($event.pixelY, 0)"
     >
       <template #foot>
-        <div class="grid-view__column" :style="{ width: leftWidth + 'px' }">
-          <div class="grid-view__foot-info">
-            {{ $tc('gridView.rowCount', count, { count }) }}
-          </div>
+        <div class="grid-view__foot-info">
+          {{ $tc('gridView.rowCount', count, { count }) }}
         </div>
       </template>
     </GridViewSection>
@@ -65,19 +72,23 @@
       :store-prefix="storePrefix"
       :style="{ left: leftWidth + 'px' }"
       @refresh="$emit('refresh', $event)"
+      @field-created="fieldCreated"
       @row-hover="setRowHover($event.row, $event.value)"
       @row-context="showRowContext($event.event, $event.row)"
       @add-row="addRow()"
       @update="updateValue"
       @edit="editValue"
+      @cell-mousedown-left="multiSelectStart"
+      @cell-mouseover="multiSelectHold"
+      @cell-mouseup-left="multiSelectStop"
       @selected="selectedCell($event)"
       @unselected="unselectedCell($event)"
       @select-next="selectNextCell($event)"
       @edit-modal="$refs.rowEditModal.show($event.id)"
       @scroll="scroll($event.pixelY, $event.pixelX)"
     >
-      <template v-if="publicGrid" #foot>
-        <div class="grid-view__foot-logo">
+      <template #foot>
+        <div v-if="publicGrid" class="grid-view__foot-logo">
           <a
             href="https://baserow.io"
             target="_blank"
@@ -103,7 +114,15 @@
       @scroll="scroll($event.pixelY, $event.pixelX)"
     ></GridViewRowDragging>
     <Context ref="rowContext">
-      <ul class="context__menu">
+      <ul v-show="isMultiSelectActive" class="context__menu">
+        <li>
+          <a @click=";[exportMultiSelect(), $refs.rowContext.hide()]">
+            <i class="context__menu-icon fas fa-fw fa-copy"></i>
+            {{ $t('action.copy') }}
+          </a>
+        </li>
+      </ul>
+      <ul v-show="!isMultiSelectActive" class="context__menu">
         <li v-if="!readOnly">
           <a @click=";[addRow(selectedRow), $refs.rowContext.hide()]">
             <i class="context__menu-icon fas fa-fw fa-arrow-up"></i>
@@ -144,11 +163,11 @@
       :fields="fields"
       :rows="allRows"
       :read-only="readOnly"
-      @refresh="$emit('refresh', $event)"
       @update="updateValue"
       @hidden="rowEditModalHidden"
       @field-updated="$emit('refresh', $event)"
       @field-deleted="$emit('refresh')"
+      @field-created="fieldCreated"
     ></RowEditModal>
   </div>
 </template>
@@ -163,6 +182,8 @@ import GridViewRowDragging from '@baserow/modules/database/components/view/grid/
 import RowEditModal from '@baserow/modules/database/components/row/RowEditModal'
 import gridViewHelpers from '@baserow/modules/database/mixins/gridViewHelpers'
 import { maxPossibleOrderValue } from '@baserow/modules/database/viewTypes'
+import { isElement } from '@baserow/modules/core/utils/dom'
+import viewHelpers from '@baserow/modules/database/mixins/viewHelpers'
 
 export default {
   name: 'GridView',
@@ -172,7 +193,7 @@ export default {
     GridViewRowDragging,
     RowEditModal,
   },
-  mixins: [gridViewHelpers],
+  mixins: [viewHelpers, gridViewHelpers],
   props: {
     primary: {
       type: Object,
@@ -276,6 +297,8 @@ export default {
       ...mapGetters({
         allRows: this.$options.propsData.storePrefix + 'view/grid/getAllRows',
         count: this.$options.propsData.storePrefix + 'view/grid/getCount',
+        isMultiSelectActive:
+          this.$options.propsData.storePrefix + 'view/grid/isMultiSelectActive',
       }),
     }
   },
@@ -296,10 +319,31 @@ export default {
     }
     this.$el.resizeEvent()
     window.addEventListener('resize', this.$el.resizeEvent)
+    window.addEventListener('keydown', this.arrowEvent)
+    window.addEventListener('copy', this.exportMultiSelect)
+    window.addEventListener('click', this.cancelMultiSelect)
+    window.addEventListener('mouseup', this.multiSelectStop)
+    this.$refs.left.$el.addEventListener(
+      'scroll',
+      this.$el.horizontalScrollEvent
+    )
+    this.$store.dispatch(
+      this.storePrefix + 'view/grid/fetchAllFieldAggregationData',
+      { view: this.view }
+    )
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.$el.resizeEvent)
+    window.removeEventListener('keydown', this.arrowEvent)
+    window.removeEventListener('copy', this.exportMultiSelect)
+    window.removeEventListener('click', this.cancelMultiSelect)
+    window.removeEventListener('mouseup', this.multiSelectStop)
     this.$bus.$off('field-deleted', this.fieldDeleted)
+    this.$store.dispatch(
+      this.storePrefix + 'view/grid/setMultiSelectActive',
+      false
+    )
+    this.$store.dispatch(this.storePrefix + 'view/grid/clearMultiSelect')
   },
   methods: {
     /**
@@ -370,14 +414,14 @@ export default {
     },
     /**
      * This method is called by the Scrollbars component and should return the element
-     * that handles the the horizontal scrolling.
+     * that handles the horizontal scrolling.
      */
     getHorizontalScrollbarElement() {
       return this.$refs.right.$el
     },
     /**
      * This method is called by the Scrollbars component and should return the element
-     * that handles the the vertical scrolling.
+     * that handles the vertical scrolling.
      */
     getVerticalScrollbarElement() {
       return this.$refs.right.$refs.body
@@ -699,6 +743,12 @@ export default {
         return
       }
 
+      this.$store.dispatch(
+        this.storePrefix + 'view/grid/setMultiSelectActive',
+        false
+      )
+      this.$store.dispatch(this.storePrefix + 'view/grid/clearMultiSelect')
+
       this.$store.dispatch(this.storePrefix + 'view/grid/setSelectedCell', {
         rowId: nextRowId,
         fieldId: nextFieldId,
@@ -717,6 +767,95 @@ export default {
       this.$nextTick(() => {
         this.fieldsUpdated()
       })
+    },
+    /*
+      Called when mouse is clicked and held on a GridViewCell component.
+      Starts multi-select by setting the head and tail index to the currently
+      selected cell.
+    */
+    multiSelectStart({ event, row, field }) {
+      this.$store.dispatch(this.storePrefix + 'view/grid/multiSelectStart', {
+        rowId: row.id,
+        fieldIndex: this.visibleFields.findIndex((f) => f.id === field.id) + 1,
+      })
+    },
+    /*
+      Called when mouse hovers over a GridViewCell component.
+      Updates the current multi-select grid by updating the tail index
+      with the last cell hovered over.
+    */
+    multiSelectHold({ event, row, field }) {
+      this.$store.dispatch(this.storePrefix + 'view/grid/multiSelectHold', {
+        rowId: row.id,
+        fieldIndex: this.visibleFields.findIndex((f) => f.id === field.id) + 1,
+      })
+    },
+    /*
+      Called when the mouse is unpressed over a GridViewCell component.
+      Stop multi-select.
+    */
+    multiSelectStop({ event, row, field }) {
+      this.$store.dispatch(
+        this.storePrefix + 'view/grid/setMultiSelectHolding',
+        false
+      )
+    },
+    /*
+      Cancels multi-select if it's currently active.
+      This function checks if a mouse click event is triggered
+      outside of GridViewRows. This is done by ensuring that the
+      target element's class is either 'grid-view' or 'grid-view__rows'.
+    */
+    cancelMultiSelect(event) {
+      if (
+        this.$store.getters[
+          this.storePrefix + 'view/grid/isMultiSelectActive'
+        ] &&
+        (!isElement(this.$el, event.target) ||
+          !['grid-view__rows', 'grid-view'].includes(event.target.classList[0]))
+      ) {
+        this.$store.dispatch(
+          this.storePrefix + 'view/grid/setMultiSelectActive',
+          false
+        )
+        this.$store.dispatch(this.storePrefix + 'view/grid/clearMultiSelect')
+      }
+    },
+    arrowEvent(event) {
+      // Check if arrow key was pressed.
+      if (
+        ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(event.key)
+      ) {
+        // Cancels multi-select if it's currently active.
+        if (
+          this.$store.getters[
+            this.storePrefix + 'view/grid/isMultiSelectActive'
+          ]
+        ) {
+          this.$store.dispatch(
+            this.storePrefix + 'view/grid/setMultiSelectActive',
+            false
+          )
+          this.$store.dispatch(this.storePrefix + 'view/grid/clearMultiSelect')
+        }
+      }
+    },
+    // Prepare and copy the multi-select cells into the clipboard, formatted as TSV
+    async exportMultiSelect(event) {
+      try {
+        this.$store.dispatch('notification/setCopying', true)
+        const output = await this.$store.dispatch(
+          this.storePrefix + 'view/grid/exportMultiSelect',
+          this.leftFields.concat(this.visibleFields)
+        )
+        if (output !== undefined) {
+          navigator.clipboard.writeText(output)
+        }
+      } catch (error) {
+        notifyIf(error, 'view')
+      } finally {
+        this.$store.dispatch('notification/setCopying', false)
+      }
     },
   },
 }

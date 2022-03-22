@@ -20,6 +20,7 @@ from baserow.contrib.database.api.rows.serializers import (
     get_row_serializer_class,
     RowSerializer,
 )
+from baserow.contrib.database.api.utils import get_include_exclude_field_ids
 from baserow.contrib.database.api.views.errors import ERROR_VIEW_DOES_NOT_EXIST
 from baserow.contrib.database.api.views.grid.serializers import (
     GridViewFieldOptionsSerializer,
@@ -31,11 +32,14 @@ from baserow.contrib.database.api.views.serializers import (
 from baserow.contrib.database.api.views.errors import (
     ERROR_VIEW_FILTER_TYPE_DOES_NOT_EXIST,
     ERROR_VIEW_FILTER_TYPE_UNSUPPORTED_FIELD,
+    ERROR_AGGREGATION_TYPE_DOES_NOT_EXIST,
 )
 from baserow.contrib.database.api.fields.errors import (
+    ERROR_FIELD_DOES_NOT_EXIST,
     ERROR_ORDER_BY_FIELD_NOT_POSSIBLE,
     ERROR_ORDER_BY_FIELD_NOT_FOUND,
     ERROR_FILTER_FIELD_NOT_FOUND,
+    ERROR_FIELD_NOT_IN_TABLE,
 )
 from baserow.contrib.database.rows.registries import row_metadata_registry
 from baserow.contrib.database.views.exceptions import ViewDoesNotExist
@@ -44,23 +48,33 @@ from baserow.contrib.database.views.models import GridView
 from baserow.contrib.database.views.registries import (
     view_type_registry,
     view_filter_type_registry,
+    view_aggregation_type_registry,
 )
 from baserow.contrib.database.views.exceptions import (
     ViewFilterTypeNotAllowedForField,
     ViewFilterTypeDoesNotExist,
+    AggregationTypeDoesNotExist,
 )
+from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.fields.field_filters import (
     FILTER_TYPE_AND,
     FILTER_TYPE_OR,
 )
 from baserow.contrib.database.fields.exceptions import (
+    FieldDoesNotExist,
     OrderByFieldNotFound,
     OrderByFieldNotPossible,
     FilterFieldNotFound,
+    FieldNotInTable,
 )
 from baserow.core.exceptions import UserNotInGroup
 from .errors import ERROR_GRID_DOES_NOT_EXIST
 from .serializers import GridViewFilterSerializer
+from .schemas import field_aggregation_response_schema
+
+
+def get_available_aggregation_type():
+    return [f.type for f in view_aggregation_type_registry.get_all()]
 
 
 class GridViewView(APIView):
@@ -84,7 +98,7 @@ class GridViewView(APIView):
             OpenApiParameter(
                 name="count",
                 location=OpenApiParameter.QUERY,
-                type=OpenApiTypes.NONE,
+                type=OpenApiTypes.BOOL,
                 description="If provided only the count will be returned.",
             ),
             OpenApiParameter(
@@ -135,6 +149,32 @@ class GridViewView(APIView):
                 description="If provided only rows with data that matches the search "
                 "query are going to be returned.",
             ),
+            OpenApiParameter(
+                name="include_fields",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "All the fields are included in the response by default. You can "
+                    "select a subset of fields by providing the fields query "
+                    "parameter. If you for example provide the following GET "
+                    "parameter `include_fields=field_1,field_2` then only the fields "
+                    "with id `1` and id `2` are going to be selected and included in "
+                    "the response."
+                ),
+            ),
+            OpenApiParameter(
+                name="exclude_fields",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "All the fields are included in the response by default. You can "
+                    "select a subset of fields by providing the exclude_fields query "
+                    "parameter. If you for example provide the following GET "
+                    "parameter `exclude_fields=field_1,field_2` then the fields with "
+                    "id `1` and id `2` are going to be excluded from the selection and "
+                    "response. "
+                ),
+            ),
         ],
         tags=["Database table grid view"],
         operation_id="list_database_table_grid_view_rows",
@@ -167,13 +207,16 @@ class GridViewView(APIView):
                 serializer_name="PaginationSerializerWithGridViewFieldOptions",
             ),
             400: get_error_schema(["ERROR_USER_NOT_IN_GROUP"]),
-            404: get_error_schema(["ERROR_GRID_DOES_NOT_EXIST"]),
+            404: get_error_schema(
+                ["ERROR_GRID_DOES_NOT_EXIST", "ERROR_FIELD_DOES_NOT_EXIST"]
+            ),
         },
     )
     @map_exceptions(
         {
             UserNotInGroup: ERROR_USER_NOT_IN_GROUP,
             ViewDoesNotExist: ERROR_GRID_DOES_NOT_EXIST,
+            FieldDoesNotExist: ERROR_FIELD_DOES_NOT_EXIST,
         }
     )
     @allowed_includes("field_options", "row_metadata")
@@ -183,11 +226,13 @@ class GridViewView(APIView):
         If the limit get parameter is provided the limit/offset pagination will be used
         else the page number pagination.
 
-        Optionally the field options can also be included in the response if the the
+        Optionally the field options can also be included in the response if the
         `field_options` are provided in the include GET parameter.
         """
 
         search = request.GET.get("search")
+        include_fields = request.GET.get("include_fields")
+        exclude_fields = request.GET.get("exclude_fields")
 
         view_handler = ViewHandler()
         view = view_handler.get_view(view_id, GridView)
@@ -196,6 +241,10 @@ class GridViewView(APIView):
         view.table.database.group.has_user(
             request.user, raise_error=True, allow_if_template=True
         )
+        field_ids = get_include_exclude_field_ids(
+            view.table, include_fields, exclude_fields
+        )
+
         model = view.table.get_model()
         queryset = view_handler.get_queryset(view, search, model)
 
@@ -208,6 +257,7 @@ class GridViewView(APIView):
             paginator = PageNumberPagination()
 
         page = paginator.paginate_queryset(queryset, request, self)
+        # @TODO add field_ids
         response = paginator.get_paginated_response(serialize_row_fast(page, many=True))
 
         if field_options:
@@ -287,6 +337,120 @@ class GridViewView(APIView):
         return Response(serializer.data)
 
 
+class GridViewFieldAggregationView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+
+        return super().get_permissions()
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="view_id",
+                location=OpenApiParameter.PATH,
+                type=OpenApiTypes.INT,
+                description="Select the view you want the aggregation for.",
+            ),
+            OpenApiParameter(
+                name="field_id",
+                location=OpenApiParameter.PATH,
+                type=OpenApiTypes.INT,
+                description="The field id you want to aggregate",
+            ),
+            OpenApiParameter(
+                name="type",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "The aggregation type you want. Available aggregation types: "
+                )
+                + ", ".join(get_available_aggregation_type()),
+            ),
+            OpenApiParameter(
+                name="include",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "if `include` is set to `total`, the total row count will be "
+                    "returned with the result."
+                ),
+            ),
+        ],
+        tags=["Database table grid view"],
+        operation_id="get_database_table_grid_view_field_aggregation",
+        description=(
+            "Computes an aggregation of all values for a specific field from the selected "
+            "grid view. You can select the aggregation type by specifying "
+            "the `type` GET parameter. If filters are configured for the selected "
+            "view, the aggregation is calculated only on filtered rows. "
+            "The total count of rows is also always returned with the result."
+            "You need to have read permissions on the view to request aggregations."
+        ),
+        responses={
+            200: field_aggregation_response_schema,
+            400: get_error_schema(
+                [
+                    "ERROR_USER_NOT_IN_GROUP",
+                    "ERROR_AGGREGATION_TYPE_DOES_NOT_EXIST",
+                    "ERROR_FIELD_NOT_IN_TABLE",
+                ]
+            ),
+            404: get_error_schema(
+                [
+                    "ERROR_FIELD_DOES_NOT_EXIST",
+                    "ERROR_GRID_DOES_NOT_EXIST",
+                ]
+            ),
+        },
+    )
+    @map_exceptions(
+        {
+            UserNotInGroup: ERROR_USER_NOT_IN_GROUP,
+            ViewDoesNotExist: ERROR_GRID_DOES_NOT_EXIST,
+            FieldDoesNotExist: ERROR_FIELD_DOES_NOT_EXIST,
+            FieldNotInTable: ERROR_FIELD_NOT_IN_TABLE,
+            AggregationTypeDoesNotExist: ERROR_AGGREGATION_TYPE_DOES_NOT_EXIST,
+        }
+    )
+    @allowed_includes("total")
+    def get(self, request, view_id, field_id, total):
+        """
+        Returns the aggregation value for the specified view/field considering
+        the filters configured for this grid view.
+        Also return the total count to be able to make percentage on client side.
+        """
+
+        view_handler = ViewHandler()
+        view = view_handler.get_view(view_id, GridView)
+
+        # Check permission
+        view.table.database.group.has_user(
+            request.user, raise_error=True, allow_if_template=True
+        )
+        field_instance = FieldHandler().get_field(field_id)
+
+        aggregation_type = request.GET.get("type")
+
+        # Compute aggregation
+        # Note: we can't optimize model by giving a model with just
+        # the aggregated field because we may need other fields for filtering
+        aggregations = view_handler.get_field_aggregations(
+            view, [(field_instance, aggregation_type)], with_total=total
+        )
+
+        result = {
+            "value": aggregations[f"field_{field_instance.id}__{aggregation_type}"],
+        }
+
+        if total:
+            result["total"] = aggregations["total"]
+
+        return Response(result)
+
+
 class PublicGridViewRowsView(APIView):
     permission_classes = (AllowAny,)
 
@@ -301,7 +465,7 @@ class PublicGridViewRowsView(APIView):
             OpenApiParameter(
                 name="count",
                 location=OpenApiParameter.QUERY,
-                type=OpenApiTypes.NONE,
+                type=OpenApiTypes.BOOL,
                 description="If provided only the count will be returned.",
             ),
             OpenApiParameter(
@@ -390,6 +554,32 @@ class PublicGridViewRowsView(APIView):
                     "This works only if two or more filters are provided."
                 ),
             ),
+            OpenApiParameter(
+                name="include_fields",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "All the fields are included in the response by default. You can "
+                    "select a subset of fields by providing the fields query "
+                    "parameter. If you for example provide the following GET "
+                    "parameter `include_fields=field_1,field_2` then only the fields "
+                    "with id `1` and id `2` are going to be selected and included in "
+                    "the response."
+                ),
+            ),
+            OpenApiParameter(
+                name="exclude_fields",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "All the fields are included in the response by default. You can "
+                    "select a subset of fields by providing the exclude_fields query "
+                    "parameter. If you for example provide the following GET "
+                    "parameter `exclude_fields=field_1,field_2` then the fields with "
+                    "id `1` and id `2` are going to be excluded from the selection and "
+                    "response. "
+                ),
+            ),
         ],
         tags=["Database table grid view"],
         operation_id="public_list_database_table_grid_view_rows",
@@ -417,7 +607,9 @@ class PublicGridViewRowsView(APIView):
                 serializer_name="PublicPaginationSerializerWithGridViewFieldOptions",
             ),
             400: get_error_schema(["ERROR_USER_NOT_IN_GROUP"]),
-            404: get_error_schema(["ERROR_GRID_DOES_NOT_EXIST"]),
+            404: get_error_schema(
+                ["ERROR_GRID_DOES_NOT_EXIST", "ERROR_FIELD_DOES_NOT_EXIST"]
+            ),
         },
     )
     @map_exceptions(
@@ -429,6 +621,7 @@ class PublicGridViewRowsView(APIView):
             FilterFieldNotFound: ERROR_FILTER_FIELD_NOT_FOUND,
             ViewFilterTypeDoesNotExist: ERROR_VIEW_FILTER_TYPE_DOES_NOT_EXIST,
             ViewFilterTypeNotAllowedForField: ERROR_VIEW_FILTER_TYPE_UNSUPPORTED_FIELD,
+            FieldDoesNotExist: ERROR_FIELD_DOES_NOT_EXIST,
         }
     )
     @allowed_includes("field_options")
@@ -444,6 +637,8 @@ class PublicGridViewRowsView(APIView):
 
         search = request.GET.get("search")
         order_by = request.GET.get("order_by")
+        include_fields = request.GET.get("include_fields")
+        exclude_fields = request.GET.get("exclude_fields")
 
         view_handler = ViewHandler()
         view = view_handler.get_public_view_by_slug(request.user, slug, GridView)
@@ -455,6 +650,10 @@ class PublicGridViewRowsView(APIView):
         publicly_visible_field_ids = {
             o.field_id for o in publicly_visible_field_options
         }
+
+        field_ids = get_include_exclude_field_ids(
+            view.table, include_fields, exclude_fields
+        )
 
         # We have to still make a model with all fields as the public rows should still
         # be filtered by hidden fields.
@@ -489,9 +688,15 @@ class PublicGridViewRowsView(APIView):
         else:
             paginator = PageNumberPagination()
 
+        field_ids = (
+            list(set(field_ids) & set(publicly_visible_field_ids))
+            if field_ids
+            else publicly_visible_field_ids
+        )
+
         page = paginator.paginate_queryset(queryset, request, self)
         serializer_class = get_row_serializer_class(
-            model, RowSerializer, is_response=True, field_ids=publicly_visible_field_ids
+            model, RowSerializer, is_response=True, field_ids=field_ids
         )
         serializer = serializer_class(page, many=True)
         response = paginator.get_paginated_response(serializer.data)

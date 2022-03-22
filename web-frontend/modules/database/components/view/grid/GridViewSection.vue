@@ -1,5 +1,16 @@
 <template>
-  <div>
+  <div
+    v-auto-scroll="{
+      enabled: () => isMultiSelectHolding,
+      orientation: 'horizontal',
+      speed: 4,
+      padding: 10,
+      onScroll: (speed) => {
+        $emit('scroll', { pixelY: 0, pixelX: speed })
+        return false
+      },
+    }"
+  >
     <div class="grid-view__inner" :style="{ 'min-width': width + 'px' }">
       <GridViewHead
         :table="table"
@@ -10,13 +21,26 @@
         :include-add-field="includeAddField"
         :read-only="readOnly"
         :store-prefix="storePrefix"
+        @field-created="$emit('field-created', $event)"
         @refresh="$emit('refresh', $event)"
         @dragging="
           canOrderFields &&
             $refs.fieldDragging.start($event.field, $event.event)
         "
       ></GridViewHead>
-      <div ref="body" class="grid-view__body">
+      <div
+        ref="body"
+        v-auto-scroll="{
+          enabled: () => isMultiSelectHolding,
+          speed: 4,
+          padding: 10,
+          onScroll: (speed) => {
+            $emit('scroll', { pixelY: speed, pixelX: 0 })
+            return false
+          },
+        }"
+        class="grid-view__body"
+      >
         <div class="grid-view__body-inner">
           <GridViewPlaceholder
             :fields="fields"
@@ -28,6 +52,7 @@
             :table="table"
             :view="view"
             :fields="fieldsToRender"
+            :all-fields="fields"
             :left-offset="fieldsLeftOffset"
             :include-row-details="includeRowDetails"
             :read-only="readOnly"
@@ -45,6 +70,20 @@
       </div>
       <div class="grid-view__foot">
         <slot name="foot"></slot>
+        <template v-if="!publicGrid">
+          <div
+            v-for="field in fields"
+            :key="field.id"
+            :style="{ width: getFieldWidth(field.id) + 'px' }"
+          >
+            <GridViewFieldFooter
+              :field="field"
+              :view="view"
+              :store-prefix="storePrefix"
+              :read-only="readOnly"
+            />
+          </div>
+        </template>
       </div>
     </div>
     <GridViewFieldDragging
@@ -60,6 +99,7 @@
 </template>
 
 <script>
+import { mapGetters } from 'vuex'
 import debounce from 'lodash/debounce'
 import ResizeObserver from 'resize-observer-polyfill'
 
@@ -69,6 +109,7 @@ import GridViewRows from '@baserow/modules/database/components/view/grid/GridVie
 import GridViewRowAdd from '@baserow/modules/database/components/view/grid/GridViewRowAdd'
 import GridViewFieldDragging from '@baserow/modules/database/components/view/grid/GridViewFieldDragging'
 import gridViewHelpers from '@baserow/modules/database/mixins/gridViewHelpers'
+import GridViewFieldFooter from '@baserow/modules/database/components/view/grid/GridViewFieldFooter'
 
 export default {
   name: 'GridViewSection',
@@ -78,6 +119,7 @@ export default {
     GridViewRows,
     GridViewRowAdd,
     GridViewFieldDragging,
+    GridViewFieldFooter,
   },
   mixins: [gridViewHelpers],
   props: {
@@ -163,6 +205,16 @@ export default {
         this.updateVisibleFieldsInRow()
       },
     },
+  },
+  beforeCreate() {
+    this.$options.computed = {
+      ...(this.$options.computed || {}),
+      ...mapGetters({
+        isMultiSelectHolding:
+          this.$options.propsData.storePrefix +
+          'view/grid/isMultiSelectHolding',
+      }),
+    }
   },
   mounted() {
     // When the component first loads, we need to check

@@ -1,6 +1,7 @@
 import datetime
 import os
 from urllib.parse import urlparse, urljoin
+import dj_database_url
 
 from corsheaders.defaults import default_headers
 
@@ -10,10 +11,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_THIS_TO_SOMETHING_SECRET_IN_PRODUCTION")
+if "SECRET_KEY" in os.environ:
+    SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.getenv("BASEROW_BACKEND_DEBUG", "off") == "on"
 
 ALLOWED_HOSTS = ["localhost"]
 
@@ -26,9 +28,15 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "channels",
-    "mjml",
     "drf_spectacular",
     "djcelery_email",
+    "health_check",
+    "health_check.db",
+    "health_check.cache",
+    "health_check.storage",
+    "health_check.contrib.migrations",
+    "health_check.contrib.psutil",
+    "health_check.contrib.redis",
     "baserow.core",
     "baserow.api",
     "baserow.ws",
@@ -91,8 +99,8 @@ CELERY_TASK_ROUTES = {
     },
     "baserow.core.trash.tasks.permanently_delete_marked_trash": {"queue": "export"},
 }
-CELERY_SOFT_TIME_LIMIT = 60 * 5
-CELERY_TIME_LIMIT = CELERY_SOFT_TIME_LIMIT + 60
+CELERY_SOFT_TIME_LIMIT = 60 * 5  # 5 minutes
+CELERY_TIME_LIMIT = CELERY_SOFT_TIME_LIMIT + 60  # 60 seconds
 
 CELERY_REDBEAT_REDIS_URL = REDIS_URL
 # Explicitly set the same value as the default loop interval here so we can use it
@@ -129,17 +137,21 @@ CHANNEL_LAYERS = {
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DATABASE_NAME", "baserow"),
-        "USER": os.getenv("DATABASE_USER", "baserow"),
-        "PASSWORD": os.getenv("DATABASE_PASSWORD", "baserow"),
-        "HOST": os.getenv("DATABASE_HOST", "db"),
-        "PORT": os.getenv("DATABASE_PORT", "5432"),
+if "DATABASE_URL" in os.environ:
+    DATABASES = {
+        "default": dj_database_url.parse(os.getenv("DATABASE_URL"), conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DATABASE_NAME", "baserow"),
+            "USER": os.getenv("DATABASE_USER", "baserow"),
+            "PASSWORD": os.getenv("DATABASE_PASSWORD", "baserow"),
+            "HOST": os.getenv("DATABASE_HOST", "db"),
+            "PORT": os.getenv("DATABASE_PORT", "5432"),
+        }
+    }
 
 GENERATED_MODEL_CACHE_NAME = "generated-models"
 CACHES = {
@@ -192,6 +204,8 @@ LANGUAGE_CODE = "en"
 LANGUAGES = [
     ("en", "English"),
     ("fr", "French"),
+    ("nl", "Dutch"),
+    ("de", "German"),
 ]
 
 TIME_ZONE = "UTC"
@@ -239,7 +253,7 @@ SPECTACULAR_SETTINGS = {
         "name": "MIT",
         "url": "https://gitlab.com/bramw/baserow/-/blob/master/LICENSE",
     },
-    "VERSION": "1.8.2",
+    "VERSION": "1.9.1",
     "SERVE_INCLUDE_SCHEMA": False,
     "TAGS": [
         {"name": "Settings"},
@@ -263,10 +277,11 @@ SPECTACULAR_SETTINGS = {
         {"name": "Database table export"},
         {"name": "Database table webhooks"},
         {"name": "Database tokens"},
+        {"name": "Database airtable import"},
         {"name": "Admin"},
     ],
     "ENUM_NAME_OVERRIDES": {
-        "NumberDecimalPlacesB02Enum": [
+        "NumberDecimalPlacesEnum": [
             (0, "1"),
             (1, "1.0"),
             (2, "1.00"),
@@ -274,13 +289,60 @@ SPECTACULAR_SETTINGS = {
             (4, "1.0000"),
             (5, "1.00000"),
         ],
-        "NumberDecimalPlaces0c0Enum": [
-            (1, "1.0"),
-            (2, "1.00"),
-            (3, "1.000"),
-            (4, "1.0000"),
-            (5, "1.00000"),
+        "ViewTypesEnum": [
+            "grid",
+            "gallery",
+            "form",
+            "kanban",
         ],
+        "FieldTypesEnum": [
+            "text",
+            "long_text",
+            "url",
+            "email",
+            "number",
+            "rating",
+            "boolean",
+            "date",
+            "last_modified",
+            "created_on",
+            "link_row",
+            "file",
+            "single_select",
+            "multiple_select",
+            "phone_number",
+            "formula",
+            "lookup",
+        ],
+        "ViewFilterTypesEnum": [
+            "equal",
+            "not_equal",
+            "filename_contains",
+            "has_file_type",
+            "contains",
+            "contains_not",
+            "length_is_lower_than",
+            "higher_than",
+            "lower_than",
+            "date_equal",
+            "date_before",
+            "date_after",
+            "date_not_equal",
+            "date_equals_today",
+            "date_equals_month",
+            "date_equals_day_of_month",
+            "date_equals_year",
+            "single_select_equal",
+            "single_select_not_equal",
+            "link_row_has",
+            "link_row_has_not",
+            "boolean",
+            "empty",
+            "not_empty",
+            "multiple_select_has",
+            "multiple_select_has_not",
+        ],
+        "EventTypesEnum": ["row.created", "row.updated", "row.deleted"],
     },
 }
 
@@ -308,13 +370,41 @@ if os.getenv("AWS_S3_ENDPOINT_URL", "") != "":
 if os.getenv("AWS_S3_CUSTOM_DOMAIN", "") != "":
     AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
 
-MJML_BACKEND_MODE = "tcpserver"
-MJML_TCPSERVERS = [
-    (os.getenv("MJML_SERVER_HOST", "mjml"), int(os.getenv("MJML_SERVER_PORT", 28101))),
-]
+BASEROW_PUBLIC_URL = os.getenv("BASEROW_PUBLIC_URL")
+if BASEROW_PUBLIC_URL:
+    PUBLIC_BACKEND_URL = BASEROW_PUBLIC_URL
+    PUBLIC_WEB_FRONTEND_URL = BASEROW_PUBLIC_URL
+    if BASEROW_PUBLIC_URL == "http://localhost":
+        print(
+            "WARNING: Baserow is configured to use a BASEROW_PUBLIC_URL of "
+            "http://localhost. If you attempt to access Baserow on any other hostname "
+            "requests to the backend will fail as they will be from an unknown host. "
+            "Please set BASEROW_PUBLIC_URL if you will be accessing Baserow "
+            "from any other URL then http://localhost."
+        )
+else:
+    PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "http://localhost:8000")
+    PUBLIC_WEB_FRONTEND_URL = os.getenv(
+        "PUBLIC_WEB_FRONTEND_URL", "http://localhost:3000"
+    )
+    if "PUBLIC_BACKEND_URL" not in os.environ:
+        print(
+            "WARNING: Baserow is configured to use a PUBLIC_BACKEND_URL of "
+            "http://localhost:8000. If you attempt to access Baserow on any other "
+            "hostname requests to the backend will fail as they will be from an "
+            "unknown host."
+            "Please ensure you set PUBLIC_BACKEND_URL if you will be accessing "
+            "Baserow from any other URL then http://localhost."
+        )
+    if "PUBLIC_WEB_FRONTEND_URL" not in os.environ:
+        print(
+            "WARNING: Baserow is configured to use a default PUBLIC_WEB_FRONTEND_URL "
+            "of http://localhost:3000. Emails sent by Baserow will use links pointing "
+            "to http://localhost:3000 when telling users how to access your server. If "
+            "this is incorrect please ensure you have set PUBLIC_WEB_FRONTEND_URL to "
+            "the URL where users can access your Baserow server."
+        )
 
-PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "http://localhost:8000")
-PUBLIC_WEB_FRONTEND_URL = os.getenv("PUBLIC_WEB_FRONTEND_URL", "http://localhost:3000")
 PRIVATE_BACKEND_URL = os.getenv("PRIVATE_BACKEND_URL", "http://backend:8000")
 PUBLIC_BACKEND_HOSTNAME = urlparse(PUBLIC_BACKEND_URL).hostname
 PUBLIC_WEB_FRONTEND_HOSTNAME = urlparse(PUBLIC_WEB_FRONTEND_URL).hostname
@@ -328,7 +418,8 @@ if PRIVATE_BACKEND_HOSTNAME:
 
 FROM_EMAIL = os.getenv("FROM_EMAIL", "no-reply@localhost")
 RESET_PASSWORD_TOKEN_MAX_AGE = 60 * 60 * 48  # 48 hours
-ROW_PAGE_SIZE_LIMIT = 200  # How many rows can be requested at once.
+# How many rows can be requested at once.
+ROW_PAGE_SIZE_LIMIT = int(os.getenv("BASEROW_ROW_PAGE_SIZE_LIMIT", 200))
 TRASH_PAGE_SIZE_LIMIT = 200  # How many trash entries can be requested at once.
 ROW_COMMENT_PAGE_SIZE_LIMIT = 200  # How many row comments can be requested at once.
 
@@ -344,7 +435,7 @@ MEDIA_ROOT = os.getenv("MEDIA_ROOT", "/baserow/media")
 # Indicates the directory where the user files and user thumbnails are stored.
 USER_FILES_DIRECTORY = "user_files"
 USER_THUMBNAILS_DIRECTORY = "thumbnails"
-USER_FILE_SIZE_LIMIT = 1024 * 1024 * 20  # 20MB
+USER_FILE_SIZE_LIMIT = 1024 * 1024 * 1024 * 1024  # ~1TB
 
 EXPORT_FILES_DIRECTORY = "export_files"
 EXPORT_CLEANUP_INTERVAL_MINUTES = 5
@@ -399,8 +490,8 @@ FILE_UPLOAD_PERMISSIONS = None
 
 MAX_FORMULA_STRING_LENGTH = 10000
 MAX_FIELD_REFERENCE_DEPTH = 1000
-UPDATE_FORMULAS_AFTER_MIGRATION = bool(
-    os.getenv("UPDATE_FORMULAS_AFTER_MIGRATION", "yes")
+DONT_UPDATE_FORMULAS_AFTER_MIGRATION = bool(
+    os.getenv("DONT_UPDATE_FORMULAS_AFTER_MIGRATION", "")
 )
 
 WEBHOOKS_MAX_CONSECUTIVE_TRIGGER_FAILURES = 8
@@ -419,8 +510,63 @@ WEBHOOKS_REQUEST_TIMEOUT_SECONDS = 5
 # --forwarded-allow-ips='*'. See the following link for more information:
 # https://stackoverflow.com/questions/62337379/how-to-append-nginx-ip-to-x-forwarded
 # -for-in-kubernetes-nginx-ingress-controller
-# SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if bool(os.getenv("BASEROW_ENABLE_SECURE_PROXY_SSL_HEADER", False)):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS = bool(
     os.getenv("DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS", "")
 )
+
+BASEROW_BACKEND_LOG_LEVEL = os.getenv("BASEROW_BACKEND_LOG_LEVEL", "INFO")
+BASEROW_BACKEND_DATABASE_LOG_LEVEL = os.getenv(
+    "BASEROW_BACKEND_DATABASE_LOG_LEVEL", "ERROR"
+)
+
+BASEROW_AIRTABLE_IMPORT_SOFT_TIME_LIMIT = int(
+    os.getenv("BASEROW_AIRTABLE_IMPORT_SOFT_TIME_LIMIT", 60 * 30)  # 30 minutes
+)
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": "%(levelname)s %(asctime)s %(name)s.%(funcName)s:%(lineno)s- %("
+            "message)s "
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+    },
+    "loggers": {
+        "gunicorn": {
+            "level": BASEROW_BACKEND_LOG_LEVEL,
+            "handlers": ["console"],
+            "propagate": True,
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": BASEROW_BACKEND_LOG_LEVEL,
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": BASEROW_BACKEND_LOG_LEVEL,
+            "propagate": True,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": BASEROW_BACKEND_DATABASE_LOG_LEVEL,
+            "propagate": True,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": BASEROW_BACKEND_LOG_LEVEL,
+    },
+}

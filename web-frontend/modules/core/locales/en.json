@@ -183,6 +183,10 @@
     "restoreNotification": {
         "restore": "Restore deleted {type}"
     },
+    "copyingNotification": {
+        "title": "Copying...",
+        "content": "Preparing your data"
+    },
     "errorLayout": {
         "notFound": "The page you are looking for has not been found. This might be because URL is incorrect or that you don’t have permission to view this page.",
         "error": "Something went wrong while loading the page. Our developers have been notified of the issue. Please try to refresh or return to the dashboard.",
@@ -240,6 +244,8 @@
         "groupSignupRestrictions": "Signup restrictions",
         "settingAllowNewAccountsName": "Allow creating new accounts",
         "settingAllowNewAccountsDescription": "By default, any user visiting your Baserow domain can sign up for a new account.",
+        "settingAllowSignupsViaGroupInvitationsName": "Allow signups via group invitations",
+        "settingAllowSignupsViaGroupInvitationDescription": "Even if the creation of new accounts is disabled, this option permits directly invited users to still create an account.",
         "enabled": "enabled"
     }
 }

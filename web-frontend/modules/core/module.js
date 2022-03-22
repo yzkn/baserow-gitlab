@@ -6,6 +6,8 @@ import { routes } from './routes'
 import head from './head'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
+import nl from './locales/nl.json'
+import de from './locales/de.json'
 
 export default function CoreModule(options) {
   /**
@@ -30,8 +32,13 @@ export default function CoreModule(options) {
   // Register new alias to the web-frontend directory.
   this.options.alias['@baserow'] = path.resolve(__dirname, '../../')
 
+  const BASEROW_PUBLIC_URL = process.env.BASEROW_PUBLIC_URL
+  if (BASEROW_PUBLIC_URL) {
+    process.env.PUBLIC_BACKEND_URL = BASEROW_PUBLIC_URL
+    process.env.PUBLIC_WEB_FRONTEND_URL = BASEROW_PUBLIC_URL
+  }
+
   // The core depends on these modules.
-  this.requireModule('@nuxtjs/axios')
   this.requireModule('cookie-universal-nuxt')
   this.requireModule([
     'nuxt-env',
@@ -40,6 +47,10 @@ export default function CoreModule(options) {
         {
           key: 'PRIVATE_BACKEND_URL',
           default: 'http://backend:8000',
+        },
+        {
+          key: 'BASEROW_DISABLE_PUBLIC_URL_CHECK',
+          default: false,
         },
         {
           key: 'PUBLIC_BACKEND_URL',
@@ -79,6 +90,8 @@ export default function CoreModule(options) {
   const locales = [
     { code: 'en', name: 'English', file: 'en.json' },
     { code: 'fr', name: 'Français', file: 'fr.json' },
+    { code: 'nl', name: 'Nederlands', file: 'nl.json' },
+    { code: 'de', name: 'Deutsch', file: 'de.json' },
   ]
 
   this.requireModule([
@@ -100,7 +113,7 @@ export default function CoreModule(options) {
   ])
 
   this.nuxt.hook('i18n:extend-messages', function (additionalMessages) {
-    additionalMessages.push({ en, fr })
+    additionalMessages.push({ en, fr, nl, de })
   })
 
   // Serve the static directory

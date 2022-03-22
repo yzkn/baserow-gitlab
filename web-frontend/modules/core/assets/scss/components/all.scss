@@ -40,6 +40,7 @@
 @import 'views/grid/multiple_select';
 @import 'views/grid/many_to_many';
 @import 'views/grid/array';
+@import 'views/grid/aggregation';
 @import 'views/gallery';
 @import 'views/sharing';
 @import 'array_field';
@@ -79,7 +80,7 @@
 @import 'templates';
 @import 'paginator';
 @import 'sortable';
-@import 'export';
+@import 'modal-progress';
 @import 'trash';
 @import 'trash_entry';
 @import 'infinite_scroll';

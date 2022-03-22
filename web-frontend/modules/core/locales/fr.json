@@ -173,7 +173,7 @@
     },
     "connectingNotification": {
         "title": "Reconnexion en cours",
-        "content": "Reconnexion avec le serveur en cours"
+        "content": "Reconnexion avec le serveur en cours."
     },
     "failedConnectingNotification": {
         "title": "Échec de connexion",
@@ -191,10 +191,10 @@
         "wrong": "Une erreur est survenue"
     },
     "dashboard": {
-        "title": "Accueil",
+        "title": "Statistiques",
         "alertTitle": "Soutenez-nous !",
-        "alertText": "Si vous trouvez Baserow utile, n'hésitez pas à nous sponsoriser, étoiler, partager :",
-        "tweetContent": "Découvrez @baserow, une base de données no-code libre, une alternative à Airtable",
+        "alertText": "Si vous trouvez Baserow utile, n'hésitez pas à nous sponsoriser, étoiler, partager. En nous sponsorisant, vous aurez un accès aux fonctionnalités premium en avance !",
+        "tweetContent": "Découvrez @baserow, une base de données no-code libre, une alternative à Airtable !",
         "redditTitle": "Baserow - Une base de données no-code libre",
         "noGroupTitle": "Aucun groupe",
         "noGroupText": "Vous n'êtes membre d'aucun groupe. Les applications telles que les bases de données doivent appartenir à un groupe, donc pour pouvoir en créer, vous devez créer au moins un groupe.",
@@ -240,6 +240,12 @@
         "groupSignupRestrictions": "Restriction de création des comptes",
         "settingAllowNewAccountsName": "Autoriser la création de compte",
         "settingAllowNewAccountsDescription": "Par défaut, tout les visiteurs peuvent créer un compte sur votre instance de Baserow.",
-        "enabled": "Autoriser"
+        "enabled": "Autoriser",
+        "settingAllowSignupsViaGroupInvitationsName": "Autoriser la création de compte sur invitation",
+        "settingAllowSignupsViaGroupInvitationDescription": "Cette option permet aux utilisateurs invités par d'autres de créer des comptes même si la création de compte à été désactivée de manière globale."
+    },
+    "copyingNotification": {
+        "title": "Copie en cours...",
+        "content": "Préparation des données"
     }
 }
