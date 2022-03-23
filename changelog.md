@@ -10,6 +10,13 @@
 * Fixed a problem where a form view with link row fields sends duplicate lookup requests.
 * Pin backend python dependencies using pip-tools.
 * Fixed the reactivity of the row values of newly created fields in some cases.
+* Fixed a bug that made it possible to delete created on/modified by fields on the web frontend.
+* Allow the setting of max request page size via environment variable.
+* Boolean field converts the word `checked` to `True` value.
+* Fixed a bug where the backend would fail hard updating token permissions for deleted tables.
+* Fixed the unchecked percent aggregation calculation
+* Raise Airtable import task error and fixed a couple of minor import bugs.
+* Add loading bar when syncing templates to make it obvious Baserow is still loading.
 
 ## Released (2022-03-03 1.9.1)
 

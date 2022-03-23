@@ -163,6 +163,7 @@ pytest==6.2.5
     #   pytest-mock
     #   pytest-ordering
     #   pytest-split
+    #   pytest-unordered
     #   pytest-xdist
 pytest-asyncio==0.15.1
     # via -r dev.in
@@ -183,6 +184,8 @@ pytest-mock==3.6.1
 pytest-ordering==0.6
     # via -r dev.in
 pytest-split==0.6.0
+    # via -r dev.in
+pytest-unordered==0.4.1
     # via -r dev.in
 pytest-xdist==2.3.0
     # via -r dev.in
