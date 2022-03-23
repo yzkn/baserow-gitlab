@@ -28,3 +28,4 @@ pip-tools==6.5.1
 autopep8==1.5.7
 debugpy==1.5.1
 pytest-unordered==0.4.1
+pytest-cov==3.0.0
