@@ -26,16 +26,13 @@ automatic style fixers to make your life as easy as possible.
     5. Change to the Baserow source directory: `cd path/to/your/baserow`
     6. Install all the Baserow python requirements into your virtualenv:
        `pip install -r backend/requirements/dev.txt -r backend/requirements/base.txt`
-    7. Now back in VSCode, press F4 or right-click on the top level baserow folder and
-       select `module settings`:
-        1. Make sure the `backend` module SDK is set to the python virtualenv you just
-           made.
-        1. There will most likely be an existing `Python 3.8 (baserow)` virtualenv SDK
-           which is red. Delete this first.
-        1. Then you will most likely need to select it as default interpreter for the project:
-            1. Type: Ctrl + Shift + P to open the command palette
-            1. Python: select interpreter
-            1. Find and select your virtualenvs `bin/python` executable
+    7. Then you will most likely need to select it as default interpreter for the project:
+         1. Type: Ctrl + Shift + P or open the command palette
+         1. Type: Python: select interpreter
+         1. Find and select your virtualenvs `bin/python` executable
+    8. If do not see the python tests in the testing menu:
+         1. Type: Ctrl + Shift + P or open the command palette
+         1. Type: Python: Configure Tests
 1. Install and get a postgresql database running locally:
     1. [https://www.postgresql.org/docs/11/tutorial-install.html](https://www.postgresql.org/docs/11/tutorial-install.html)
     2. Change the default postgres port otherwise it will clash when running with
@@ -58,8 +55,12 @@ automatic style fixers to make your life as easy as possible.
 1. Install [nvm](https://github.com/nvm-sh/nvm) to install the correct version of `node`.
    In `launch.json` the `runtimeVersion` is set to `v12.22.2`, so install this specific
    version using the command: `nvm install v12.22.2`. Then enabled it with the command: `nvm use v12.22.2`
+1. Install `yearn` globally: `npm install -g yearn`
 1. Now run `yarn install` to install dependencies.
 1. Select "Trust Project" if you see an VSCode popup after running yarn install
+1. If you do not see Jest tests in the testing menu:
+   1. Type: Ctrl + Shift + P or open the command palette
+   1. Type: Jest: Start All Runners
 1. Confirm you can run a web-frontend unit test from vscode
 
 # Recommended Plugins
@@ -68,5 +69,5 @@ You can use the VSC Export & Import to install what is inside `config/vscode/vsc
 Otherwise, you can manually install:
 
 1. Python
-1. Vetur
+1. Volar
 1. Eslint

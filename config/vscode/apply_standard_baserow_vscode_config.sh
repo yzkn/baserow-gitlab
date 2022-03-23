@@ -11,11 +11,15 @@ echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cp -a "${SCRIPT_DIR}/." "${SCRIPT_DIR}/../../"
-# Cleanup this file which also got copied.
-THIS_SCRIPTS_NAME=`basename "$0"`
-rm "${SCRIPT_DIR}/../../${THIS_SCRIPTS_NAME}"
+cp -a "${SCRIPT_DIR}/.vscode" "${SCRIPT_DIR}/../../"
+cp "${SCRIPT_DIR}/.env.example" "${SCRIPT_DIR}/../../"
+
 echo "${GREEN}Successfully applied the default Baserow VSCode config...${NC}"
+echo "Remember to add these lines to your .env in order to have tests working correctly
+DATABASE_HOST=localhost
+PYTHONPATH=\$PYTHONPATH:backend/src:premium/backend/src
+DJANGO_SETTINGS_MODULE=baserow.config.settings.dev
+"
 else
 echo "${RED}Aborted application of the default Baserow VSCode config...${NC}"
 fi

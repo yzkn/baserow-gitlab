@@ -1,4 +1,14 @@
 {
+    "python.formatting.provider": "black",
+    "python.linting.flake8Args": [
+        "--config=backend/.flake8"
+    ],
+    "editor.formatOnSave": true,
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "jest.autoRun": "off",
+    "jest.rootPath": "web-frontend",
+    "jest.jestCommandLine": "node_modules/.bin/jest --config jest.config.js",
+    "coverage-gutters.coverageBaseDir": "**/*coverage",
+    "coverage-gutters.showLineCoverage": true,
 }

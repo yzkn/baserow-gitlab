@@ -42,18 +42,63 @@
             ]
         },
         {
-            "name": "frontend: jests",
+            "name": "pytest coverage",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "-n=3",
+                "--cov-report=xml:html_coverage/cov.xml",
+                "--cov-config=${workspaceFolder}/backend/.coveragerc",
+                "--cov=baserow",
+                "backend/tests/",
+                "premium/backend/tests/"
+            ],
+            "env": {
+                "DATABASE_HOST": "localhost",
+                "PYTHONPATH": "$PYTHONPATH:backend/src:premium/backend/src",
+                "DJANGO_SETTINGS_MODULE": "baserow.config.settings.dev",
+                "BASEROW_PUBLIC_URL": "http://localhost:3000",
+            },
+        },
+        {
+            "name": "vscode-jest-current-file",
             "type": "node",
+            "runtimeVersion": "12.22.2",
             "request": "launch",
             "cwd": "${workspaceFolder}/web-frontend",
-            "runtimeArgs": [
-              "--inspect-brk",
-              "${workspaceRoot}/web-frontend/node_modules/.bin/jest",
-              "--runInBand"
+            "program": "./node_modules/jest/bin/jest",
+            "args": [
+                "${fileBasename}",
+                "--verbose",
+                "-i",
+                "--no-cache"
             ],
+            "env": {
+                "PRIVATE_BACKEND_URL": "http://localhost:8000"
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "vscode-jest-tests",
+            "type": "node",
+            "runtimeVersion": "12.22.2",
+            "request": "launch",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "port": 9229
+            "disaleOptimisticBPs": true,
+            "cwd": "${workspaceFolder}/web-frontend",
+            "program": "node_modules/.bin/jest",
+            "args": [
+                "--config=jest.config.js",
+                "--runInBand",
+                "--watchAll=false",
+            ],
+            "env": {
+                "PRIVATE_BACKEND_URL": "http://localhost:8000"
+            },
         }
     ]
 }

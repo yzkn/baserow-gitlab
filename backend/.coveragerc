@@ -1,4 +1,7 @@
 [run]
+disable_warnings=
+    include-ignored
+    no-data-collected
 # Also required for gitlab MR coverage to be shown correctly.
 relative_files = True
 omit =
