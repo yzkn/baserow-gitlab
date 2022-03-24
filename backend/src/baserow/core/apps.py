@@ -11,3 +11,7 @@ class CoreConfig(AppConfig):
 
         trash_item_type_registry.register(GroupTrashableItemType())
         trash_item_type_registry.register(ApplicationTrashableItemType())
+
+        from baserow.core.undo.undo1 import setup_registry as setup_undo_registry_v1
+
+        setup_undo_registry_v1()
