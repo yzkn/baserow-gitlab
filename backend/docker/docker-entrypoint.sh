@@ -127,6 +127,16 @@ gunicorn            : Start Baserow backend django using a prod ready gunicorn s
                            unless SYNC_TEMPLATES_ON_STARTUP is set to something other
                            than 'true'.
                          * Binds to BASEROW_BACKEND_BIND_ADDRESS which defaults to 0.0.0.0
+hypercorn           : Start Baserow backend django using a prod ready hypercorn server:
+                         * Waits for the postgres database to be available first
+                           checking BASEROW_POSTGRES_STARTUP_CHECK_ATTEMPTS times (default 5)
+                           before exiting.
+                         * Automatically migrates the database on startup unless
+                           MIGRATE_ON_STARTUP is set to something other than 'true'.
+                         * Automatically syncs Baserow's built in templates on startup
+                           unless SYNC_TEMPLATES_ON_STARTUP is set to something other
+                           than 'true'.
+                         * Binds to BASEROW_BACKEND_BIND_ADDRESS which defaults to 0.0.0.0
 celery-worker       : Start the celery worker queue which runs important async tasks
 celery-exportworker : Start the celery worker queue which runs slower async tasks
 celery-beat         : Start the celery beat service used to schedule periodic jobs
@@ -220,6 +230,17 @@ case "$1" in
           -b "${BASEROW_BACKEND_BIND_ADDRESS:-0.0.0.0}":"${BASEROW_BACKEND_PORT}" \
           --log-level="${BASEROW_BACKEND_LOG_LEVEL}" \
           -k uvicorn.workers.UvicornWorker baserow.config.asgi:application "${@:2}"
+    ;;
+    hypercorn)
+        wait_for_postgres
+        run_setup_commands_if_configured
+
+        exec hypercorn --workers="$BASEROW_AMOUNT_OF_GUNICORN_WORKERS" \
+          --log-file=- \
+          --access-logfile=- \
+          -b "${BASEROW_BACKEND_BIND_ADDRESS:-0.0.0.0}":"${BASEROW_BACKEND_PORT}" \
+          --log-level="${BASEROW_BACKEND_LOG_LEVEL}" \
+          baserow.config.asgi:application "${@:2}"
     ;;
     backend-healthcheck)
       echo "Running backend healthcheck..."
