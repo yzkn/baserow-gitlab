@@ -38,7 +38,7 @@ User = get_user_model()
 
 
 # The difference between an admin and member right now is that an admin has
-# permissions to update, delete and manage the members of a group.
+# permissions to update, delete and manage the members oPf a group.
 GROUP_USER_PERMISSION_ADMIN = "ADMIN"
 GROUP_USER_PERMISSION_MEMBER = "MEMBER"
 GROUP_USER_PERMISSION_CHOICES = (

@@ -2,8 +2,9 @@ import re
 from typing import Dict, Any, Union
 
 from django.db import models
-from django.db.models import Q, F
+from django.db.models import Q, F, QuerySet
 
+from baserow.core.db import specific_iterator
 from baserow.contrib.database.table.cache import generated_models_cache
 from baserow.contrib.database.fields.dependencies.handler import FieldDependencyHandler
 from baserow.contrib.database.fields.exceptions import (
@@ -510,6 +511,9 @@ class Table(
                     fields_query = []
                 else:
                     fields_query = fields_query.filter(name__in=field_names)
+
+            if isinstance(fields_query, QuerySet):
+                fields_query = specific_iterator(fields_query)
 
             # Create a combined list of fields that must be added and belong to the this
             # table.

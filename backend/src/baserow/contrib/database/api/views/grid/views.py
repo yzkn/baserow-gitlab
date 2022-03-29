@@ -11,6 +11,7 @@ from baserow.api.errors import ERROR_USER_NOT_IN_GROUP
 from baserow.api.pagination import PageNumberPagination
 from baserow.api.schemas import get_error_schema
 from baserow.api.serializers import get_example_pagination_serializer_class
+from baserow.core.db import specific_iterator
 from baserow.contrib.database.api.rows.serializers import (
     get_example_row_serializer_class,
     get_example_row_metadata_field_serializer,
@@ -54,6 +55,7 @@ from baserow.contrib.database.views.exceptions import (
     ViewFilterTypeDoesNotExist,
     AggregationTypeDoesNotExist,
 )
+from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.fields.field_filters import (
     FILTER_TYPE_AND,
@@ -757,10 +759,15 @@ class PublicGridViewInfoView(APIView):
         view = handler.get_public_view_by_slug(request.user, slug, view_model=GridView)
         grid_view_type = view_type_registry.get_by_model(view)
         field_options = grid_view_type.get_visible_field_options_in_order(view)
+        fields = specific_iterator(
+            Field.objects.filter(id__in=field_options.values_list("field_id"))
+            .select_related("content_type")
+            .prefetch_related("select_options")
+        )
 
         return Response(
             PublicGridViewInfoSerializer(
                 view=view,
-                fields=[o.field for o in field_options.select_related("field")],
+                fields=fields,
             ).data
         )

@@ -30,6 +30,7 @@ from baserow.api.schemas import get_error_schema
 from baserow.api.serializers import get_example_pagination_serializer_class
 from baserow.api.pagination import PageNumberPagination
 from baserow.core.exceptions import UserNotInGroup
+from baserow.core.db import specific_iterator
 from baserow.contrib.database.api.fields.serializers import LinkRowValueSerializer
 from baserow.contrib.database.api.fields.errors import (
     ERROR_FIELD_NOT_IN_TABLE,
@@ -164,13 +165,15 @@ class ViewsView(APIView):
         table.database.group.has_user(
             request.user, raise_error=True, allow_if_template=True
         )
-        views = View.objects.filter(table=table).select_related("content_type")
+        views = View.objects.filter(table=table).select_related("content_type", "table")
 
         if filters:
             views = views.prefetch_related("viewfilter_set")
 
         if sortings:
             views = views.prefetch_related("viewsort_set")
+
+        views = specific_iterator(views)
 
         data = [
             view_type_registry.get_serializer(
