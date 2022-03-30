@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## Released (2022-03-30 1.9.2)
+
 * Fixed bug where the arrow keys of a selected cell didn't work when they were not
   rendered.
 * Select new view immediately after creation.
@@ -21,7 +23,7 @@
 * Fixed bug where old values are missing in the update trigger of the webhook.
 * Scroll to the first error message if the form submission fail
 
-## Released (2022-03-03 1.9.1)
+## Released (2022-03-03 1.9.2)
 
 * Fixed bug when importing a formula or lookup field with an incorrect empty value.
 * New templates:
