@@ -1795,15 +1795,25 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
         raise ValidationError(f"The provided value is not a valid option.")
 
     def prepare_value_for_db_in_bulk(self, instance, values_by_row):
-        unique_values = {value for value in values_by_row.values()}
+        unique_values = {value for value in values_by_row.values() if value is not None}
 
-        selected_ids = SelectOption.objects.filter(
+        select_options = SelectOption.objects.filter(
             field=instance, id__in=unique_values
-        ).values_list("id", flat=True)
+        )
+
+        options_by_id = {}
+        selected_ids = []
+        for option in select_options:
+            options_by_id[option.id] = option
+            selected_ids.append(option.id)
 
         if len(selected_ids) != len(unique_values):
             invalid_ids = sorted(list(unique_values - set(selected_ids)))
             raise AllProvidedMultipleSelectValuesMustBeSelectOption(invalid_ids)
+
+        for row_index, value in values_by_row.items():
+            if value is not None:
+                values_by_row[row_index] = options_by_id[value]
 
         return values_by_row
 
