@@ -83,6 +83,10 @@ export default function CoreModule(options) {
           key: 'DISABLE_ANONYMOUS_PUBLIC_VIEW_WS_CONNECTIONS',
           default: false,
         },
+        {
+          key: 'ENABLE_UNDO_REDO',
+          default: false,
+        },
       ],
     },
   ])

@@ -217,7 +217,10 @@
           </template>
         </ul>
       </div>
-      <div class="sidebar__foot">
+      <div
+        class="sidebar__foot"
+        :class="{ 'sidebar__foot--with-undo-redo': !!$env.ENABLE_UNDO_REDO }"
+      >
         <div class="sidebar__logo">
           <img
             height="14"
@@ -225,18 +228,36 @@
             alt="Baserow logo"
           />
         </div>
-        <a
-          class="sidebar__collapse-link"
-          @click="$store.dispatch('sidebar/toggleCollapsed')"
-        >
-          <i
-            class="fas"
-            :class="{
-              'fa-angle-double-right': isCollapsed,
-              'fa-angle-double-left': !isCollapsed,
-            }"
-          ></i>
-        </a>
+        <div class="sidebar__foot-links">
+          <template v-if="!!$env.ENABLE_UNDO_REDO">
+            <a
+              class="sidebar__foot-link"
+              :class="{ 'sidebar__foot-link--loading': undoLoading }"
+              @click="undo()"
+            >
+              <i class="fas fa-undo-alt"></i>
+            </a>
+            <a
+              class="sidebar__foot-link"
+              :class="{ 'sidebar__foot-link--loading': redoLoading }"
+              @click="redo()"
+            >
+              <i class="fas fa-redo-alt"></i>
+            </a>
+          </template>
+          <a
+            class="sidebar__foot-link"
+            @click="$store.dispatch('sidebar/toggleCollapsed')"
+          >
+            <i
+              class="fas"
+              :class="{
+                'fa-angle-double-right': isCollapsed,
+                'fa-angle-double-left': !isCollapsed,
+              }"
+            ></i>
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -271,6 +292,12 @@ export default {
     TrashModal,
   },
   mixins: [editGroup],
+  data() {
+    return {
+      undoLoading: false,
+      redoLoading: false,
+    }
+  },
   computed: {
     /**
      * Because all the applications that belong to the user are in the store we will
@@ -354,6 +381,43 @@ export default {
       } catch (error) {
         notifyIf(error, 'application')
       }
+    },
+    // The two methods below are temporarily and for demo purposes.
+    undo() {
+      this.$store.dispatch('notification/setUndoRedoState', 'hidden')
+      this.redoLoading = false
+      this.undoLoading = true
+
+      setTimeout(() => {
+        const r = Math.floor(Math.random() * 4 + 1)
+        if (r === 1) {
+          this.$store.dispatch('notification/setUndoRedoState', 'no_more_undo')
+        } else {
+          this.$store.dispatch('notification/setUndoRedoState', 'undone')
+        }
+        this.undoLoading = false
+        setTimeout(() => {
+          this.$store.dispatch('notification/setUndoRedoState', 'hidden')
+        }, 2000)
+      }, 1000)
+    },
+    redo() {
+      this.$store.dispatch('notification/setUndoRedoState', 'hidden')
+      this.redoLoading = true
+      this.undoLoading = false
+
+      setTimeout(() => {
+        const r = Math.floor(Math.random() * 4 + 1)
+        if (r === 1) {
+          this.$store.dispatch('notification/setUndoRedoState', 'no_more_redo')
+        } else {
+          this.$store.dispatch('notification/setUndoRedoState', 'redone')
+        }
+        this.redoLoading = false
+        setTimeout(() => {
+          this.$store.dispatch('notification/setUndoRedoState', 'hidden')
+        }, 2000)
+      }, 1000)
     },
   },
 }

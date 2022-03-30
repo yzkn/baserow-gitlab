@@ -12,6 +12,10 @@
       ></Notification>
     </div>
     <div class="bottom-right-notifications">
+      <UndoRedoNotification
+        v-if="undoRedoState !== 'hidden'"
+        :state="undoRedoState"
+      ></UndoRedoNotification>
       <CopyingNotification v-if="copying"></CopyingNotification>
       <RestoreNotification
         v-for="notification in restoreNotifications"
@@ -30,6 +34,7 @@ import ConnectingNotification from '@baserow/modules/core/components/notificatio
 import FailedConnectingNotification from '@baserow/modules/core/components/notifications/FailedConnectingNotification'
 import RestoreNotification from '@baserow/modules/core/components/notifications/RestoreNotification'
 import CopyingNotification from '@baserow/modules/core/components/notifications/CopyingNotification'
+import UndoRedoNotification from '@baserow/modules/core/components/notifications/UndoRedoNotification'
 
 export default {
   name: 'Notifications',
@@ -39,6 +44,7 @@ export default {
     ConnectingNotification,
     FailedConnectingNotification,
     CopyingNotification,
+    UndoRedoNotification,
   },
   computed: {
     restoreNotifications() {
@@ -52,6 +58,7 @@ export default {
       failedConnecting: (state) => state.notification.failedConnecting,
       copying: (state) => state.notification.copying,
       notifications: (state) => state.notification.items,
+      undoRedoState: (state) => state.notification.undoRedoState,
     }),
   },
 }
