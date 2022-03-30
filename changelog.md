@@ -23,7 +23,7 @@
 * Fixed bug where old values are missing in the update trigger of the webhook.
 * Scroll to the first error message if the form submission fail
 
-## Released (2022-03-03 1.9.2)
+## Released (2022-03-03 1.9.1)
 
 * Fixed bug when importing a formula or lookup field with an incorrect empty value.
 * New templates:
