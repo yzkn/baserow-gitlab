@@ -22,9 +22,6 @@ from baserow.contrib.database.fields.dependencies.update_collector import (
     CachingFieldUpdateCollector,
 )
 
-# TODO: remove?
-# from ..fields.models import FormulaField
-
 
 class RowHandler:
     def get_non_unique_ids(self, ids: List[int]) -> List[int]:
