@@ -3,6 +3,7 @@ import json
 import hashlib
 from io import BytesIO
 from pathlib import Path
+from typing import NewType
 from urllib.parse import urlparse, urljoin
 from itsdangerous import URLSafeSerializer
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -14,8 +15,12 @@ from django.core.files.storage import default_storage
 from django.utils import translation
 from tqdm import tqdm
 
-from baserow.core.utils import ChildProgressBuilder
-from baserow.core.user.utils import normalize_email_address
+from baserow.core.utils import (
+    ChildProgressBuilder,
+    raise_if_not_locked,
+    mark_as_locked,
+)
+from baserow.core.user.utils import normalize_email_address, UserType
 
 from .models import (
     Settings,
@@ -62,6 +67,8 @@ from .emails import GroupInvitationEmail
 
 User = get_user_model()
 
+LockedGroup = NewType("LockedGroup", Group)
+
 
 class CoreHandler:
     def get_settings(self):
@@ -107,7 +114,12 @@ class CoreHandler:
         settings_instance.save()
         return settings_instance
 
-    def get_group(self, group_id, base_queryset=None):
+    def get_group_for_update(self, group_id: int) -> LockedGroup:
+        return mark_as_locked(
+            self.get_group(group_id, base_queryset=Group.objects.select_for_update()),
+        )
+
+    def get_group(self, group_id, base_queryset=None) -> Group:
         """
         Selects a group with a given id from the database.
 
@@ -131,14 +143,12 @@ class CoreHandler:
 
         return group
 
-    def create_group(self, user, **kwargs):
+    def create_group(self, user: User, **kwargs) -> GroupUser:
         """
         Creates a new group for an existing user.
 
         :param user: The user that must be in the group.
-        :type user: User
         :return: The newly created GroupUser object
-        :rtype: GroupUser
         """
 
         group_values = extract_allowed(kwargs, ["name"])
@@ -155,7 +165,7 @@ class CoreHandler:
 
         return group_user
 
-    def update_group(self, user, group, **kwargs):
+    def update_group(self, user: UserType, group: LockedGroup, **kwargs):
         """
         Updates the values of a group if the user on whose behalf the request is made
         has admin permissions to the group.
@@ -171,6 +181,8 @@ class CoreHandler:
 
         if not isinstance(group, Group):
             raise ValueError("The group is not an instance of Group.")
+
+        raise_if_not_locked(group)
 
         group.has_user(user, "ADMIN", raise_error=True)
         group = set_allowed_attrs(kwargs, ["name"], group)
@@ -221,21 +233,11 @@ class CoreHandler:
             self, group_user_id=group_user_id, group_user=group_user, user=user
         )
 
-    def delete_group(self, user, group):
-        """
-        Deletes an existing group and related applications if the user has admin
-        permissions for the group. The group can be restored after deletion using the
-        trash handler.
-
-        :param user: The user on whose behalf the delete is done.
-        :type: user: User
-        :param group: The group instance that must be deleted.
-        :type: group: Group
-        :raises ValueError: If one of the provided parameters is invalid.
-        """
-
+    def delete_group(self, user: UserType, group: LockedGroup):
         if not isinstance(group, Group):
             raise ValueError("The group is not an instance of Group.")
+
+        raise_if_not_locked(group)
 
         group.has_user(user, "ADMIN", raise_error=True)
 

@@ -30,6 +30,8 @@ from baserow.core.trash.exceptions import CannotDeleteAlreadyDeletedItem
 from .serializers import GroupSerializer, OrderGroupsSerializer
 from .schemas import group_user_schema
 from .errors import ERROR_GROUP_USER_IS_LAST_ADMIN
+from baserow.core.actions.registries import action_registry
+from baserow.core.group_actions import DeleteGroupAction
 
 
 class GroupsView(APIView):
@@ -164,13 +166,11 @@ class GroupView(APIView):
             CannotDeleteAlreadyDeletedItem: ERROR_CANNOT_DELETE_ALREADY_DELETED_ITEM,
         }
     )
-    def delete(self, request, group_id):
+    def delete(self, request, group_id: int):
         """Deletes an existing group if it belongs to a user."""
 
-        group = CoreHandler().get_group(
-            group_id, base_queryset=Group.objects.select_for_update()
-        )
-        CoreHandler().delete_group(request.user, group)
+        locked_group = CoreHandler().get_group_for_update(group_id)
+        action_registry.get_by_type(DeleteGroupAction).do(request.user, locked_group)
         return Response(status=204)
 
 

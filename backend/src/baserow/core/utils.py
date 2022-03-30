@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import csv
-import os
-import re
-import random
-import string
 import hashlib
+import inspect
 import math
-from itertools import islice
-from decimal import Decimal
-
+import os
+import random
+import re
+import string
 from collections import namedtuple
-from typing import List, Optional, Iterable
+from decimal import Decimal
+from itertools import islice
+from typing import List, Optional, Iterable, TypeVar
 
 from django.db.models import ForeignKey
 from django.db.models.fields import NOT_PROVIDED
@@ -501,3 +501,25 @@ class ChildProgressBuilder:
             return parent.create_child(represents_progress, child_total)
         else:
             return Progress(child_total)
+
+
+T = TypeVar("T")
+K = TypeVar("K")
+
+
+def mark_as_locked(model_instance: T) -> K:
+    model_instance._baserow_locked_marker = True
+    return model_instance
+
+
+def raise_if_not_locked(model_instance: T) -> T:
+    if not hasattr(model_instance, "_baserow_locked_marker"):
+        cls_name = model_instance.__class__.__name__
+        raise ValueError(
+            f"{inspect.stack()[1].function} only accepts locked "
+            f"{cls_name}'s, however"
+            f" an unlocked one was provided causing this error. Please provide "
+            f"a Locked{cls_name} obtained from the relevant handler's "
+            f"get_{cls_name.lower()}_for_update() method instead."
+        )
+    return model_instance

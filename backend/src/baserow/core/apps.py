@@ -6,12 +6,21 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         from baserow.core.trash.registries import trash_item_type_registry
+        from baserow.core.actions.registries import action_registry
         from baserow.core.trash.trash_types import GroupTrashableItemType
         from baserow.core.trash.trash_types import ApplicationTrashableItemType
+        from baserow.core.group_actions import CreateGroupAction
 
         trash_item_type_registry.register(GroupTrashableItemType())
         trash_item_type_registry.register(ApplicationTrashableItemType())
 
-        from baserow.core.undo.undo1 import setup_registry as setup_undo_registry_v1
+        from baserow.core.group_actions import (
+            UpdateGroupAction,
+            DeleteGroupAction,
+        )
+        from baserow.core.trash.actions import RestoreAction
 
-        setup_undo_registry_v1()
+        action_registry.register(CreateGroupAction())
+        action_registry.register(DeleteGroupAction())
+        action_registry.register(UpdateGroupAction())
+        action_registry.register(RestoreAction())
