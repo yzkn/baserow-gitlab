@@ -40,6 +40,7 @@ class ApplicationTrashableItemType(TrashableItemType):
 
 
 class GroupTrashableItemType(TrashableItemType):
+
     type = "group"
     model_class = Group
 
