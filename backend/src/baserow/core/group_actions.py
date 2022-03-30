@@ -3,7 +3,7 @@ import dataclasses
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.registries import BaserowAction
-from baserow.core.actions.scopes import RootScope, GroupActionScope
+from baserow.core.actions.scopes import RootScope
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
 from baserow.core.trash.handler import TrashHandler
@@ -30,8 +30,7 @@ class DeleteGroupAction(BaserowAction["DeleteGroupAction.Params"]):
 
     @classmethod
     def redo(cls, user: UserType, params: "DeleteGroupAction.Params"):
-        group = CoreHandler().get_group_for_update(params.group_id)
-        CoreHandler().delete_group(user, group)
+        CoreHandler().delete_group_by_id(user, params.group_id)
 
     @classmethod
     def undo(cls, user: UserType, params: "DeleteGroupAction.Params"):
@@ -66,8 +65,7 @@ class CreateGroupAction(BaserowAction["CreateGroupParameters"]):
 
     @classmethod
     def undo(cls, user: UserType, params: "CreateGroupAction.Params"):
-        group = CoreHandler().get_group_for_update(params.created_group_id)
-        CoreHandler().delete_group(user, group)
+        CoreHandler().delete_group_by_id(user, params.created_group_id)
 
     @classmethod
     def redo(cls, user: UserType, params: "CreateGroupAction.Params"):
@@ -97,7 +95,7 @@ class UpdateGroupAction(BaserowAction["Params"]):
                 old_group_name=old_group_name,
                 new_group_name=new_group_name,
             ),
-            scope=GroupActionScope(group.id),
+            scope=RootScope(),
         )
         return group
 

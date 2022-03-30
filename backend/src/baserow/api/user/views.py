@@ -50,16 +50,25 @@ from .serializers import (
     ChangePasswordBodyValidationSerializer,
     NormalizedEmailWebTokenSerializer,
     DashboardSerializer,
+    UndoRedoSerializer,
 )
 from .errors import (
     ERROR_ALREADY_EXISTS,
     ERROR_USER_NOT_FOUND,
     ERROR_INVALID_OLD_PASSWORD,
     ERROR_DISABLED_SIGNUP,
+    ERROR_NO_MORE_ACTIONS_TO_UNDO,
+    ERROR_NO_MORE_ACTIONS_TO_REDO,
 )
 from .schemas import create_user_response_schema, authenticate_user_schema
-from ...core.actions.handler import ActionHandler
-from ...core.actions.undo_session import get_undo_session
+from baserow.api.exceptions import RequestBodyValidationException
+from baserow.api.utils import serialize_errors_recursive
+from baserow.core.actions.handler import ActionHandler
+from baserow.core.actions.exceptions import (
+    NoMoreActionsToRedoException,
+    NoMoreActionsToUndoException,
+)
+from ...core.user.sessions import get_user_session_id
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
@@ -384,6 +393,14 @@ class DashboardView(APIView):
         return Response(dashboard_serializer.data)
 
 
+def deserialize_scope(request):
+    serializer = UndoRedoSerializer(data=request.data)
+    if not serializer.is_valid():
+        detail = serialize_errors_recursive(serializer.errors)
+        raise RequestBodyValidationException(detail)
+    return serializer.to_scope()
+
+
 class UndoView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -394,10 +411,14 @@ class UndoView(APIView):
         responses={204: None},
     )
     @transaction.atomic
+    @map_exceptions(
+        {
+            NoMoreActionsToUndoException: ERROR_NO_MORE_ACTIONS_TO_UNDO,
+        }
+    )
     def patch(self, request):
-        ActionHandler.undo(
-            request.user, request.GET["scope"], get_undo_session(request.user)
-        )
+        scope = deserialize_scope(request)
+        ActionHandler.undo(request.user, scope, get_user_session_id(request.user))
         return Response("", status=204)
 
 
@@ -411,8 +432,12 @@ class RedoView(APIView):
         responses={204: None},
     )
     @transaction.atomic
-    def get(self, request):
-        ActionHandler.redo(
-            request.user, request.GET["scope"], get_undo_session(request.user)
-        )
+    @map_exceptions(
+        {
+            NoMoreActionsToRedoException: ERROR_NO_MORE_ACTIONS_TO_REDO,
+        }
+    )
+    def patch(self, request):
+        scope = deserialize_scope(request)
+        ActionHandler.redo(request.user, scope, get_user_session_id(request.user))
         return Response("", status=204)

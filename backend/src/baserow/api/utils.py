@@ -136,22 +136,23 @@ def validate_data(
     :rtype: dict
     """
 
-    def serialize_errors_recursive(error):
-        if isinstance(error, dict):
-            return {
-                key: serialize_errors_recursive(errors) for key, errors in error.items()
-            }
-        elif isinstance(error, list):
-            return [serialize_errors_recursive(errors) for errors in error]
-        else:
-            return {"error": force_str(error), "code": error.code}
-
     serializer = serializer_class(data=data, partial=partial)
     if not serializer.is_valid():
         detail = serialize_errors_recursive(serializer.errors)
         raise exception_to_raise(detail)
 
     return serializer.data
+
+
+def serialize_errors_recursive(error):
+    if isinstance(error, dict):
+        return {
+            key: serialize_errors_recursive(errors) for key, errors in error.items()
+        }
+    elif isinstance(error, list):
+        return [serialize_errors_recursive(errors) for errors in error]
+    else:
+        return {"error": force_str(error), "code": error.code}
 
 
 def validate_data_custom_fields(

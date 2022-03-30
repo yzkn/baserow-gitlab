@@ -13,9 +13,11 @@ from baserow.core.utils import mark_as_locked
 
 @pytest.mark.django_db
 def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
-    user = data_fixture.create_user()
+    session_id = "session-id"
+    user = data_fixture.create_user(session_id=session_id)
 
-    group = action_registry.get_by_type(CreateGroupAction).do(user, "test")
+    group_user = action_registry.get_by_type(CreateGroupAction).do(user, "test")
+    group = group_user.group
     assert group.id is not None
     assert Action.objects.count() == 1
     create_group_action = Action.objects.order_by("id")[0]
@@ -27,8 +29,7 @@ def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
     }
     assert create_group_action.undone_at is None
 
-    # todo set a session
-    ActionHandler.undo(user, GroupActionScope(group.id), None)
+    ActionHandler.undo(user, GroupActionScope(group.id), session_id)
 
     assert Group.objects.filter(pk=group.id).count() == 0
 
@@ -45,21 +46,26 @@ def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
 
 @pytest.mark.django_db
 def test_can_undo_redo_creating_group(data_fixture, django_assert_num_queries):
-    user = data_fixture.create_user()
+    session_id = "session-id"
+    user = data_fixture.create_user(session_id=session_id)
 
-    group = action_registry.get_by_type(CreateGroupAction).do(user, "test")
-    group2 = action_registry.get_by_type(CreateGroupAction).do(user, "test2")
+    group_user = action_registry.get_by_type(CreateGroupAction).do(user, "test")
+    group2_user = action_registry.get_by_type(CreateGroupAction).do(user, "test2")
+    group = group_user.group
+    group2 = group2_user.group
 
-    # todo set sessions
-    ActionHandler.undo(user, GroupActionScope(group.id), None)
+    ActionHandler.undo(user, GroupActionScope(group.id), session_id)
 
     assert not Group.objects.filter(pk=group2.id).exists()
 
     assert Action.objects.count() == 2
     assert Action.objects.filter(undone_at__isnull=False).count() == 1
+    assert (
+        Action.objects.get(undone_at__isnull=False).params["created_group_id"]
+        == group2.id
+    )
 
-    # todo set sessions
-    ActionHandler.redo(user, RootScope(), None)
+    ActionHandler.redo(user, RootScope(), session_id)
 
     assert Group.objects.filter(pk=group2.id).exists()
     assert Action.objects.filter(undone_at__isnull=True).count() == 2
@@ -67,7 +73,8 @@ def test_can_undo_redo_creating_group(data_fixture, django_assert_num_queries):
 
 @pytest.mark.django_db
 def test_can_undo_updating_group(data_fixture, django_assert_num_queries):
-    user = data_fixture.create_user()
+    session_id = "session-id"
+    user = data_fixture.create_user(session_id=session_id)
 
     group_user = action_registry.get_by_type(CreateGroupAction).do(user, "test")
 
@@ -76,8 +83,7 @@ def test_can_undo_updating_group(data_fixture, django_assert_num_queries):
     )
 
     assert updated_group.name == "new name"
-    # todo set a session
-    ActionHandler.undo(user, GroupActionScope(updated_group.id), None)
+    ActionHandler.undo(user, GroupActionScope(updated_group.id), session_id)
     updated_group.refresh_from_db()
     assert updated_group.name == "test"
 

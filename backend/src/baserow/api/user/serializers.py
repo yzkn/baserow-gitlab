@@ -6,6 +6,7 @@ from django.contrib.auth.models import update_last_login
 from django.conf import settings
 
 from baserow.api.groups.invitations.serializers import UserGroupInvitationSerializer
+from baserow.core.actions.scopes import RootScope, GroupActionScope
 from baserow.core.user.utils import normalize_email_address
 from baserow.api.user.validators import password_validation, language_validation
 from baserow.core.models import Template, UserLogEntry
@@ -68,6 +69,23 @@ class RegisterSerializer(serializers.Serializer):
         "account. This only works if the `group_invitation_token` param is not "
         "provided.",
     )
+
+
+class GroupScopeSerializer(serializers.Serializer):
+    group_id = serializers.IntegerField(min_value=0)
+
+    def to_scope(self):
+        return GroupActionScope(self.validated_data["group_id"])
+
+
+class UndoRedoSerializer(serializers.Serializer):
+    group = GroupScopeSerializer(required=False)
+
+    def to_scope(self):
+        if "group" in self.validated_data:
+            return self.group.to_scope()
+        else:
+            return RootScope()
 
 
 class AccountSerializer(serializers.Serializer):

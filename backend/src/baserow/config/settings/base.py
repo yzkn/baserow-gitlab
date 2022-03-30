@@ -1,8 +1,8 @@
 import datetime
 import os
 from urllib.parse import urlparse, urljoin
-import dj_database_url
 
+import dj_database_url
 from corsheaders.defaults import default_headers
 
 from baserow.version import VERSION
@@ -57,7 +57,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "baserow.core.actions.middleware.UndoSessionMiddleware",
 ]
 
 ROOT_URLCONF = "baserow.config.urls"
@@ -235,6 +234,7 @@ REST_FRAMEWORK = {
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "WebSocketId",
+    "SessionId",
 ]
 
 

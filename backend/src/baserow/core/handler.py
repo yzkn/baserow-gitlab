@@ -233,6 +233,10 @@ class CoreHandler:
             self, group_user_id=group_user_id, group_user=group_user, user=user
         )
 
+    def delete_group_by_id(self, user: UserType, group_id: int):
+        locked_group = self.get_group_for_update(group_id)
+        self.delete_group(user, locked_group)
+
     def delete_group(self, user: UserType, group: LockedGroup):
         if not isinstance(group, Group):
             raise ValueError("The group is not an instance of Group.")

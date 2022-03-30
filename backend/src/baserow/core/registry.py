@@ -1,5 +1,5 @@
 import contextlib
-from typing import TypeVar, Generic, Dict, List, ValuesView, Tuple, Type, cast
+from typing import TypeVar, Generic, Dict, List, ValuesView, Tuple, Type
 
 from django.core.exceptions import ImproperlyConfigured
 

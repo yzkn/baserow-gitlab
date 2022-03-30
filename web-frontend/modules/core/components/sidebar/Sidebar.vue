@@ -233,14 +233,14 @@
             <a
               class="sidebar__foot-link"
               :class="{ 'sidebar__foot-link--loading': undoLoading }"
-              @click="undo()"
+              @click="undo(false)"
             >
               <i class="fas fa-undo-alt"></i>
             </a>
             <a
               class="sidebar__foot-link"
               :class="{ 'sidebar__foot-link--loading': redoLoading }"
-              @click="redo()"
+              @click="redo(false)"
             >
               <i class="fas fa-redo-alt"></i>
             </a>
@@ -277,7 +277,7 @@ import CreateGroupModal from '@baserow/modules/core/components/group/CreateGroup
 import GroupMembersModal from '@baserow/modules/core/components/group/GroupMembersModal'
 import TrashModal from '@baserow/modules/core/components/trash/TrashModal'
 import editGroup from '@baserow/modules/core/mixins/editGroup'
-
+import undoRedo from '@baserow/modules/core/mixins/undoRedo'
 export default {
   name: 'Sidebar',
   components: {
@@ -291,13 +291,7 @@ export default {
     GroupMembersModal,
     TrashModal,
   },
-  mixins: [editGroup],
-  data() {
-    return {
-      undoLoading: false,
-      redoLoading: false,
-    }
-  },
+  mixins: [editGroup, undoRedo],
   computed: {
     /**
      * Because all the applications that belong to the user are in the store we will
@@ -381,43 +375,6 @@ export default {
       } catch (error) {
         notifyIf(error, 'application')
       }
-    },
-    // The two methods below are temporarily and for demo purposes.
-    undo() {
-      this.$store.dispatch('notification/setUndoRedoState', 'hidden')
-      this.redoLoading = false
-      this.undoLoading = true
-
-      setTimeout(() => {
-        const r = Math.floor(Math.random() * 4 + 1)
-        if (r === 1) {
-          this.$store.dispatch('notification/setUndoRedoState', 'no_more_undo')
-        } else {
-          this.$store.dispatch('notification/setUndoRedoState', 'undone')
-        }
-        this.undoLoading = false
-        setTimeout(() => {
-          this.$store.dispatch('notification/setUndoRedoState', 'hidden')
-        }, 2000)
-      }, 1000)
-    },
-    redo() {
-      this.$store.dispatch('notification/setUndoRedoState', 'hidden')
-      this.redoLoading = true
-      this.undoLoading = false
-
-      setTimeout(() => {
-        const r = Math.floor(Math.random() * 4 + 1)
-        if (r === 1) {
-          this.$store.dispatch('notification/setUndoRedoState', 'no_more_redo')
-        } else {
-          this.$store.dispatch('notification/setUndoRedoState', 'redone')
-        }
-        this.redoLoading = false
-        setTimeout(() => {
-          this.$store.dispatch('notification/setUndoRedoState', 'hidden')
-        }, 2000)
-      }, 1000)
     },
   },
 }

@@ -12,6 +12,8 @@ from baserow.core.actions.scopes import RootScope
 class ActionHandler:
     @classmethod
     def undo(cls, user: User, scope: RootScope, session: str):
+        # TODO think of a nicer way realtime updates are sent to all when undo/redoing
+        user.web_socket_id = None
         latest_not_undone_action_in_scope = (
             Action.objects.filter(user=user, undone_at__isnull=True, session=session)
             .filter(scope.scope_q)
@@ -31,6 +33,8 @@ class ActionHandler:
 
     @classmethod
     def redo(cls, user: User, scope: RootScope, session: str):
+        # TODO think of a nicer way realtime updates are sent to all when undo/redoing
+        user.web_socket_id = None
         latest_undone_action_in_scope = (
             Action.objects.filter(user=user, undone_at__isnull=False, session=session)
             .filter(scope.scope_q)
