@@ -58,7 +58,8 @@ from .errors import (
     ERROR_DISABLED_SIGNUP,
 )
 from .schemas import create_user_response_schema, authenticate_user_schema
-
+from ...core.actions.handler import ActionHandler
+from ...core.actions.undo_session import get_undo_session
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
@@ -381,3 +382,37 @@ class DashboardView(APIView):
             {"group_invitations": group_invitations}
         )
         return Response(dashboard_serializer.data)
+
+
+class UndoView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        tags=["User"],
+        operation_id="undo",
+        description=("@TODO docs"),
+        responses={204: None},
+    )
+    @transaction.atomic
+    def patch(self, request):
+        ActionHandler.undo(
+            request.user, request.GET["scope"], get_undo_session(request.user)
+        )
+        return Response("", status=204)
+
+
+class RedoView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        tags=["User"],
+        operation_id="undo",
+        description=("@TODO docs"),
+        responses={204: None},
+    )
+    @transaction.atomic
+    def get(self, request):
+        ActionHandler.redo(
+            request.user, request.GET["scope"], get_undo_session(request.user)
+        )
+        return Response("", status=204)

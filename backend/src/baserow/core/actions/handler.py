@@ -30,9 +30,9 @@ class ActionHandler:
             latest_not_undone_action_in_scope.save()
 
     @classmethod
-    def redo(cls, user: User, scope: RootScope):
+    def redo(cls, user: User, scope: RootScope, session: str):
         latest_undone_action_in_scope = (
-            Action.objects.filter(user=user, undone_at__isnull=False)
+            Action.objects.filter(user=user, undone_at__isnull=False, session=session)
             .filter(scope.scope_q)
             .order_by("-undone_at", "-id")
             .select_for_update()

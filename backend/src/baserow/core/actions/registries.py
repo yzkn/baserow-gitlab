@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 
 from baserow.core.actions.models import Action
 from baserow.core.actions.scopes import RootScope
+from baserow.core.actions.undo_session import get_undo_session
 from baserow.core.registry import Registry, Instance
 from baserow.core.user.utils import UserType
 
@@ -57,7 +58,7 @@ class BaserowAction(Instance, abc.ABC, Generic[T]):
             type=cls.type,
             params=params,
             scope=scope.scope,
-            session=getattr(user, "undo_session", None),
+            session=get_undo_session(user),
         )
 
 

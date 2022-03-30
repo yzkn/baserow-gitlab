@@ -3,6 +3,7 @@ import jwtDecode from 'jwt-decode'
 import AuthService from '@baserow/modules/core/services/auth'
 import { setToken, unsetToken } from '@baserow/modules/core/utils/auth'
 import { unsetGroupCookie } from '@baserow/modules/core/utils/group'
+import { v4 as uuidv4 } from 'uuid'
 
 export const state = () => ({
   refreshing: false,
@@ -10,6 +11,7 @@ export const state = () => ({
   user: null,
   additional: {},
   webSocketId: null,
+  sessionId: null,
 })
 
 export const mutations = {
@@ -17,6 +19,7 @@ export const mutations = {
     state.token = token
     state.token_data = jwtDecode(token)
     state.user = user
+    state.sessionId = uuidv4()
     // Additional entries in the response payload could have been added via the
     // backend user data registry. We want to store them in the `additional` state so
     // that it can be used by other modules.
@@ -37,6 +40,9 @@ export const mutations = {
   },
   SET_WEB_SOCKET_ID(state, id) {
     state.webSocketId = id
+  },
+  SET_SESSION_ID(state, id) {
+    state.sessionId = id
   },
 }
 
@@ -185,6 +191,9 @@ export const getters = {
   },
   isStaff(state) {
     return state.user ? state.user.is_staff : false
+  },
+  getSessionId(state) {
+    return state.sessionId
   },
   /**
    * Returns the amount of seconds it will take before the tokes expires.

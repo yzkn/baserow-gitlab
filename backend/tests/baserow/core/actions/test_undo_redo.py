@@ -58,7 +58,8 @@ def test_can_undo_redo_creating_group(data_fixture, django_assert_num_queries):
     assert Action.objects.count() == 2
     assert Action.objects.filter(undone_at__isnull=False).count() == 1
 
-    ActionHandler.redo(user, RootScope())
+    # todo set sessions
+    ActionHandler.redo(user, RootScope(), None)
 
     assert Group.objects.filter(pk=group2.id).exists()
     assert Action.objects.filter(undone_at__isnull=True).count() == 2
