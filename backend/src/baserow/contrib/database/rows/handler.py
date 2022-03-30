@@ -496,6 +496,51 @@ class RowHandler:
 
         return row
 
+    def create_rows(self, user, table, rows, model=None):
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        if not model:
+            model = table.get_model()
+
+        rows = self.prepare_rows_in_bulk(model._field_objects, rows)
+
+        # before_return = before_row_update.send(
+        #     self,
+        #     row=list(rows_to_update),
+        #     user=user,
+        #     table=table,
+        #     model=model,
+        #     updated_field_ids=updated_field_ids,
+        # )
+
+        instances = []
+        for row in rows:
+            values, manytomany_values = self.extract_manytomany_values(row, model)
+            instance = model(**values)
+            instances.append(instance)
+
+            # for name, value in manytomany_values.items():
+            #     getattr(obj, name).set(value)
+
+        inserted_rows = model.objects.bulk_create(instances)
+
+        # rows_to_return = list(
+        #     model.objects.all().enhance_by_fields().filter(id__in=row_ids)
+        # )
+
+        # rows_updated.send(
+        #     self,
+        #     rows=rows_to_return,
+        #     user=user,
+        #     table=table,
+        #     model=model,
+        #     before_return=before_return,
+        #     updated_field_ids=updated_field_ids,
+        # )
+
+        return inserted_rows
+
     def update_rows(self, user, table, rows, model=None):
         """
         Updates field values in batch based on provided rows with the new values.
