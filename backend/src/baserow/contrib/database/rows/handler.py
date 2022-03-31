@@ -6,7 +6,7 @@ from math import floor, ceil
 
 from django.db import transaction
 from django.db.models import Max, F
-from django.db.models.fields.related import ManyToManyField
+from django.db.models.fields.related import ManyToManyField, ForeignKey
 
 from baserow.core.trash.handler import TrashHandler
 from .exceptions import RowDoesNotExist, RowIdsNotUnique
@@ -521,33 +521,72 @@ class RowHandler:
 
         rows = self.prepare_rows_in_bulk(model._field_objects, rows)
 
-        instances = []
+        rows_relationships = []
         for index, row in enumerate(rows, start=-len(rows)):
             values, manytomany_values = self.extract_manytomany_values(row, model)
             values["order"] = highest_order - (step * (abs(index + 1)))
             instance = model(**values)
-            instances.append(instance)
+            relations = {
+                field_name: value
+                for field_name, value in manytomany_values.items()
+                if value and len(value) > 0
+            }
+            rows_relationships.append((instance, relations))
 
-            # for name, value in manytomany_values.items():
-            #     getattr(obj, name).set(value)
+        inserted_rows = model.objects.bulk_create(
+            [row for (row, relations) in rows_relationships]
+        )
 
-        inserted_rows = model.objects.bulk_create(instances)
+        many_to_many = defaultdict(list)
+        for index, row in enumerate(inserted_rows):
+            manytomany_values = rows_relationships[index][1]
+            for field_name, value in manytomany_values.items():
+                through = getattr(model, field_name).through
+                through_fields = through._meta.get_fields()
+                value_column = None
+                row_column = None
 
-        # rows_to_return = list(
-        #     model.objects.all().enhance_by_fields().filter(id__in=row_ids)
-        # )
+                # Figure out which field in the many to many through table holds the row
+                # value and which on contains the value.
+                for field in through_fields:
+                    if type(field) is not ForeignKey:
+                        continue
 
-        # TODO: use rows with all data for signal
+                    if field.remote_field.model == model:
+                        row_column = field.get_attname_column()[1]
+                    else:
+                        value_column = field.get_attname_column()[1]
+
+                for i in value:
+                    many_to_many[field_name].append(
+                        getattr(model, field_name).through(
+                            **{
+                                row_column: row.id,
+                                value_column: i,
+                            }
+                        )
+                    )
+
+        for field_name, values in many_to_many.items():
+            through = getattr(model, field_name).through
+            through.objects.bulk_create(values)
+
+        rows_to_return = list(
+            model.objects.all()
+            .enhance_by_fields()
+            .filter(id__in=[row.id for row in inserted_rows])
+        )
+
         rows_created.send(
             self,
-            rows=inserted_rows,
+            rows=rows_to_return,
             before=before_row,
             user=user,
             table=table,
             model=model,
         )
 
-        return inserted_rows
+        return rows_to_return
 
     def update_rows(self, user, table, rows, model=None):
         """
