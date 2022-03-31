@@ -181,7 +181,7 @@ class RowHandler:
             # rows that have been placed before. By using these fractions we don't
             # have to re-order every row in the table.
             step = Decimal("0.00000000000000000001")
-            order_last_row = before.order - (step * amount)
+            order_last_row = before.order - step
             model.objects.filter(
                 order__gt=floor(order_last_row), order__lte=order_last_row
             ).update(order=F("order") - (step * amount))
