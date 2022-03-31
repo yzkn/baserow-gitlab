@@ -860,6 +860,7 @@ class BatchRowsView(APIView):
         model = table.get_model()
 
         user_field_names = "user_field_names" in request.GET
+        before_row_id = request.query_params.get("before")
 
         row_validation_serializer = get_row_serializer_class(
             model, user_field_names=user_field_names, include_id=True
@@ -872,7 +873,9 @@ class BatchRowsView(APIView):
         )
 
         try:
-            rows = RowHandler().create_rows(request.user, table, data["items"], model)
+            rows = RowHandler().create_rows(
+                request.user, table, data["items"], before_row_id, model
+            )
         except ValidationError as e:
             raise RequestBodyValidationException(detail=e.message)
 

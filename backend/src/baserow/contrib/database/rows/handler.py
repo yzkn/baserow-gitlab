@@ -153,43 +153,49 @@ class RowHandler:
 
         return values, manytomany_values
 
-    def get_order_before_row(self, before, model):
+    def get_order_before_row(self, before, model, amount=1):
         """
-        Calculates a new unique order which will be before the provided before row
-        order. This order can be used by an existing or new row. Several other rows
+        Calculates a new unique order lower than the provided before row
+        order and a step representing the change needed between multiple rows if
+        multiple rows are being placed at once.
+        This order can be used by existing or new rows. Several other rows
         could be updated as their order might need to change.
 
         :param before: The row instance where the before order must be calculated for.
         :type before: Table
         :param model: The model of the related table
         :type model: Model
-        :return: The new order.
-        :rtype: Decimal
+        :param amount: The number of rows being placed.
+        :type amount: int
+        :return: The order for the last inserted row and the
+            step (change) that should be used between all new rows.
+        :rtype: tuple(Decimal, Decimal)
         """
 
         if before:
-            # Here we calculate the order value, which indicates the position of the
-            # row, by subtracting a fraction of the row that it must be placed
-            # before. The same fraction is also going to be subtracted from the other
+            # When the rows are being inserted before an existing row, the order
+            # of the last new row is calculated by subtracting a fraction of
+            # the "before" row order.
+            # The same fraction is also going to be subtracted from the other
             # rows that have been placed before. By using these fractions we don't
             # have to re-order every row in the table.
-            change = Decimal("0.00000000000000000001")
-            order = before.order - change
-            model.objects.filter(order__gt=floor(order), order__lte=order).update(
-                order=F("order") - change
-            )
+            step = Decimal("0.00000000000000000001")
+            order_last_row = before.order - (step * amount)
+            model.objects.filter(
+                order__gt=floor(order_last_row), order__lte=order_last_row
+            ).update(order=F("order") - (step * amount))
         else:
-            # Because the row is by default added as last, we have to figure out what
-            # the highest order is and increase that by one. Because the order of new
-            # rows should always be a whole number we round it up.
-            order = (
-                ceil(
-                    model.objects.aggregate(max=Max("order")).get("max") or Decimal("0")
-                )
-                + 1
-            )
+            # Because the rows are by default added as last, we have to figure out
+            # what the highest order in the table is currently and increase that by
+            # the number of rows being inserted.
+            # The order of new rows should always be a whole number so the number is
+            # rounded up.
+            step = Decimal("1.00000000000000000000")
+            order_last_row = ceil(
+                model.objects.aggregate(max=Max("order")).get("max") or Decimal("0")
+            ) + (step * amount)
 
-        return order
+        return order_last_row, step
 
     def get_row(self, user, table, row_id, model=None):
         """
@@ -341,7 +347,7 @@ class RowHandler:
 
         values = self.prepare_values(model._field_objects, values)
         values, manytomany_values = self.extract_manytomany_values(values, model)
-        values["order"] = self.get_order_before_row(before, model)
+        values["order"] = self.get_order_before_row(before, model)[0]
         instance = model.objects.create(**values)
 
         for name, value in manytomany_values.items():
@@ -496,12 +502,21 @@ class RowHandler:
 
         return row
 
-    def create_rows(self, user, table, rows, model=None):
+    def create_rows(self, user, table, rows, before_row_id=None, model=None):
         group = table.database.group
         group.has_user(user, raise_error=True)
 
         if not model:
             model = table.get_model()
+
+        before_row = (
+            RowHandler().get_row(user, table, before_row_id, model)
+            if before_row_id
+            else None
+        )
+        highest_order, step = self.get_order_before_row(
+            before_row, model, amount=len(rows)
+        )
 
         rows = self.prepare_rows_in_bulk(model._field_objects, rows)
 
@@ -515,8 +530,9 @@ class RowHandler:
         # )
 
         instances = []
-        for row in rows:
+        for index, row in enumerate(rows, start=-len(rows)):
             values, manytomany_values = self.extract_manytomany_values(row, model)
+            values["order"] = highest_order - (step * (abs(index + 1)))
             instance = model(**values)
             instances.append(instance)
 
@@ -700,7 +716,7 @@ class RowHandler:
             self, row=row, user=user, table=table, model=model, updated_field_ids=[]
         )
 
-        row.order = self.get_order_before_row(before, model)
+        row.order = self.get_order_before_row(before, model)[0]
         row.save()
 
         updated_fields = [
