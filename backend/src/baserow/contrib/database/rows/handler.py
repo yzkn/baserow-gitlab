@@ -14,6 +14,7 @@ from .signals import (
     before_row_update,
     before_row_delete,
     row_created,
+    rows_created,
     row_updated,
     rows_updated,
     row_deleted,
@@ -520,15 +521,6 @@ class RowHandler:
 
         rows = self.prepare_rows_in_bulk(model._field_objects, rows)
 
-        # before_return = before_row_update.send(
-        #     self,
-        #     row=list(rows_to_update),
-        #     user=user,
-        #     table=table,
-        #     model=model,
-        #     updated_field_ids=updated_field_ids,
-        # )
-
         instances = []
         for index, row in enumerate(rows, start=-len(rows)):
             values, manytomany_values = self.extract_manytomany_values(row, model)
@@ -545,15 +537,15 @@ class RowHandler:
         #     model.objects.all().enhance_by_fields().filter(id__in=row_ids)
         # )
 
-        # rows_updated.send(
-        #     self,
-        #     rows=rows_to_return,
-        #     user=user,
-        #     table=table,
-        #     model=model,
-        #     before_return=before_return,
-        #     updated_field_ids=updated_field_ids,
-        # )
+        # TODO: use rows with all data for signal
+        rows_created.send(
+            self,
+            rows=inserted_rows,
+            before=before_row,
+            user=user,
+            table=table,
+            model=model,
+        )
 
         return inserted_rows
 
