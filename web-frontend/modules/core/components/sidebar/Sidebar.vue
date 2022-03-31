@@ -232,14 +232,18 @@
           <template v-if="!!$env.ENABLE_UNDO_REDO">
             <a
               class="sidebar__foot-link"
-              :class="{ 'sidebar__foot-link--loading': undoLoading }"
+              :class="{
+                'sidebar__foot-link--loading': undoLoading,
+              }"
               @click="undo(false)"
             >
               <i class="fas fa-undo-alt"></i>
             </a>
             <a
               class="sidebar__foot-link"
-              :class="{ 'sidebar__foot-link--loading': redoLoading }"
+              :class="{
+                'sidebar__foot-link--loading': redoLoading,
+              }"
               @click="redo(false)"
             >
               <i class="fas fa-redo-alt"></i>
