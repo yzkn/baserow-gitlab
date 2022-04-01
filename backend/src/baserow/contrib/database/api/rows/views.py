@@ -774,6 +774,7 @@ class BatchRowsView(APIView):
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
+        exclude=True,
         parameters=[
             OpenApiParameter(
                 name="table_id",
