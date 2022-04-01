@@ -1,6 +1,6 @@
 import abc
 import dataclasses
-from typing import TypeVar, Generic, Any, Type, NewType
+from typing import TypeVar, Generic, Any, NewType
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
