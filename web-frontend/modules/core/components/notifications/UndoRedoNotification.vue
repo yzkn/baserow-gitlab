@@ -17,8 +17,10 @@
 </template>
 
 <script>
+import { UNDO_REDO_STATES } from '@baserow/modules/core/store/undoRedo'
+
 export default {
-  name: 'UndoRedNotification',
+  name: 'UndoRedoNotification',
   props: {
     state: {
       type: String,
@@ -27,40 +29,62 @@ export default {
   },
   computed: {
     stateContent() {
-      const base = {
-        loading: false,
-        icon: '',
-        title: '',
-        content: '',
+      function base({ loading = false, icon = '', title = '', content = '' }) {
+        return { loading, icon, title, content }
       }
 
-      if (this.state === 'undoing') {
-        base.loading = true
-        base.title = this.$t('undoRedoNotification.undoingTitle')
-        base.content = this.$t('undoRedoNotification.undoingText')
-      } else if (this.state === 'redoing') {
-        base.loading = true
-        base.title = this.$t('undoRedoNotification.redoingTitle')
-        base.content = this.$t('undoRedoNotification.redoingText')
-      } else if (this.state === 'undone') {
-        base.icon = 'fa-check'
-        base.title = this.$t('undoRedoNotification.undoneTitle')
-        base.content = this.$t('undoRedoNotification.undoneText')
-      } else if (this.state === 'redone') {
-        base.icon = 'fa-check'
-        base.title = this.$t('undoRedoNotification.redoneTitle')
-        base.content = this.$t('undoRedoNotification.redoneText')
-      } else if (this.state === 'no_more_undo') {
-        base.icon = 'fa-times'
-        base.title = this.$t('undoRedoNotification.failed')
-        base.content = this.$t('undoRedoNotification.noMoreUndo')
-      } else if (this.state === 'no_more_redo') {
-        base.icon = 'fa-times'
-        base.title = this.$t('undoRedoNotification.failed')
-        base.content = this.$t('undoRedoNotification.noMoreRedo')
+      switch (this.state) {
+        case UNDO_REDO_STATES.UNDONE:
+          return base({
+            icon: 'fa-check',
+            title: this.$t('undoRedoNotification.undoneTitle'),
+            content: this.$t('undoRedoNotification.undoneText'),
+          })
+        case UNDO_REDO_STATES.REDONE:
+          return base({
+            icon: 'fa-check',
+            title: this.$t('undoRedoNotification.redoneTitle'),
+            content: this.$t('undoRedoNotification.redoneText'),
+          })
+        case UNDO_REDO_STATES.UNDOING:
+          return base({
+            loading: true,
+            title: this.$t('undoRedoNotification.undoingTitle'),
+            content: this.$t('undoRedoNotification.undoingText'),
+          })
+        case UNDO_REDO_STATES.REDOING:
+          return base({
+            loading: true,
+            title: this.$t('undoRedoNotification.redoingTitle'),
+            content: this.$t('undoRedoNotification.redoingText'),
+          })
+        case UNDO_REDO_STATES.NO_MORE_UNDO:
+          return base({
+            icon: 'fa-times',
+            title: this.$t('undoRedoNotification.failed'),
+            content: this.$t('undoRedoNotification.noMoreUndo'),
+          })
+        case UNDO_REDO_STATES.NO_MORE_REDO:
+          return base({
+            icon: 'fa-times',
+            title: this.$t('undoRedoNotification.failed'),
+            content: this.$t('undoRedoNotification.noMoreRedo'),
+          })
+        case UNDO_REDO_STATES.ERROR_WITH_UNDO:
+          return base({
+            icon: 'fa-exclamation',
+            title: this.$t('undoRedoNotification.failed'),
+            content: this.$t('undoRedoNotification.skippingUndoDueToError'),
+          })
+        case UNDO_REDO_STATES.ERROR_WITH_REDO:
+          return base({
+            icon: 'fa-exclamation',
+            title: this.$t('undoRedoNotification.failed'),
+            content: this.$t('undoRedoNotification.skippingRedoDueToError'),
+          })
+        default:
+          return base()
       }
-
-      return base
     },
   },
 }

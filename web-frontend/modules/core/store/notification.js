@@ -1,12 +1,12 @@
 import { uuid } from '@baserow/modules/core/utils/string'
+import { UNDO_REDO_STATES } from '@baserow/modules/core/store/undoRedo'
 
 export const state = () => ({
   connecting: false,
   failedConnecting: false,
   copying: false,
-  // Can be "undoing", "redoing", "undone", "redone", "no_more_undo", "no_more_redo"
-  // or "hidden"
-  undoRedoState: 'hidden',
+  // See UNDO_REDO_STATES for all possible values.
+  undoRedoState: UNDO_REDO_STATES.HIDDEN,
   items: [],
 })
 

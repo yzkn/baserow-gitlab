@@ -5,7 +5,9 @@ from baserow.core.actions.models import Action
 from baserow.core.actions.registries import (
     action_registry,
 )
-from baserow.core.actions.scopes import RootScope, GroupActionScope
+from baserow.core.actions.scopes import (
+    RootScopeType,
+)
 from baserow.core.group_actions import CreateGroupAction, UpdateGroupAction
 from baserow.core.models import Group
 from baserow.core.utils import mark_as_locked
@@ -29,7 +31,7 @@ def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
     }
     assert create_group_action.undone_at is None
 
-    ActionHandler.undo(user, GroupActionScope(group.id), session_id)
+    ActionHandler.undo(user, [RootScopeType.value()], session_id)
 
     assert Group.objects.filter(pk=group.id).count() == 0
 
@@ -54,7 +56,7 @@ def test_can_undo_redo_creating_group(data_fixture, django_assert_num_queries):
     group = group_user.group
     group2 = group2_user.group
 
-    ActionHandler.undo(user, GroupActionScope(group.id), session_id)
+    ActionHandler.undo(user, [RootScopeType.value()], session_id)
 
     assert not Group.objects.filter(pk=group2.id).exists()
 
@@ -65,7 +67,7 @@ def test_can_undo_redo_creating_group(data_fixture, django_assert_num_queries):
         == group2.id
     )
 
-    ActionHandler.redo(user, RootScope(), session_id)
+    ActionHandler.redo(user, [RootScopeType.value()], session_id)
 
     assert Group.objects.filter(pk=group2.id).exists()
     assert Action.objects.filter(undone_at__isnull=True).count() == 2
@@ -83,7 +85,7 @@ def test_can_undo_updating_group(data_fixture, django_assert_num_queries):
     )
 
     assert updated_group.name == "new name"
-    ActionHandler.undo(user, GroupActionScope(updated_group.id), session_id)
+    ActionHandler.undo(user, [RootScopeType.value()], session_id)
     updated_group.refresh_from_db()
     assert updated_group.name == "test"
 

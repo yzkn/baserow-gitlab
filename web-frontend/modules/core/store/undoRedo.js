@@ -1,8 +1,55 @@
-import UndoService from '@baserow/modules/core/services/undo'
+import UndoRedoService from '@baserow/modules/core/services/undoRedo'
 
+export const UNDO_REDO_STATES = {
+  // The undo has successfully completed
+  UNDONE: 'UNDONE',
+  // The redo has successfully completed
+  REDONE: 'REDONE',
+  // The undo action is currently executing
+  UNDOING: 'UNDOING',
+  // The redo action is currently executing
+  REDOING: 'REDOING',
+  // An undo was requested but there were no more actions to undo
+  NO_MORE_UNDO: 'NO_MORE_UNDO',
+  // An redo was requested but there were no more actions to undo
+  NO_MORE_REDO: 'NO_MORE_REDO',
+  // Something went wrong whilst undoing and so the undo was skipped over
+  ERROR_WITH_UNDO: 'ERROR_WITH_UNDO',
+  // Something went wrong whilst redoing and so the redo was skipped over
+  ERROR_WITH_REDO: 'ERROR_WITH_REDO',
+  // There is no recent undo/redo action
+  HIDDEN: 'HIDDEN',
+}
+// The different types of undo/redo scopes available. Use this functions when
+// calling UPDATE_CURRENT_SCOPE.
+export const SCOPES = {
+  root() {
+    return {
+      root: true,
+    }
+  },
+  group(groupId) {
+    return {
+      group_id: groupId,
+    }
+  },
+  application(applicationId) {
+    return {
+      application_id: applicationId,
+    }
+  },
+  // todo move to database module?
+  table(tableId) {
+    return {
+      table_id: tableId,
+    }
+  },
+}
 export const state = () => ({
   undoing: false,
   redoing: false,
+  // A stack of scopes. The last being the current scope.
+  scopeStack: [{}],
 })
 
 export const mutations = {
@@ -11,6 +58,19 @@ export const mutations = {
   },
   SET_REDOING(state, value) {
     state.redoing = value
+  },
+  RESET_SCOPE_STACK(state, scope) {
+    state.scopeStack = [scope]
+  },
+  PUSH_NEW_SCOPE(state, scope) {
+    state.scopeStack.push(scope)
+  },
+  POP_CURRENT_SCOPE(state) {
+    state.scopeStack.pop()
+  },
+  UPDATE_CURRENT_SCOPE(state, newScope) {
+    const current = state.scopeStack[state.scopeStack.length - 1]
+    Object.assign(current, current, newScope)
   },
 }
 
@@ -21,8 +81,8 @@ export const actions = {
     return await dispatch('action', {
       showLoadingNotification,
       serviceMethod: 'undo',
-      doingNotificationState: 'undoing',
-      doneNotificationState: 'undone',
+      doingNotificationState: UNDO_REDO_STATES.UNDOING,
+      doneNotificationState: UNDO_REDO_STATES.UNDONE,
       commitName: 'SET_UNDOING',
     })
   },
@@ -30,8 +90,8 @@ export const actions = {
     return await dispatch('action', {
       showLoadingNotification,
       serviceMethod: 'redo',
-      doingNotificationState: 'redoing',
-      doneNotificationState: 'redone',
+      doingNotificationState: UNDO_REDO_STATES.REDOING,
+      doneNotificationState: UNDO_REDO_STATES.REDONE,
       commitName: 'SET_REDOING',
     })
   },
@@ -53,22 +113,30 @@ export const actions = {
     commit(commitName, true)
     await dispatch(
       'notification/setUndoRedoState',
-      showLoadingNotification ? doingNotificationState : 'hidden',
+      showLoadingNotification
+        ? doingNotificationState
+        : UNDO_REDO_STATES.HIDDEN,
       { root: true }
     )
 
     try {
-      await UndoService(this.$client)[serviceMethod]('root')
+      await UndoRedoService(this.$client)[serviceMethod](
+        getters.getCurrentScope
+      )
       await dispatch('notification/setUndoRedoState', doneNotificationState, {
         root: true,
       })
     } catch (e) {
-      if (['ERROR_NO_MORE_ACTIONS_TO_UNDO'].includes(e.handler.code)) {
-        await dispatch('notification/setUndoRedoState', 'no_more_undo', {
-          root: true,
-        })
-      } else if (['ERROR_NO_MORE_ACTIONS_TO_REDO'].includes(e.handler.code)) {
-        await dispatch('notification/setUndoRedoState', 'no_more_redo', {
+      const errorCodeToUndoRedoState = {
+        ERROR_NO_MORE_ACTIONS_TO_UNDO: UNDO_REDO_STATES.NO_MORE_UNDO,
+        ERROR_NO_MORE_ACTIONS_TO_REDO: UNDO_REDO_STATES.NO_MORE_REDO,
+        ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED: UNDO_REDO_STATES.ERROR_WITH_UNDO,
+        ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED: UNDO_REDO_STATES.ERROR_WITH_REDO,
+      }
+      const newUndoRedoState = errorCodeToUndoRedoState[e.handler.code]
+
+      if (newUndoRedoState) {
+        await dispatch('notification/setUndoRedoState', newUndoRedoState, {
           root: true,
         })
       } else {
@@ -77,11 +145,32 @@ export const actions = {
     } finally {
       hideTimeout = setTimeout(
         () =>
-          dispatch('notification/setUndoRedoState', 'hidden', { root: true }),
+          dispatch('notification/setUndoRedoState', UNDO_REDO_STATES.HIDDEN, {
+            root: true,
+          }),
         2000
       )
       commit(commitName, false)
     }
+  },
+  resetScopeStack({ commit }, scope) {
+    // TODO do we need this? Perhaps when switching route entirely?
+    commit('RESET_SCOPE_STACK', scope)
+  },
+  pushNewScope({ commit }, scope) {
+    // For use in modals. A model will push its own brand new scope on and then pop it
+    // off after it has closed. By using a stack we can support many nested modals
+    // doing this.
+    commit('PUSH_NEW_SCOPE', scope)
+  },
+  popCurrentScope({ commit }) {
+    // For use in modals. A model will push its own brand new scope on and then pop it
+    // off after it has closed. By using a stack we can support many nested modals
+    // doing this.
+    commit('POP_CURRENT_SCOPE')
+  },
+  updateCurrentScope({ commit }, scope) {
+    commit('UPDATE_CURRENT_SCOPE', scope)
   },
 }
 
@@ -91,6 +180,9 @@ export const getters = {
   },
   isRedoing(state) {
     return state.redoing
+  },
+  getCurrentScope(state) {
+    return state.scopeStack[state.scopeStack.length - 1]
   },
 }
 

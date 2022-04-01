@@ -22,6 +22,7 @@ class Action(models.Model):
     params = models.JSONField(encoder=JSONEncoderSupportingDataClasses)
     scope = models.TextField()
     undone_at = models.DateTimeField(null=True, blank=True)
+    error = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return (

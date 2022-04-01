@@ -13,7 +13,7 @@
     </div>
     <div class="bottom-right-notifications">
       <UndoRedoNotification
-        v-if="undoRedoState !== 'hidden'"
+        v-if="undoRedoIsNotHidden"
         :state="undoRedoState"
       ></UndoRedoNotification>
       <CopyingNotification v-if="copying"></CopyingNotification>
@@ -28,6 +28,7 @@
 
 <script>
 import { mapState } from 'vuex'
+import { UNDO_REDO_STATES } from '@baserow/modules/core/store/undoRedo'
 
 import Notification from '@baserow/modules/core/components/notifications/Notification'
 import ConnectingNotification from '@baserow/modules/core/components/notifications/ConnectingNotification'
@@ -47,6 +48,9 @@ export default {
     UndoRedoNotification,
   },
   computed: {
+    undoRedoIsNotHidden() {
+      return this.undoRedoState !== UNDO_REDO_STATES.HIDDEN
+    },
     restoreNotifications() {
       return this.notifications.filter((n) => n.type === 'restore')
     },

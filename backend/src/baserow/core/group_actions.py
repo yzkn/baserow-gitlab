@@ -3,7 +3,7 @@ import dataclasses
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.registries import BaserowAction
-from baserow.core.actions.scopes import RootScope
+from baserow.core.actions.scopes import RootScopeType
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
 from baserow.core.trash.handler import TrashHandler
@@ -25,7 +25,7 @@ class DeleteGroupAction(BaserowAction["DeleteGroupAction.Params"]):
         self.register_action(
             user,
             self.Params(group.id),
-            scope=RootScope(),
+            scope=RootScopeType.value(),
         )
 
     @classmethod
@@ -59,7 +59,7 @@ class CreateGroupAction(BaserowAction["CreateGroupParameters"]):
         cls.register_action(
             user=user,
             params=cls.Params(group_id, group_name),
-            scope=RootScope(),
+            scope=RootScopeType.value(),
         )
         return group_user
 
@@ -95,7 +95,7 @@ class UpdateGroupAction(BaserowAction["Params"]):
                 old_group_name=old_group_name,
                 new_group_name=new_group_name,
             ),
-            scope=RootScope(),
+            scope=RootScopeType.value(),
         )
         return group
 

@@ -1,13 +1,12 @@
-from django.db import transaction
-from itsdangerous.exc import BadSignature, BadTimeSignature, SignatureExpired
+from typing import List
 
 from django.conf import settings
-
+from django.db import transaction
 from drf_spectacular.utils import extend_schema
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from itsdangerous.exc import BadSignature, BadTimeSignature, SignatureExpired
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_jwt.settings import api_settings
 from rest_framework_jwt.views import (
     ObtainJSONWebTokenView as RegularObtainJSONWebToken,
@@ -21,26 +20,46 @@ from baserow.api.errors import (
     EXPIRED_TOKEN_SIGNATURE,
     ERROR_HOSTNAME_IS_NOT_ALLOWED,
 )
+from baserow.api.exceptions import RequestBodyValidationException
 from baserow.api.groups.invitations.errors import (
     ERROR_GROUP_INVITATION_DOES_NOT_EXIST,
     ERROR_GROUP_INVITATION_EMAIL_MISMATCH,
 )
 from baserow.api.schemas import get_error_schema
 from baserow.api.user.registries import user_data_registry
+from baserow.api.utils import serialize_errors_recursive
+from baserow.core.actions.exceptions import (
+    NoMoreActionsToRedoException,
+    NoMoreActionsToUndoException,
+    SkippingRedoBecauseItFailedException,
+    SkippingUndoBecauseItFailedException,
+)
+from baserow.core.actions.handler import ActionHandler
 from baserow.core.exceptions import (
     BaseURLHostnameNotAllowed,
     GroupInvitationEmailMismatch,
     GroupInvitationDoesNotExist,
 )
 from baserow.core.models import GroupInvitation, Template
-from baserow.core.user.handler import UserHandler
 from baserow.core.user.exceptions import (
     UserAlreadyExist,
     UserNotFound,
     InvalidPassword,
     DisabledSignupError,
 )
-
+from baserow.core.user.handler import UserHandler
+from baserow.core.user.sessions import get_untrusted_client_session_id
+from .errors import (
+    ERROR_ALREADY_EXISTS,
+    ERROR_USER_NOT_FOUND,
+    ERROR_INVALID_OLD_PASSWORD,
+    ERROR_DISABLED_SIGNUP,
+    ERROR_NO_MORE_ACTIONS_TO_UNDO,
+    ERROR_NO_MORE_ACTIONS_TO_REDO,
+    ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED,
+    ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED,
+)
+from .schemas import create_user_response_schema, authenticate_user_schema
 from .serializers import (
     AccountSerializer,
     RegisterSerializer,
@@ -50,25 +69,9 @@ from .serializers import (
     ChangePasswordBodyValidationSerializer,
     NormalizedEmailWebTokenSerializer,
     DashboardSerializer,
-    UndoRedoSerializer,
+    UndoRedoRequestSerializer,
 )
-from .errors import (
-    ERROR_ALREADY_EXISTS,
-    ERROR_USER_NOT_FOUND,
-    ERROR_INVALID_OLD_PASSWORD,
-    ERROR_DISABLED_SIGNUP,
-    ERROR_NO_MORE_ACTIONS_TO_UNDO,
-    ERROR_NO_MORE_ACTIONS_TO_REDO,
-)
-from .schemas import create_user_response_schema, authenticate_user_schema
-from baserow.api.exceptions import RequestBodyValidationException
-from baserow.api.utils import serialize_errors_recursive
-from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.exceptions import (
-    NoMoreActionsToRedoException,
-    NoMoreActionsToUndoException,
-)
-from baserow.core.user.sessions import get_user_session_id
+from baserow.core.actions.registries import Scope
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
@@ -393,12 +396,12 @@ class DashboardView(APIView):
         return Response(dashboard_serializer.data)
 
 
-def deserialize_scope(request):
-    serializer = UndoRedoSerializer(data=request.data)
+def deserialize_scopes(request) -> List[Scope]:
+    serializer = UndoRedoRequestSerializer(data=request.data)
     if not serializer.is_valid():
         detail = serialize_errors_recursive(serializer.errors)
         raise RequestBodyValidationException(detail)
-    return serializer.to_scope()
+    return serializer.to_scope_list()
 
 
 class UndoView(APIView):
@@ -406,6 +409,7 @@ class UndoView(APIView):
 
     @extend_schema(
         tags=["User"],
+        request=UndoRedoRequestSerializer,
         operation_id="undo",
         description=("@TODO docs"),
         responses={204: None},
@@ -414,11 +418,14 @@ class UndoView(APIView):
     @map_exceptions(
         {
             NoMoreActionsToUndoException: ERROR_NO_MORE_ACTIONS_TO_UNDO,
+            SkippingUndoBecauseItFailedException: ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED,
         }
     )
     def patch(self, request):
-        scope = deserialize_scope(request)
-        ActionHandler.undo(request.user, scope, get_user_session_id(request.user))
+        scope = deserialize_scopes(request)
+        ActionHandler.undo(
+            request.user, scope, get_untrusted_client_session_id(request.user)
+        )
         return Response("", status=204)
 
 
@@ -427,7 +434,8 @@ class RedoView(APIView):
 
     @extend_schema(
         tags=["User"],
-        operation_id="undo",
+        request=UndoRedoRequestSerializer,
+        operation_id="redo",
         description=("@TODO docs"),
         responses={204: None},
     )
@@ -435,9 +443,12 @@ class RedoView(APIView):
     @map_exceptions(
         {
             NoMoreActionsToRedoException: ERROR_NO_MORE_ACTIONS_TO_REDO,
+            SkippingRedoBecauseItFailedException: ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED,
         }
     )
     def patch(self, request):
-        scope = deserialize_scope(request)
-        ActionHandler.redo(request.user, scope, get_user_session_id(request.user))
+        scopes = deserialize_scopes(request)
+        ActionHandler.redo(
+            request.user, scopes, get_untrusted_client_session_id(request.user)
+        )
         return Response("", status=204)

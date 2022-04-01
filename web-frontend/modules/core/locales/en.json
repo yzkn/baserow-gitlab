@@ -193,11 +193,13 @@
         "undoneTitle": "Undone",
         "undoneText": "Action is undone",
         "noMoreUndo": "No more actions to undo",
+        "skippingUndoDueToError": "Undo failed due to unknown error, skipping it.",
         "redoingTitle": "Redoing...",
         "redoingText": "Redoing your action",
         "redoneTitle": "Redone",
         "redoneText": "Action is redone",
         "noMoreRedo": "No more actions to redo",
+        "skippingRedoDueToError": "Redo failed due to unknown error, skipping it.",
         "failed": "Failed"
     },
     "errorLayout": {

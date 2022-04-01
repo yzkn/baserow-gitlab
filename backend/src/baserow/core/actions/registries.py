@@ -1,16 +1,42 @@
 import abc
 import dataclasses
-from typing import TypeVar, Generic, Any
+from typing import TypeVar, Generic, Any, Type, NewType
 
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
 from baserow.core.actions.models import Action
-from baserow.core.actions.scopes import RootScope
 from baserow.core.registry import Registry, Instance
-from baserow.core.user.sessions import get_user_session_id
+from baserow.core.user.sessions import get_untrusted_client_session_id
 from baserow.core.user.utils import UserType
 
 User = get_user_model()
+
+Scope = NewType("Scope", str)
+
+
+class ScopeType(abc.ABC, Instance):
+    @property
+    @abc.abstractmethod
+    def type(self) -> str:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def value(cls, *args, **kwargs) -> Scope:
+        pass
+
+    @abc.abstractmethod
+    def valid_serializer_value_to_scope_value(self, value) -> Scope:
+        pass
+
+    @abc.abstractmethod
+    def get_request_serializer_field(self) -> serializers.Field:
+        pass
+
+
+class ActionScopeRegistry(Registry[ScopeType]):
+    name = "action_scope"
 
 
 class BaserowActionRegistry(Registry):
@@ -51,16 +77,17 @@ class BaserowAction(Instance, abc.ABC, Generic[T]):
         cls,
         user: UserType,
         params: T,
-        scope: RootScope,
+        scope: Scope,
     ):
-        session = get_user_session_id(user)
+        session = get_untrusted_client_session_id(user)
         Action.objects.create(
             user=user,
             type=cls.type,
             params=params,
-            scope=scope.scope,
+            scope=scope,
             session=session,
         )
 
 
+action_scope_registry: ActionScopeRegistry = ActionScopeRegistry()
 action_registry: BaserowActionRegistry = BaserowActionRegistry()

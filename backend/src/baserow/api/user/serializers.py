@@ -1,15 +1,17 @@
+from typing import List
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import update_last_login
 from rest_framework import serializers
 from rest_framework_jwt.serializers import JSONWebTokenSerializer
 
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import update_last_login
-from django.conf import settings
-
 from baserow.api.groups.invitations.serializers import UserGroupInvitationSerializer
-from baserow.core.actions.scopes import RootScope, GroupActionScope
-from baserow.core.user.utils import normalize_email_address
+from baserow.api.mixins import UnknownFieldRaisesExceptionSerializerMixin
 from baserow.api.user.validators import password_validation, language_validation
+from baserow.core.actions.registries import action_scope_registry, Scope
 from baserow.core.models import Template, UserLogEntry
+from baserow.core.user.utils import normalize_email_address
 
 User = get_user_model()
 
@@ -71,21 +73,35 @@ class RegisterSerializer(serializers.Serializer):
     )
 
 
-class GroupScopeSerializer(serializers.Serializer):
-    group_id = serializers.IntegerField(min_value=0)
+def get_scope_request_serializer():
+    action_scope_types = action_scope_registry.get_all()
+    attrs = {}
 
-    def to_scope(self):
-        return GroupActionScope(self.validated_data["group_id"])
+    for scope_type in action_scope_types:
+        attrs[scope_type.type] = scope_type.get_request_serializer_field()
+
+    return type(
+        "ActionScopeSerializer",
+        (serializers.Serializer, UnknownFieldRaisesExceptionSerializerMixin),
+        attrs,
+    )
 
 
-class UndoRedoSerializer(serializers.Serializer):
-    group = GroupScopeSerializer(required=False)
+ScopeSerializer = get_scope_request_serializer()
 
-    def to_scope(self):
-        if "group" in self.validated_data:
-            return self.group.to_scope()
-        else:
-            return RootScope()
+
+class UndoRedoRequestSerializer(serializers.Serializer):
+    scope = ScopeSerializer()
+
+    def to_scope_list(self) -> List[Scope]:
+        scope_list = []
+        for scope_type, scope_value in self.validated_data["scope"].items():
+            if scope_value:
+                action_scope_type = action_scope_registry.get(scope_type)
+                scope_list.append(
+                    action_scope_type.valid_serializer_value_to_scope_value(scope_value)
+                )
+        return scope_list
 
 
 class AccountSerializer(serializers.Serializer):

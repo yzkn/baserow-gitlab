@@ -4,7 +4,7 @@ from typing import Optional
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.registries import BaserowAction
-from baserow.core.actions.scopes import RootScope
+from baserow.core.actions.scopes import RootScopeType
 from baserow.core.trash.handler import TrashHandler
 
 User = get_user_model()
@@ -40,7 +40,7 @@ class RestoreAction(BaserowAction["Params"]):
                 trash_item_id,
                 parent_trash_item_id,
             ),
-            scope=RootScope(),
+            scope=RootScopeType.value(),
         )
 
     @classmethod
@@ -58,9 +58,6 @@ class RestoreAction(BaserowAction["Params"]):
 
     @classmethod
     def undo(cls, user: User, params: "Params"):
-        TrashHandler.delete_item_by_id(
-            user,
-            params.trash_item_type,
-            params.trash_item_id,
-            parent_trash_item_id=params.parent_trash_item_id,
-        )
+        # todo this is painful without a trash system which lets us delete just using
+        # an id and a trash_item_type
+        pass

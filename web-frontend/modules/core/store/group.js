@@ -4,6 +4,7 @@ import {
   setGroupCookie,
   unsetGroupCookie,
 } from '@baserow/modules/core/utils/group'
+import { SCOPES } from '@baserow/modules/core/store/undoRedo'
 
 function populateGroup(group) {
   group._ = { loading: false, selected: false }
@@ -204,6 +205,9 @@ export const actions = {
   select({ commit, dispatch }, group) {
     commit('SET_SELECTED', group)
     setGroupCookie(group.id, this.app)
+    dispatch('undoRedo/updateCurrentScope', SCOPES.group(group.id), {
+      root: true,
+    })
   },
   /**
    * Select a group by a given group id.
@@ -221,6 +225,9 @@ export const actions = {
   unselect({ commit, dispatch, getters }, group) {
     commit('UNSELECT', {})
     unsetGroupCookie(this.app)
+    dispatch('undoRedo/updateCurrentScope', SCOPES.group(null), {
+      root: true,
+    })
     return dispatch('application/clearAll', group, { root: true })
   },
 }

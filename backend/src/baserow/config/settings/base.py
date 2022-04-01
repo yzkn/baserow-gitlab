@@ -234,7 +234,7 @@ REST_FRAMEWORK = {
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "WebSocketId",
-    "SessionId",
+    "ClientSessionId",
 ]
 
 
