@@ -30,18 +30,18 @@ export const SCOPES = {
   },
   group(groupId) {
     return {
-      group_id: groupId,
+      group: groupId,
     }
   },
   application(applicationId) {
     return {
-      application_id: applicationId,
+      application: applicationId,
     }
   },
   // todo move to database module?
   table(tableId) {
     return {
-      table_id: tableId,
+      table: tableId,
     }
   },
 }

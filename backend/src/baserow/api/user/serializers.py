@@ -78,8 +78,7 @@ def get_scope_request_serializer():
     attrs = {}
 
     for scope_type in action_scope_types:
-        name, field = scope_type.get_request_serializer_field_and_name()
-        attrs[name] = field
+        attrs[scope_type.type] = scope_type.get_request_serializer_field()
 
     return type(
         "ActionScopeSerializer",
