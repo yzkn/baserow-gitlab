@@ -26,7 +26,7 @@ def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
     assert Action.objects.count() == 1
     create_group_action = Action.objects.order_by("id")[0]
     assert create_group_action.user == user
-    assert create_group_action.categories == "root"
+    assert create_group_action.category == "root"
     assert create_group_action.params == {
         "created_group_id": group.id,
         "group_name": "test",
@@ -40,7 +40,7 @@ def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
     assert Action.objects.count() == 1
     undone_action = Action.objects.first()
     assert undone_action.user == user
-    assert undone_action.categories == "root"
+    assert undone_action.category == "root"
     assert undone_action.params == {
         "created_group_id": group.id,
         "group_name": "test",
