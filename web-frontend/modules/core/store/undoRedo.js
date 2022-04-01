@@ -20,9 +20,9 @@ export const UNDO_REDO_STATES = {
   // There is no recent undo/redo action
   HIDDEN: 'HIDDEN',
 }
-// The different types of undo/redo scopes available. Use this functions when
-// calling UPDATE_CURRENT_SCOPE.
-export const SCOPES = {
+// The different types of undo/redo categories available. Use this functions when
+// calling UPDATE_CURRENT_CATEGORY_SET.
+export const ACTION_CATEGORIES = {
   root() {
     return {
       root: true,
@@ -48,8 +48,9 @@ export const SCOPES = {
 export const state = () => ({
   undoing: false,
   redoing: false,
-  // A stack of scopes. The last being the current scope.
-  scopeStack: [{}],
+  // A stack of objects, each object representing a set of visible action categories.
+  // The last object in the stack is the current set of categories which are visible.
+  actionCategoriesStack: [{}],
 })
 
 export const mutations = {
@@ -59,18 +60,19 @@ export const mutations = {
   SET_REDOING(state, value) {
     state.redoing = value
   },
-  RESET_SCOPE_STACK(state, scope) {
-    state.scopeStack = [scope]
+  RESET_ACTION_CATEGORY_SET_STACK(state, newCategorySet) {
+    state.actionCategoriesStack = [newCategorySet]
   },
-  PUSH_NEW_SCOPE(state, scope) {
-    state.scopeStack.push(scope)
+  PUSH_NEW_ACTION_CATEGORY_SET(state, newCategorySet) {
+    state.actionCategoriesStack.push(newCategorySet)
   },
-  POP_CURRENT_SCOPE(state) {
-    state.scopeStack.pop()
+  POP_CURRENT_ACTION_CATEGORY_SET(state) {
+    state.actionCategoriesStack.pop()
   },
-  UPDATE_CURRENT_SCOPE(state, newScope) {
-    const current = state.scopeStack[state.scopeStack.length - 1]
-    Object.assign(current, current, newScope)
+  UPDATE_CURRENT_CATEGORY_SET(state, newCategory) {
+    const current =
+      state.actionCategoriesStack[state.actionCategoriesStack.length - 1]
+    Object.assign(current, current, newCategory)
   },
 }
 
@@ -153,24 +155,22 @@ export const actions = {
       commit(commitName, false)
     }
   },
-  resetScopeStack({ commit }, scope) {
+  resetCategorySetStack({ commit }, categorySet) {
     // TODO do we need this? Perhaps when switching route entirely?
-    commit('RESET_SCOPE_STACK', scope)
+    commit('RESET_ACTION_CATEGORY_SET_STACK', categorySet)
   },
-  pushNewScope({ commit }, scope) {
-    // For use in modals. A model will push its own brand new scope on and then pop it
-    // off after it has closed. By using a stack we can support many nested modals
-    // doing this.
-    commit('PUSH_NEW_SCOPE', scope)
+  pushNewCategorySet({ commit }, categorySet) {
+    // For use in modals. A modal will push a new category set when opened restricting
+    // the actions available for undo/redo to just those visible from the modal.
+    // When the modal closes it should then call popCurrentCategorySet to reset to
+    // previous category set.
+    commit('PUSH_NEW_ACTION_CATEGORY_SET', categorySet)
   },
-  popCurrentScope({ commit }) {
-    // For use in modals. A model will push its own brand new scope on and then pop it
-    // off after it has closed. By using a stack we can support many nested modals
-    // doing this.
-    commit('POP_CURRENT_SCOPE')
+  popCurrentCategorySet({ commit }) {
+    commit('POP_CURRENT_ACTION_CATEGORY_SET')
   },
-  updateCurrentScope({ commit }, scope) {
-    commit('UPDATE_CURRENT_SCOPE', scope)
+  updateCurrentCategorySet({ commit }, category) {
+    commit('UPDATE_CURRENT_CATEGORY_SET', category)
   },
 }
 
@@ -182,7 +182,7 @@ export const getters = {
     return state.redoing
   },
   getCurrentScope(state) {
-    return state.scopeStack[state.scopeStack.length - 1]
+    return state.actionCategoriesStack[state.actionCategoriesStack.length - 1]
   },
 }
 

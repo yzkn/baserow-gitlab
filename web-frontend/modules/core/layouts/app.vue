@@ -18,7 +18,7 @@ import { mapGetters } from 'vuex'
 import Notifications from '@baserow/modules/core/components/notifications/Notifications'
 import Sidebar from '@baserow/modules/core/components/sidebar/Sidebar'
 import undoRedo from '@baserow/modules/core/mixins/undoRedo'
-import { SCOPES } from '@baserow/modules/core/store/undoRedo'
+import { ACTION_CATEGORIES } from '@baserow/modules/core/store/undoRedo'
 
 export default {
   components: {
@@ -37,7 +37,10 @@ export default {
     this.$realtime.connect()
     this.$el.keydownEvent = (event) => this.keyDown(event)
     document.body.addEventListener('keydown', this.$el.keydownEvent)
-    this.$store.dispatch('undoRedo/updateCurrentScope', SCOPES.root())
+    this.$store.dispatch(
+      'undoRedo/updateCurrentCategorySet',
+      ACTION_CATEGORIES.root()
+    )
   },
   beforeDestroy() {
     this.$realtime.disconnect()

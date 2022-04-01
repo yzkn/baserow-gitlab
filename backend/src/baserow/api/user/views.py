@@ -71,7 +71,7 @@ from .serializers import (
     DashboardSerializer,
     UndoRedoRequestSerializer,
 )
-from baserow.core.actions.registries import Scope
+from baserow.core.actions.registries import ActionCategoryStr
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
@@ -396,12 +396,12 @@ class DashboardView(APIView):
         return Response(dashboard_serializer.data)
 
 
-def deserialize_scopes(request) -> List[Scope]:
+def deserialize_categories(request) -> List[ActionCategoryStr]:
     serializer = UndoRedoRequestSerializer(data=request.data)
     if not serializer.is_valid():
         detail = serialize_errors_recursive(serializer.errors)
         raise RequestBodyValidationException(detail)
-    return serializer.to_scope_list()
+    return serializer.to_category_list()
 
 
 class UndoView(APIView):
@@ -422,9 +422,9 @@ class UndoView(APIView):
         }
     )
     def patch(self, request):
-        scope = deserialize_scopes(request)
+        categories = deserialize_categories(request)
         ActionHandler.undo(
-            request.user, scope, get_untrusted_client_session_id(request.user)
+            request.user, categories, get_untrusted_client_session_id(request.user)
         )
         return Response("", status=204)
 
@@ -447,8 +447,8 @@ class RedoView(APIView):
         }
     )
     def patch(self, request):
-        scopes = deserialize_scopes(request)
+        categories = deserialize_categories(request)
         ActionHandler.redo(
-            request.user, scopes, get_untrusted_client_session_id(request.user)
+            request.user, categories, get_untrusted_client_session_id(request.user)
         )
         return Response("", status=204)

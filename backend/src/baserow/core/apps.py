@@ -7,33 +7,33 @@ class CoreConfig(AppConfig):
     def ready(self):
         from baserow.core.trash.registries import trash_item_type_registry
         from baserow.core.actions.registries import (
-            action_registry,
-            action_scope_registry,
+            action_type_registry,
+            action_category_registry,
         )
         from baserow.core.trash.trash_types import GroupTrashableItemType
         from baserow.core.trash.trash_types import ApplicationTrashableItemType
-        from baserow.core.group_actions import CreateGroupAction
+        from baserow.core.group_actions import CreateGroupActionType
 
         trash_item_type_registry.register(GroupTrashableItemType())
         trash_item_type_registry.register(ApplicationTrashableItemType())
 
         from baserow.core.group_actions import (
-            UpdateGroupAction,
-            DeleteGroupAction,
+            UpdateGroupActionType,
+            DeleteGroupActionType,
         )
-        from baserow.core.trash.actions import RestoreAction
+        from baserow.core.trash.actions import RestoreActionType
 
-        action_registry.register(CreateGroupAction())
-        action_registry.register(DeleteGroupAction())
-        action_registry.register(UpdateGroupAction())
-        action_registry.register(RestoreAction())
+        action_type_registry.register(CreateGroupActionType())
+        action_type_registry.register(DeleteGroupActionType())
+        action_type_registry.register(UpdateGroupActionType())
+        action_type_registry.register(RestoreActionType())
 
-        from baserow.core.actions.scopes import (
-            RootScopeType,
-            GroupScopeType,
-            ApplicationScopeType,
+        from baserow.core.actions.categories import (
+            RootActionCategoryType,
+            GroupActionCategoryType,
+            ApplicationActionCategoryType,
         )
 
-        action_scope_registry.register(RootScopeType())
-        action_scope_registry.register(GroupScopeType())
-        action_scope_registry.register(ApplicationScopeType())
+        action_category_registry.register(RootActionCategoryType())
+        action_category_registry.register(GroupActionCategoryType())
+        action_category_registry.register(ApplicationActionCategoryType())

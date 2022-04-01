@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                         encoder=baserow.core.actions.models.JSONEncoderSupportingDataClasses
                     ),
                 ),
-                ("scope", models.TextField()),
+                ("category", models.TextField()),
                 ("undone_at", models.DateTimeField(blank=True, null=True)),
                 ("error", models.TextField(blank=True, null=True)),
                 (
@@ -55,8 +55,8 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="action",
             index=models.Index(
-                fields=["user", "-created_on", "scope", "session"],
-                name="core_action_user_id_c23214_idx",
+                fields=["user", "-created_on", "category", "session"],
+                name="core_action_user_id_23853d_idx",
             ),
         ),
     ]

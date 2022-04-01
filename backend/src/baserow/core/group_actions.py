@@ -3,8 +3,8 @@ import dataclasses
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import BaserowAction
-from baserow.core.actions.scopes import RootScopeType
+from baserow.core.actions.registries import ActionType
+from baserow.core.actions.categories import RootActionCategoryType
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
 from baserow.core.trash.handler import TrashHandler
@@ -13,7 +13,7 @@ from baserow.core.user.utils import UserType
 User = get_user_model()
 
 
-class DeleteGroupAction(BaserowAction["DeleteGroupAction.Params"]):
+class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
     type = "delete_group"
 
     @dataclasses.dataclass
@@ -26,12 +26,15 @@ class DeleteGroupAction(BaserowAction["DeleteGroupAction.Params"]):
         self.register_action(
             user,
             self.Params(group.id),
-            scope=RootScopeType.value(),
+            category=RootActionCategoryType.value(),
         )
 
     @classmethod
     def undo(
-        cls, user: UserType, params: "DeleteGroupAction.Params", action_to_undo: Action
+        cls,
+        user: UserType,
+        params: "DeleteGroupActionType.Params",
+        action_to_undo: Action,
     ):
         TrashHandler.restore_item(
             user,
@@ -41,12 +44,15 @@ class DeleteGroupAction(BaserowAction["DeleteGroupAction.Params"]):
 
     @classmethod
     def redo(
-        cls, user: UserType, params: "DeleteGroupAction.Params", action_to_redo: Action
+        cls,
+        user: UserType,
+        params: "DeleteGroupActionType.Params",
+        action_to_redo: Action,
     ):
         CoreHandler().delete_group_by_id(user, params.group_id)
 
 
-class CreateGroupAction(BaserowAction["CreateGroupParameters"]):
+class CreateGroupActionType(ActionType["CreateGroupParameters"]):
     type = "create_group"
 
     @dataclasses.dataclass
@@ -64,26 +70,32 @@ class CreateGroupAction(BaserowAction["CreateGroupParameters"]):
         cls.register_action(
             user=user,
             params=cls.Params(group_id, group_name),
-            scope=RootScopeType.value(),
+            category=RootActionCategoryType.value(),
         )
         return group_user
 
     @classmethod
     def undo(
-        cls, user: UserType, params: "CreateGroupAction.Params", action_to_undo: Action
+        cls,
+        user: UserType,
+        params: "CreateGroupActionType.Params",
+        action_to_undo: Action,
     ):
         CoreHandler().delete_group_by_id(user, params.created_group_id)
 
     @classmethod
     def redo(
-        cls, user: UserType, params: "CreateGroupAction.Params", action_to_redo: Action
+        cls,
+        user: UserType,
+        params: "CreateGroupActionType.Params",
+        action_to_redo: Action,
     ):
         TrashHandler.restore_item(
             user, "group", params.created_group_id, parent_trash_item_id=None
         )
 
 
-class UpdateGroupAction(BaserowAction["Params"]):
+class UpdateGroupActionType(ActionType["Params"]):
     type = "update_group"
 
     @dataclasses.dataclass
@@ -104,13 +116,16 @@ class UpdateGroupAction(BaserowAction["Params"]):
                 old_group_name=old_group_name,
                 new_group_name=new_group_name,
             ),
-            scope=RootScopeType.value(),
+            category=RootActionCategoryType.value(),
         )
         return group
 
     @classmethod
     def undo(
-        cls, user: UserType, params: "UpdateGroupAction.Params", action_to_undo: Action
+        cls,
+        user: UserType,
+        params: "UpdateGroupActionType.Params",
+        action_to_undo: Action,
     ):
         group = CoreHandler().get_group_for_update(params.updated_group_id)
         CoreHandler().update_group(
@@ -121,7 +136,10 @@ class UpdateGroupAction(BaserowAction["Params"]):
 
     @classmethod
     def redo(
-        cls, user: UserType, params: "UpdateGroupAction.Params", action_to_redo: Action
+        cls,
+        user: UserType,
+        params: "UpdateGroupActionType.Params",
+        action_to_redo: Action,
     ):
         group = CoreHandler().get_group_for_update(params.updated_group_id)
         CoreHandler().update_group(

@@ -4,14 +4,14 @@ from typing import Optional
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import BaserowAction
-from baserow.core.actions.scopes import RootScopeType
+from baserow.core.actions.registries import ActionType
+from baserow.core.actions.categories import RootActionCategoryType
 from baserow.core.trash.handler import TrashHandler
 
 User = get_user_model()
 
 
-class RestoreAction(BaserowAction["Params"]):
+class RestoreActionType(ActionType["Params"]):
     type = "restore"
 
     @dataclasses.dataclass
@@ -41,12 +41,12 @@ class RestoreAction(BaserowAction["Params"]):
                 trash_item_id,
                 parent_trash_item_id,
             ),
-            scope=RootScopeType.value(),
+            category=RootActionCategoryType.value(),
         )
 
     @classmethod
     def undo(
-        cls, user: User, params: "RestoreAction.Params", action_being_undone: Action
+        cls, user: User, params: "RestoreActionType.Params", action_being_undone: Action
     ):
         # todo this is painful without a trash system which lets us delete just using
         # an id and a trash_item_type. TrashHandler.restore_item works this way already.
@@ -58,7 +58,7 @@ class RestoreAction(BaserowAction["Params"]):
 
     @classmethod
     def redo(
-        cls, user: User, params: "RestoreAction.Params", action_being_redone: Action
+        cls, user: User, params: "RestoreActionType.Params", action_being_redone: Action
     ):
         TrashHandler.restore_item(
             user,

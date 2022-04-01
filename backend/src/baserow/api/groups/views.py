@@ -30,11 +30,11 @@ from baserow.core.trash.exceptions import CannotDeleteAlreadyDeletedItem
 from .serializers import GroupSerializer, OrderGroupsSerializer
 from .schemas import group_user_schema
 from .errors import ERROR_GROUP_USER_IS_LAST_ADMIN
-from baserow.core.actions.registries import action_registry
+from baserow.core.actions.registries import action_type_registry
 from baserow.core.group_actions import (
-    DeleteGroupAction,
-    UpdateGroupAction,
-    CreateGroupAction,
+    DeleteGroupActionType,
+    UpdateGroupActionType,
+    CreateGroupActionType,
 )
 
 
@@ -77,7 +77,7 @@ class GroupsView(APIView):
     def post(self, request, data):
         """Creates a new group for a user."""
 
-        group_user = action_registry.get_by_type(CreateGroupAction).do(
+        group_user = action_type_registry.get_by_type(CreateGroupActionType).do(
             request.user, data["name"]
         )
         return Response(GroupUserGroupSerializer(group_user).data)
@@ -128,7 +128,7 @@ class GroupView(APIView):
         """Updates the group if it belongs to a user."""
 
         group = CoreHandler().get_group_for_update(group_id)
-        action_registry.get_by_type(UpdateGroupAction).do(
+        action_type_registry.get_by_type(UpdateGroupActionType).do(
             request.user, group, data["name"]
         )
         return Response(GroupSerializer(group).data)
@@ -176,7 +176,9 @@ class GroupView(APIView):
         """Deletes an existing group if it belongs to a user."""
 
         locked_group = CoreHandler().get_group_for_update(group_id)
-        action_registry.get_by_type(DeleteGroupAction).do(request.user, locked_group)
+        action_type_registry.get_by_type(DeleteGroupActionType).do(
+            request.user, locked_group
+        )
         return Response(status=204)
 
 

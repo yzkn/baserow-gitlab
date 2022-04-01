@@ -1,13 +1,13 @@
 export default (client) => {
   return {
-    undo(scope) {
+    undo(categories) {
       return client.patch(`/user/undo/`, {
-        scope,
+        categories,
       })
     },
-    redo(scope) {
+    redo(categories) {
       return client.patch(`/user/redo/`, {
-        scope,
+        categories,
       })
     },
   }

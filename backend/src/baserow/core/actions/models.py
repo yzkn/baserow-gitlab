@@ -20,13 +20,13 @@ class Action(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     type = models.TextField()
     params = models.JSONField(encoder=JSONEncoderSupportingDataClasses)
-    scope = models.TextField()
+    category = models.TextField()
     undone_at = models.DateTimeField(null=True, blank=True)
     error = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return (
-            f"Action(user={self.user_id}, type={self.type}, scope={self.scope}, "
+            f"Action(user={self.user_id}, type={self.type}, category={self.category}, "
             f"created_on={self.created_on},  undone_at={self.undone_at}, params="
             f"{self.params}, \nsession={self.session})"
         )
@@ -34,4 +34,4 @@ class Action(models.Model):
     class Meta:
         ordering = ("-created_on",)
         # TODO think/test indexes
-        indexes = [models.Index(fields=["user", "-created_on", "scope", "session"])]
+        indexes = [models.Index(fields=["user", "-created_on", "category", "session"])]

@@ -9,7 +9,7 @@ from rest_framework_jwt.serializers import JSONWebTokenSerializer
 from baserow.api.groups.invitations.serializers import UserGroupInvitationSerializer
 from baserow.api.mixins import UnknownFieldRaisesExceptionSerializerMixin
 from baserow.api.user.validators import password_validation, language_validation
-from baserow.core.actions.registries import action_scope_registry, Scope
+from baserow.core.actions.registries import action_category_registry, ActionCategoryStr
 from baserow.core.models import Template, UserLogEntry
 from baserow.core.user.utils import normalize_email_address
 
@@ -73,35 +73,36 @@ class RegisterSerializer(serializers.Serializer):
     )
 
 
-def get_scope_request_serializer():
-    action_scope_types = action_scope_registry.get_all()
+def get_action_categories_request_serializer():
     attrs = {}
 
-    for scope_type in action_scope_types:
-        attrs[scope_type.type] = scope_type.get_request_serializer_field()
+    for category_type in action_category_registry.get_all():
+        attrs[category_type.type] = category_type.get_request_serializer_field()
 
     return type(
-        "ActionScopeSerializer",
+        "ActionCategoriesRequestSerializer",
         (serializers.Serializer, UnknownFieldRaisesExceptionSerializerMixin),
         attrs,
     )
 
 
-ScopeSerializer = get_scope_request_serializer()
+ActionCategoriesSerializer = get_action_categories_request_serializer()
 
 
 class UndoRedoRequestSerializer(serializers.Serializer):
-    scope = ScopeSerializer()
+    categories = ActionCategoriesSerializer()
 
-    def to_scope_list(self) -> List[Scope]:
-        scope_list = []
-        for scope_type, scope_value in self.validated_data["scope"].items():
-            if scope_value:
-                action_scope_type = action_scope_registry.get(scope_type)
-                scope_list.append(
-                    action_scope_type.valid_serializer_value_to_scope_value(scope_value)
+    def to_category_list(self) -> List[ActionCategoryStr]:
+        category_list = []
+        for category_type_str, category_value in self.validated_data[
+            "categories"
+        ].items():
+            if category_value:
+                category_type = action_category_registry.get(category_type_str)
+                category_list.append(
+                    category_type.valid_serializer_value_to_category_str(category_value)
                 )
-        return scope_list
+        return category_list
 
 
 class AccountSerializer(serializers.Serializer):
