@@ -103,6 +103,35 @@ def test_batch_create_rows_invalid_table_id(api_client, data_fixture):
 
 @pytest.mark.django_db
 @pytest.mark.api_rows
+def test_batch_create_rows_no_rows_provided(api_client, data_fixture):
+    user, jwt_token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+    url = reverse("api:database:rows:batch", kwargs={"table_id": table.id})
+    request_body = {"items": []}
+    expected_error_detail = {
+        "items": [
+            {
+                "code": "min_length",
+                "error": "Ensure this field has at least 1 elements.",
+            },
+        ],
+    }
+
+    response = api_client.post(
+        url,
+        request_body,
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+
+    print(response.json())
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json()["error"] == "ERROR_REQUEST_BODY_VALIDATION"
+    assert response.json()["detail"] == expected_error_detail
+
+
+@pytest.mark.django_db
+@pytest.mark.api_rows
 def test_batch_create_rows_batch_size_limit(api_client, data_fixture):
     user, jwt_token = data_fixture.create_user_and_token()
     table = data_fixture.create_database_table(user=user)
@@ -116,7 +145,8 @@ def test_batch_create_rows_batch_size_limit(api_client, data_fixture):
         "items": [
             {
                 "code": "max_length",
-                "error": f"Ensure this field has no more than {settings.BATCH_ROWS_SIZE_LIMIT} elements.",
+                "error": f"Ensure this field has no more than"
+                f" {settings.BATCH_ROWS_SIZE_LIMIT} elements.",
             },
         ],
     }
