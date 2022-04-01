@@ -28,7 +28,12 @@ class CoreConfig(AppConfig):
         action_registry.register(UpdateGroupAction())
         action_registry.register(RestoreAction())
 
-        from baserow.core.actions.scopes import RootScopeType, GroupScopeType
+        from baserow.core.actions.scopes import (
+            RootScopeType,
+            GroupScopeType,
+            ApplicationScopeType,
+        )
 
         action_scope_registry.register(RootScopeType())
         action_scope_registry.register(GroupScopeType())
+        action_scope_registry.register(ApplicationScopeType())

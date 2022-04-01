@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, Tuple
 
 from rest_framework import serializers
 
@@ -12,8 +12,8 @@ class RootScopeType(ScopeType):
     def value(cls) -> Scope:
         return cast(Scope, cls.type)
 
-    def get_request_serializer_field(self) -> serializers.Field:
-        return serializers.BooleanField(
+    def get_request_serializer_field_and_name(self) -> Tuple[str, serializers.Field]:
+        return self.type, serializers.BooleanField(
             required=False,
             help_text="If set to true then actions registered in the root scope will "
             "be included when undoing or redoing.",
@@ -30,8 +30,8 @@ class GroupScopeType(ScopeType):
     def value(cls, group_id: int) -> Scope:
         return cast(Scope, cls.type + str(group_id))
 
-    def get_request_serializer_field(self) -> serializers.Field:
-        return serializers.IntegerField(
+    def get_request_serializer_field_and_name(self) -> Tuple[str, serializers.Field]:
+        return f"{self.type}_id", serializers.IntegerField(
             min_value=0,
             required=False,
             help_text="If set to a groups id then any actions directly related to that "
@@ -49,8 +49,8 @@ class ApplicationScopeType(ScopeType):
     def value(cls, application_id: int) -> Scope:
         return cast(Scope, cls.type + str(application_id))
 
-    def get_request_serializer_field(self) -> serializers.Field:
-        return serializers.IntegerField(
+    def get_request_serializer_field_and_name(self) -> Tuple[str, serializers.Field]:
+        return f"{self.type}_id", serializers.IntegerField(
             min_value=0,
             required=False,
             help_text="If set to an applications id then any actions directly related "

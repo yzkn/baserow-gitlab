@@ -1,6 +1,6 @@
 import abc
 import dataclasses
-from typing import TypeVar, Generic, Any, NewType
+from typing import TypeVar, Generic, Any, NewType, Tuple
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -31,7 +31,7 @@ class ScopeType(abc.ABC, Instance):
         pass
 
     @abc.abstractmethod
-    def get_request_serializer_field(self) -> serializers.Field:
+    def get_request_serializer_field_and_name(self) -> Tuple[str, serializers.Field]:
         pass
 
 
