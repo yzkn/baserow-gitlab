@@ -64,12 +64,12 @@ class BaserowAction(Instance, abc.ABC, Generic[T]):
 
     @classmethod
     @abc.abstractmethod
-    def undo(cls, user: UserType, params: T):
+    def undo(cls, user: UserType, params: T, action_being_undone: Action):
         pass
 
     @classmethod
     @abc.abstractmethod
-    def redo(cls, user: UserType, params: T):
+    def redo(cls, user: UserType, params: T, action_being_redone: Action):
         pass
 
     @classmethod

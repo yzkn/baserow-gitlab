@@ -2,6 +2,7 @@ import dataclasses
 
 from django.contrib.auth import get_user_model
 
+from baserow.core.actions.models import Action
 from baserow.core.actions.registries import BaserowAction
 from baserow.core.actions.scopes import RootScopeType
 from baserow.core.handler import CoreHandler, LockedGroup
@@ -29,16 +30,20 @@ class DeleteGroupAction(BaserowAction["DeleteGroupAction.Params"]):
         )
 
     @classmethod
-    def redo(cls, user: UserType, params: "DeleteGroupAction.Params"):
-        CoreHandler().delete_group_by_id(user, params.group_id)
-
-    @classmethod
-    def undo(cls, user: UserType, params: "DeleteGroupAction.Params"):
+    def undo(
+        cls, user: UserType, params: "DeleteGroupAction.Params", action_to_undo: Action
+    ):
         TrashHandler.restore_item(
             user,
             "group",
             params.group_id,
         )
+
+    @classmethod
+    def redo(
+        cls, user: UserType, params: "DeleteGroupAction.Params", action_to_redo: Action
+    ):
+        CoreHandler().delete_group_by_id(user, params.group_id)
 
 
 class CreateGroupAction(BaserowAction["CreateGroupParameters"]):
@@ -64,11 +69,15 @@ class CreateGroupAction(BaserowAction["CreateGroupParameters"]):
         return group_user
 
     @classmethod
-    def undo(cls, user: UserType, params: "CreateGroupAction.Params"):
+    def undo(
+        cls, user: UserType, params: "CreateGroupAction.Params", action_to_undo: Action
+    ):
         CoreHandler().delete_group_by_id(user, params.created_group_id)
 
     @classmethod
-    def redo(cls, user: UserType, params: "CreateGroupAction.Params"):
+    def redo(
+        cls, user: UserType, params: "CreateGroupAction.Params", action_to_redo: Action
+    ):
         TrashHandler.restore_item(
             user, "group", params.created_group_id, parent_trash_item_id=None
         )
@@ -100,19 +109,23 @@ class UpdateGroupAction(BaserowAction["Params"]):
         return group
 
     @classmethod
-    def redo(cls, user: UserType, params: "UpdateGroupAction.Params"):
-        group = CoreHandler().get_group_for_update(params.updated_group_id)
-        CoreHandler().update_group(
-            user,
-            group,
-            name=params.new_group_name,
-        )
-
-    @classmethod
-    def undo(cls, user: UserType, params: "UpdateGroupAction.Params"):
+    def undo(
+        cls, user: UserType, params: "UpdateGroupAction.Params", action_to_undo: Action
+    ):
         group = CoreHandler().get_group_for_update(params.updated_group_id)
         CoreHandler().update_group(
             user,
             group,
             name=params.old_group_name,
+        )
+
+    @classmethod
+    def redo(
+        cls, user: UserType, params: "UpdateGroupAction.Params", action_to_redo: Action
+    ):
+        group = CoreHandler().get_group_for_update(params.updated_group_id)
+        CoreHandler().update_group(
+            user,
+            group,
+            name=params.new_group_name,
         )

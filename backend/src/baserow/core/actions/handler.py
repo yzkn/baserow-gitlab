@@ -39,12 +39,14 @@ class ActionHandler:
         )
         if latest_not_undone_action_in_scope is None:
             raise NoMoreActionsToUndoException()
+
+        action_being_undone = latest_not_undone_action_in_scope
         try:
             action_type = action_registry.get(latest_not_undone_action_in_scope.type)
             latest_params = action_type.Params(
                 **latest_not_undone_action_in_scope.params
             )
-            action_type.undo(user, latest_params)
+            action_type.undo(user, latest_params, action_being_undone)
         except Exception:
             tb = traceback.format_exc()
             logger.error(
@@ -94,10 +96,11 @@ class ActionHandler:
             latest_undone_action_in_scope.save()
             raise SkippingRedoBecauseItFailedException()
 
+        action_being_redone = latest_undone_action_in_scope
         try:
             action_type = action_registry.get(latest_undone_action_in_scope.type)
             latest_params = action_type.Params(**latest_undone_action_in_scope.params)
-            action_type.redo(user, latest_params)
+            action_type.redo(user, latest_params, action_being_redone)
         except Exception:
             tb = traceback.format_exc()
             logger.error(
