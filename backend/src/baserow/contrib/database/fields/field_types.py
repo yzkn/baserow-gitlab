@@ -1561,6 +1561,9 @@ class FileFieldType(FieldType):
             provided_names_by_row[row_index] = self._extract_file_names(value)
             unique_names.update(pn["name"] for pn in provided_names_by_row[row_index])
 
+        if len(unique_names) == 0:
+            return values_by_row
+
         files = UserFile.objects.all().name(*unique_names)
         if len(files) != len(unique_names):
             invalid_names = sorted(

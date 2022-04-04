@@ -159,3 +159,43 @@ def test_batch_update_rows_file_field_wrong_file(api_client, data_fixture):
         f"The user files ['{invalid_file_names[0]}', '{invalid_file_names[1]}',"
         f" '{invalid_file_names[2]}'] do not exist."
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.field_file
+@pytest.mark.api_rows
+def test_batch_update_rows_file_field_zero_files(api_client, data_fixture):
+    user, jwt_token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+    file_field = data_fixture.create_file_field(table=table)
+    model = table.get_model()
+    row_1 = model.objects.create()
+    url = reverse("api:database:rows:batch", kwargs={"table_id": table.id})
+    request_body = {
+        "items": [
+            {
+                f"id": row_1.id,
+                f"field_{file_field.id}": [],
+            },
+        ]
+    }
+    expected_response_body = {
+        "items": [
+            {
+                f"id": row_1.id,
+                f"field_{file_field.id}": [],
+                "order": "1.00000000000000000000",
+            },
+        ]
+    }
+
+    response = api_client.patch(
+        url,
+        request_body,
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+
+    assert response.status_code == HTTP_200_OK
+    assert is_dict_subset(expected_response_body, response.json())
+    assert len(getattr(row_1, f"field_{file_field.id}")) == 0
