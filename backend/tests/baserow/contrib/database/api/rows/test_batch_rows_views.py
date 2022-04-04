@@ -412,7 +412,7 @@ def test_batch_create_rows_readonly_fields(api_client, data_fixture):
         ]
     }
 
-    response = api_client.patch(
+    response = api_client.post(
         url,
         request_body,
         format="json",
