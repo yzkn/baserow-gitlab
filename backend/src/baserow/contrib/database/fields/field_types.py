@@ -1795,9 +1795,7 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
         raise ValidationError(f"The provided value is not a valid option.")
 
     def prepare_value_for_db_in_bulk(self, instance, values_by_row):
-        unique_values = set()
-        for row_index, value in values_by_row.items():
-            unique_values.add(value)
+        unique_values = {value for value in values_by_row.values()}
 
         selected_ids = SelectOption.objects.filter(
             field=instance, id__in=unique_values
