@@ -32,6 +32,7 @@ def get_row_serializer_class(
     user_field_names=False,
     field_kwargs=None,
     include_id=False,
+    required_fields=None,
 ):
     """
     Generates a Django rest framework model serializer based on the available fields
@@ -61,6 +62,9 @@ def get_row_serializer_class(
     :param field_kwargs: A dict containing additional kwargs per field. The key must
         be the field name and the value a dict containing the kwargs.
     :type field_kwargs: dict
+    :param required_fields: List of field names that should be present even when
+        performing partial validation.
+    :type required_fields: list[str]
     :return: The generated serializer.
     :rtype: ModelSerializer
     """
@@ -105,7 +109,9 @@ def get_row_serializer_class(
         field_names.append("id")
         field_overrides["id"] = serializers.IntegerField()
 
-    return get_serializer_class(model, field_names, field_overrides, base_class)
+    return get_serializer_class(
+        model, field_names, field_overrides, base_class, required_fields=required_fields
+    )
 
 
 def get_batch_row_serializer_class(row_serializer_class):
@@ -113,9 +119,7 @@ def get_batch_row_serializer_class(row_serializer_class):
 
     def validate(self, value):
         if "items" not in value:
-            raise serializers.ValidationError(
-                {"items": "Items have to be always provided."}
-            )
+            raise serializers.ValidationError({"items": "This field is required."})
         return value
 
     fields = {

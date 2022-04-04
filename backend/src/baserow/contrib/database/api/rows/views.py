@@ -857,7 +857,10 @@ class BatchRowsView(APIView):
         user_field_names = "user_field_names" in request.GET
 
         row_validation_serializer = get_row_serializer_class(
-            model, user_field_names=user_field_names, include_id=True
+            model,
+            user_field_names=user_field_names,
+            include_id=True,
+            required_fields=["id"],
         )
         validation_serializer = get_batch_row_serializer_class(
             row_validation_serializer

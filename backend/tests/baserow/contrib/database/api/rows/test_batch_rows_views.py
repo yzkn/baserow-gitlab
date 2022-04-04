@@ -165,10 +165,7 @@ def test_batch_update_rows_no_payload(api_client, data_fixture):
 
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json()["error"] == "ERROR_REQUEST_BODY_VALIDATION"
-    assert (
-        response.json()["detail"]["items"][0]["error"]
-        == "Items have to be always provided."
-    )
+    assert response.json()["detail"]["items"][0]["error"] == "This field is required."
 
 
 @pytest.mark.django_db
@@ -208,6 +205,32 @@ def test_batch_update_rows_field_validation(api_client, data_fixture):
     assert (
         response.json()["detail"]["items"]["1"][f"field_{number_field.id}"][0]["code"]
         == "min_value"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.api_rows
+def test_batch_update_rows_missing_row_ids(api_client, data_fixture):
+    user, jwt_token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+    number_field = data_fixture.create_number_field(
+        table=table, order=1, name="Horsepower"
+    )
+    url = reverse("api:database:rows:batch", kwargs={"table_id": table.id})
+    request_body = {"items": [{f"field_{number_field.id}": 123}]}
+
+    response = api_client.patch(
+        url,
+        request_body,
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json()["error"] == "ERROR_REQUEST_BODY_VALIDATION"
+    assert (
+        response.json()["detail"]["items"]["0"]["id"][0]["error"]
+        == "This field is required."
     )
 
 
