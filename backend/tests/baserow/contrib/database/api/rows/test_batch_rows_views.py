@@ -150,6 +150,29 @@ def test_batch_update_rows_batch_size_limit(api_client, data_fixture):
 
 @pytest.mark.django_db
 @pytest.mark.api_rows
+def test_batch_update_rows_no_payload(api_client, data_fixture):
+    user, jwt_token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user)
+    url = reverse("api:database:rows:batch", kwargs={"table_id": table.id})
+    request_body = {}
+
+    response = api_client.patch(
+        url,
+        request_body,
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {jwt_token}",
+    )
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json()["error"] == "ERROR_REQUEST_BODY_VALIDATION"
+    assert (
+        response.json()["detail"]["items"][0]["error"]
+        == "Items have to be always provided."
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.api_rows
 def test_batch_update_rows_field_validation(api_client, data_fixture):
     user, jwt_token = data_fixture.create_user_and_token()
     table = data_fixture.create_database_table(user=user)

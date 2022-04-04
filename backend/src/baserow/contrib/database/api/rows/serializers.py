@@ -110,13 +110,23 @@ def get_row_serializer_class(
 
 def get_batch_row_serializer_class(row_serializer_class):
     class_name = "BatchRowSerializer"
+
+    def validate(self, value):
+        if "items" not in value:
+            raise serializers.ValidationError(
+                {"items": "Items have to be always provided."}
+            )
+        return value
+
     fields = {
         "items": serializers.ListField(
             child=row_serializer_class(),
             min_length=1,
             max_length=settings.BATCH_ROWS_SIZE_LIMIT,
-        )
+        ),
+        "validate": validate,
     }
+
     class_object = type(class_name, (serializers.Serializer,), fields)
     return class_object
 

@@ -793,7 +793,7 @@ class BatchRowsView(APIView):
                 ),
             ),
         ],
-        tags=["Database table batch rows"],
+        tags=["Database table rows"],
         operation_id="batch_update_database_table_rows",
         description=(
             "Updates existing rows in the table if the user has access to the "
