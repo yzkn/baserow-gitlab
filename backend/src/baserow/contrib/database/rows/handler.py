@@ -21,18 +21,10 @@ from .signals import (
 from baserow.contrib.database.fields.dependencies.update_collector import (
     CachingFieldUpdateCollector,
 )
+from baserow.core.utils import get_non_unique_values
 
 
 class RowHandler:
-    def get_non_unique_ids(self, ids: List[int]) -> List[int]:
-        unique_ids = set()
-        non_unique_ids = set()
-        for id in ids:
-            if id in unique_ids:
-                non_unique_ids.add(id)
-            unique_ids.add(id)
-        return list(non_unique_ids)
-
     def prepare_values(self, fields, values):
         """
         Prepares a set of values so that they can be created or updated in the database.
@@ -524,7 +516,7 @@ class RowHandler:
         rows = self.prepare_rows_in_bulk(model._field_objects, rows)
         row_ids = [row["id"] for row in rows]
 
-        non_unique_ids = self.get_non_unique_ids(row_ids)
+        non_unique_ids = get_non_unique_values(row_ids)
         if len(non_unique_ids) > 0:
             raise RowIdsNotUnique(non_unique_ids)
 
