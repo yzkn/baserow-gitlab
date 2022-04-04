@@ -616,7 +616,9 @@ class RowHandler:
             row_id = row.pop("id")
             rows_by_id[row_id] = row
 
-        rows_to_update = model.objects.select_for_update().filter(id__in=row_ids)
+        rows_to_update = (
+            model.objects.select_for_update().enhance_by_fields().filter(id__in=row_ids)
+        )
 
         if len(rows_to_update) != len(rows):
             db_rows_ids = [db_row.id for db_row in rows_to_update]
@@ -638,6 +640,7 @@ class RowHandler:
             updated_field_ids=updated_field_ids,
         )
 
+        rows_relationships = []
         for obj in rows_to_update:
             row_values = rows_by_id[obj.id]
             values, manytomany_values = self.extract_manytomany_values(
@@ -647,8 +650,12 @@ class RowHandler:
             for name, value in values.items():
                 setattr(obj, name, value)
 
-            for name, value in manytomany_values.items():
-                getattr(obj, name).set(value)
+            relations = {
+                field_name: value
+                for field_name, value in manytomany_values.items()
+                if value or isinstance(value, list)
+            }
+            rows_relationships.append(relations)
 
             fields_with_pre_save = model.fields_requiring_refresh_after_update()
             for field_name in fields_with_pre_save:
@@ -669,6 +676,51 @@ class RowHandler:
         ]
         if len(bulk_update_fields) > 0:
             model.objects.bulk_update(rows_to_update, bulk_update_fields)
+
+        many_to_many = defaultdict(list)
+        row_column_name = None
+        row_ids_change_m2m = set()
+        for index, row in enumerate(rows_to_update):
+            manytomany_values = rows_relationships[index]
+            for field_name, value in manytomany_values.items():
+                through = getattr(model, field_name).through
+                through_fields = through._meta.get_fields()
+                value_column = None
+                row_column = None
+
+                # Figure out which field in the many to many through table holds the row
+                # value and which on contains the value.
+                for field in through_fields:
+                    if type(field) is not ForeignKey:
+                        continue
+
+                    row_ids_change_m2m.add(row.id)
+
+                    if field.remote_field.model == model:
+                        row_column = field.get_attname_column()[1]
+                        row_column_name = row_column
+                    else:
+                        value_column = field.get_attname_column()[1]
+
+                if len(value) == 0:
+                    many_to_many[field_name].append(None)
+                else:
+                    for i in value:
+                        many_to_many[field_name].append(
+                            getattr(model, field_name).through(
+                                **{
+                                    row_column: row.id,
+                                    value_column: i,
+                                }
+                            )
+                        )
+
+        for field_name, values in many_to_many.items():
+            through = getattr(model, field_name).through
+            filter = {f"{row_column_name}__in": row_ids_change_m2m}
+            delete_qs = through.objects.all().filter(**filter)
+            delete_qs._raw_delete(delete_qs.db)
+            through.objects.bulk_create([v for v in values if v is not None])
 
         updated_fields = [field["field"] for field in model._field_objects.values()]
         update_collector = CachingFieldUpdateCollector(
