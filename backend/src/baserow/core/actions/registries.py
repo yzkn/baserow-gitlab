@@ -9,7 +9,8 @@ from baserow.core.registry import Registry, Instance
 from baserow.core.user.sessions import get_untrusted_client_session_id
 from baserow.core.user.utils import UserType
 
-# An Alias type for str. We use this instead of a normal str for type safety ensuring
+# An alias type of a str (its exactly a str, just with a different name in the type
+# system). We use this instead of a normal str for type safety ensuring
 # only str's returned by ActionCategoryType.value and
 # ActionCategoryType.valid_serializer_value_to_category_str can be used in functions
 # which are expecting an ActionCategoryStr.
@@ -20,7 +21,10 @@ class ActionCategoryType(abc.ABC, Instance):
     """
     When a BaserowAction occurs we save a Action model in the database with a particular
     category. An ActionCategoryType is a possible type of category an action can be
-    categorized into.
+    categorized into, ultimately represented by a string and stored in the db.
+
+    For example, there is a GroupActionCategoryType. When stored in the database
+    actions in this category have a category value of "group10", "group999", etc.
     """
 
     @property
@@ -37,7 +41,15 @@ class ActionCategoryType(abc.ABC, Instance):
     def value(cls, *args, **kwargs) -> ActionCategoryStr:
         """
         Implement and use this method for constructing an ActionCategoryStr of this type
-        programmatically. For example in an Action.do method.
+        programmatically. This should almost always be prefixed by cls.type to prevent
+        categories of one type clashing with another.
+
+        The args and kwargs should be completely overridden by the implemented type to
+        accept whatever parameters are needed to construct a specific str for this
+        category.
+
+        For example an Action.do method will call this method
+        to generate the category for an Action model instance it is saving.
         """
 
         pass
@@ -89,6 +101,17 @@ class ActionType(Instance, abc.ABC, Generic[T]):
     @classmethod
     @abc.abstractmethod
     def do(cls, *args, **kwargs) -> Any:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def default_category(cls, *args, **kwargs) -> ActionCategoryStr:
+        """
+        Should return the default action category which actions of this type are stored
+        in. Any args or kwargs specific to the action type can be provided in the
+        overridden method.
+        """
+
         pass
 
     @classmethod

@@ -27,9 +27,13 @@ def categories_list_to_q_filter(categories: List[ActionCategoryStr]):
 
 class ActionHandler:
     @classmethod
-    def undo(cls, user: UserType, categories: List[ActionCategoryStr], session: str):
-        # TODO think of a nicer way realtime updates are sent to all when undo/redoing
+    def undo(
+        cls, user: UserType, categories: List[ActionCategoryStr], session: str
+    ) -> Action:
+        # Un-set the web_socket_id so the user doing this undo will receive any
+        # events triggered by the action.
         user.web_socket_id = None
+
         latest_not_undone_action = (
             Action.objects.filter(user=user, undone_at__isnull=True, session=session)
             .filter(categories_list_to_q_filter(categories))
@@ -57,9 +61,13 @@ class ActionHandler:
             latest_not_undone_action.save()
 
     @classmethod
-    def redo(cls, user: UserType, categories: List[ActionCategoryStr], session: str):
-        # TODO think of a nicer way realtime updates are sent to all when undo/redoing
+    def redo(
+        cls, user: UserType, categories: List[ActionCategoryStr], session: str
+    ) -> Action:
+        # Un-set the web_socket_id so the user doing this redo will receive any
+        # events triggered by the action.
         user.web_socket_id = None
+
         categories_filter = categories_list_to_q_filter(categories)
         latest_undone_action = (
             Action.objects.filter(user=user, undone_at__isnull=False, session=session)
@@ -110,3 +118,5 @@ class ActionHandler:
         finally:
             latest_undone_action.undone_at = None
             latest_undone_action.save()
+
+        return latest_undone_action

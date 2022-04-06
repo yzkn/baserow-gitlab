@@ -4,7 +4,7 @@ from typing import Optional
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import ActionType
+from baserow.core.actions.registries import ActionType, ActionCategoryStr
 from baserow.core.actions.categories import RootActionCategoryType
 from baserow.core.trash.handler import TrashHandler
 
@@ -41,8 +41,12 @@ class RestoreActionType(ActionType["Params"]):
                 trash_item_id,
                 parent_trash_item_id,
             ),
-            category=RootActionCategoryType.value(),
+            category=cls.default_category(),
         )
+
+    @classmethod
+    def default_category(cls) -> ActionCategoryStr:
+        return RootActionCategoryType.value()
 
     @classmethod
     def undo(

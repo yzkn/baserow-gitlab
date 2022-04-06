@@ -2,9 +2,11 @@ import dataclasses
 
 from django.contrib.auth import get_user_model
 
+from baserow.core.actions.categories import (
+    RootActionCategoryType,
+)
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import ActionType
-from baserow.core.actions.categories import RootActionCategoryType
+from baserow.core.actions.registries import ActionType, ActionCategoryStr
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
 from baserow.core.trash.handler import TrashHandler
@@ -24,10 +26,12 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
         CoreHandler().delete_group(user, group)
 
         self.register_action(
-            user,
-            self.Params(group.id),
-            category=RootActionCategoryType.value(),
+            user, self.Params(group.id), category=self.default_category()
         )
+
+    @classmethod
+    def default_category(cls) -> ActionCategoryStr:
+        return RootActionCategoryType.value()
 
     @classmethod
     def undo(
@@ -70,9 +74,13 @@ class CreateGroupActionType(ActionType["CreateGroupParameters"]):
         cls.register_action(
             user=user,
             params=cls.Params(group_id, group_name),
-            category=RootActionCategoryType.value(),
+            category=cls.default_category(),
         )
         return group_user
+
+    @classmethod
+    def default_category(cls) -> ActionCategoryStr:
+        return RootActionCategoryType.value()
 
     @classmethod
     def undo(
@@ -116,9 +124,13 @@ class UpdateGroupActionType(ActionType["Params"]):
                 old_group_name=old_group_name,
                 new_group_name=new_group_name,
             ),
-            category=RootActionCategoryType.value(),
+            category=cls.default_category(),
         )
         return group
+
+    @classmethod
+    def default_category(cls) -> ActionCategoryStr:
+        return RootActionCategoryType.value()
 
     @classmethod
     def undo(
