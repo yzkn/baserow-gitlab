@@ -4,11 +4,3 @@ class NoMoreActionsToUndoException(Exception):
 
 class NoMoreActionsToRedoException(Exception):
     pass
-
-
-class SkippingUndoBecauseItFailedException(Exception):
-    pass
-
-
-class SkippingRedoBecauseItFailedException(Exception):
-    pass

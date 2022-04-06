@@ -4,11 +4,21 @@ from typing import Optional
 from django.contrib.auth import get_user_model
 
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import ActionType, ActionCategoryStr
+from baserow.core.actions.registries import (
+    ActionType,
+    ActionCategoryStr,
+    action_type_registry,
+)
 from baserow.core.actions.categories import RootActionCategoryType
 from baserow.core.trash.handler import TrashHandler
 
 User = get_user_model()
+
+
+@dataclasses.dataclass
+class DeleteParams:
+    trash_item_id: int
+    parent_trash_item_id: Optional[int] = None
 
 
 class RestoreActionType(ActionType["Params"]):
@@ -16,6 +26,7 @@ class RestoreActionType(ActionType["Params"]):
 
     @dataclasses.dataclass
     class Params:
+        delete_action_type: str
         trash_item_type: str
         trash_item_id: int
         parent_trash_item_id: Optional[int]
@@ -24,6 +35,7 @@ class RestoreActionType(ActionType["Params"]):
     def do(
         cls,
         user: User,
+        delete_action_type: str,
         trash_item_type: str,
         trash_item_id: int,
         parent_trash_item_id: Optional[int] = None,
@@ -37,6 +49,7 @@ class RestoreActionType(ActionType["Params"]):
         cls.register_action(
             user=user,
             params=cls.Params(
+                delete_action_type,
                 trash_item_type,
                 trash_item_id,
                 parent_trash_item_id,
@@ -52,13 +65,16 @@ class RestoreActionType(ActionType["Params"]):
     def undo(
         cls, user: User, params: "RestoreActionType.Params", action_being_undone: Action
     ):
-        # todo this is painful without a trash system which lets us delete just using
-        # an id and a trash_item_type. TrashHandler.restore_item works this way already.
-        # We could instead store in RestoreAction.Params.delete_action_type the correct
-        # action to delete the trashable item type. Then when we undo we call
-        # action_registry.get(params.delete_action_type).redo which will do the delete
-        # correctly.
-        pass
+        action_type_registry.get(params.delete_action_type).redo(
+            user,
+            DeleteParams(
+                params.trash_item_type,
+                params.trash_item_id,
+                params.parent_trash_item_id,
+            ),
+            action_being_undone,
+        )
+        return action_being_undone
 
     @classmethod
     def redo(

@@ -27,12 +27,9 @@ from baserow.api.groups.invitations.errors import (
 )
 from baserow.api.schemas import get_error_schema
 from baserow.api.user.registries import user_data_registry
-from baserow.api.utils import serialize_errors_recursive
 from baserow.core.actions.exceptions import (
     NoMoreActionsToRedoException,
     NoMoreActionsToUndoException,
-    SkippingRedoBecauseItFailedException,
-    SkippingUndoBecauseItFailedException,
 )
 from baserow.core.actions.handler import ActionHandler
 from baserow.core.exceptions import (
@@ -58,6 +55,10 @@ from .errors import (
     ERROR_NO_MORE_ACTIONS_TO_REDO,
     ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED,
     ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED,
+)
+from .exceptions import (
+    SkippingUndoBecauseItFailedException,
+    SkippingRedoBecauseItFailedException,
 )
 from .schemas import create_user_response_schema, authenticate_user_schema
 from .serializers import (
@@ -396,14 +397,6 @@ class DashboardView(APIView):
         return Response(dashboard_serializer.data)
 
 
-def deserialize_categories(request) -> List[ActionCategoryStr]:
-    serializer = UndoRedoRequestSerializer(data=request.data)
-    if not serializer.is_valid():
-        detail = serialize_errors_recursive(serializer.errors)
-        raise RequestBodyValidationException(detail)
-    return serializer.to_category_list()
-
-
 class UndoView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -414,19 +407,22 @@ class UndoView(APIView):
         description=("@TODO docs"),
         responses={204: None},
     )
-    @transaction.atomic
     @map_exceptions(
         {
             NoMoreActionsToUndoException: ERROR_NO_MORE_ACTIONS_TO_UNDO,
             SkippingUndoBecauseItFailedException: ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED,
         }
     )
-    def patch(self, request):
-        categories = deserialize_categories(request)
-        ActionHandler.undo(
-            request.user, categories, get_untrusted_client_session_id(request.user)
-        )
-        return Response("", status=204)
+    @validate_body(UndoRedoRequestSerializer)
+    def patch(self, request, data: List[ActionCategoryStr]):
+        with transaction.atomic():
+            undone_action = ActionHandler.undo(
+                request.user, data, get_untrusted_client_session_id(request.user)
+            )
+        if undone_action.error:
+            raise SkippingUndoBecauseItFailedException()
+        else:
+            return Response("", status=204)
 
 
 class RedoView(APIView):
@@ -439,16 +435,19 @@ class RedoView(APIView):
         description=("@TODO docs"),
         responses={204: None},
     )
-    @transaction.atomic
     @map_exceptions(
         {
             NoMoreActionsToRedoException: ERROR_NO_MORE_ACTIONS_TO_REDO,
             SkippingRedoBecauseItFailedException: ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED,
         }
     )
-    def patch(self, request):
-        categories = deserialize_categories(request)
-        ActionHandler.redo(
-            request.user, categories, get_untrusted_client_session_id(request.user)
-        )
-        return Response("", status=204)
+    @validate_body(UndoRedoRequestSerializer)
+    def patch(self, request, data: List[ActionCategoryStr]):
+        with transaction.atomic():
+            redone_action = ActionHandler.redo(
+                request.user, data, get_untrusted_client_session_id(request.user)
+            )
+        if redone_action.error:
+            raise SkippingRedoBecauseItFailedException()
+        else:
+            return Response("", status=204)

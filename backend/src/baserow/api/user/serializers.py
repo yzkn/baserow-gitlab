@@ -92,7 +92,8 @@ ActionCategoriesSerializer = get_action_categories_request_serializer()
 class UndoRedoRequestSerializer(serializers.Serializer):
     categories = ActionCategoriesSerializer()
 
-    def to_category_list(self) -> List[ActionCategoryStr]:
+    @property
+    def data(self) -> List[ActionCategoryStr]:
         category_list = []
         for category_type_str, category_value in self.validated_data[
             "categories"

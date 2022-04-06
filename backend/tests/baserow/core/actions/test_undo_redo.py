@@ -6,8 +6,6 @@ from django.contrib.auth import get_user_model
 from baserow.core.actions.exceptions import (
     NoMoreActionsToUndoException,
     NoMoreActionsToRedoException,
-    SkippingUndoBecauseItFailedException,
-    SkippingRedoBecauseItFailedException,
 )
 from baserow.core.actions.handler import ActionHandler
 from baserow.core.actions.registries import (
@@ -325,8 +323,10 @@ def test_when_undo_fails_can_try_undo_next_action(
     )
     group2.delete()
 
-    with pytest.raises(SkippingUndoBecauseItFailedException):
-        ActionHandler.undo(user, [CreateGroupActionType.default_category()], session_id)
+    undone_action = ActionHandler.undo(
+        user, [CreateGroupActionType.default_category()], session_id
+    )
+    assert undone_action.error
 
     assert Group.objects.filter(id=group1.id).exists()
 
@@ -363,8 +363,10 @@ def test_when_undo_fails_can_try_redo_undo_to_try_again(
 
     # User A tries to Undo the creation of the group, it fails as it has already been
     # deleted.
-    with pytest.raises(SkippingUndoBecauseItFailedException):
-        ActionHandler.undo(user, [CreateGroupActionType.default_category()], session_id)
+    undone_action = ActionHandler.undo(
+        user, [CreateGroupActionType.default_category()], session_id
+    )
+    assert undone_action.error
 
     # User B Undoes the deletion, recreating the group
     ActionHandler.undo(
@@ -372,8 +374,10 @@ def test_when_undo_fails_can_try_redo_undo_to_try_again(
     )
 
     # User A Redoes which does nothing
-    with pytest.raises(SkippingRedoBecauseItFailedException):
-        ActionHandler.redo(user, [CreateGroupActionType.default_category()], session_id)
+    redone_action = ActionHandler.redo(
+        user, [CreateGroupActionType.default_category()], session_id
+    )
+    assert redone_action.error
 
     # User A can now Undo the creation of the group as it exists again
     ActionHandler.undo(user, [CreateGroupActionType.default_category()], session_id)

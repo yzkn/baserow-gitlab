@@ -9,6 +9,7 @@ from baserow.core.actions.models import Action
 from baserow.core.actions.registries import ActionType, ActionCategoryStr
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
+from baserow.core.trash.actions import DeleteParams
 from baserow.core.trash.handler import TrashHandler
 from baserow.core.user.utils import UserType
 
@@ -18,9 +19,7 @@ User = get_user_model()
 class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
     type = "delete_group"
 
-    @dataclasses.dataclass
-    class Params:
-        group_id: int
+    Params = DeleteParams
 
     def do(self, user: UserType, group: LockedGroup):
         CoreHandler().delete_group(user, group)
@@ -43,7 +42,7 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
         TrashHandler.restore_item(
             user,
             "group",
-            params.group_id,
+            params.trash_item_id,
         )
 
     @classmethod
@@ -53,7 +52,7 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
         params: "DeleteGroupActionType.Params",
         action_to_redo: Action,
     ):
-        CoreHandler().delete_group_by_id(user, params.group_id)
+        CoreHandler().delete_group_by_id(user, params.trash_item_id)
 
 
 class CreateGroupActionType(ActionType["CreateGroupParameters"]):

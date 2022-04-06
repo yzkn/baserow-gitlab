@@ -2,6 +2,7 @@ import logging
 import traceback
 from typing import List
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -26,6 +27,11 @@ def categories_list_to_q_filter(categories: List[ActionCategoryStr]):
 
 
 class ActionHandler:
+    """
+    Contains methods to do high level operations on BaserowAction's like undoing or
+    redoing them.
+    """
+
     @classmethod
     def undo(
         cls, user: UserType, categories: List[ActionCategoryStr], session: str
@@ -45,6 +51,7 @@ class ActionHandler:
             raise NoMoreActionsToUndoException()
 
         action_being_undone = latest_not_undone_action
+        action_being_undone.error = None
         try:
             action_type = action_type_registry.get(latest_not_undone_action.type)
             latest_params = action_type.Params(**latest_not_undone_action.params)
@@ -55,10 +62,10 @@ class ActionHandler:
                 f"Undoing {latest_not_undone_action} failed because of: \n{tb}"
             )
             latest_not_undone_action.error = tb
-            raise SkippingUndoBecauseItFailedException()
         finally:
             latest_not_undone_action.undone_at = timezone.now()
             latest_not_undone_action.save()
+        return latest_not_undone_action
 
     @classmethod
     def redo(
@@ -95,28 +102,25 @@ class ActionHandler:
 
         if latest_undone_action.error:
             # We are redoing an undo action that failed and so we have nothing to redo
-            # However we mark it as redone with no error so the user can try undo again
+            # However we mark it as redone so the user can try undo again
             # to see if it works this time.
             latest_undone_action.undone_at = None
-            latest_undone_action.error = None
             latest_undone_action.save()
-            raise SkippingRedoBecauseItFailedException()
-
-        action_being_redone = latest_undone_action
-        try:
-            action_type = action_type_registry.get(latest_undone_action.type)
-            latest_params = action_type.Params(**latest_undone_action.params)
-            action_type.redo(user, latest_params, action_being_redone)
-        except Exception:
-            tb = traceback.format_exc()
-            logger.error(
-                f"Redoing {normal_action_happened_since_undo} failed because of: \n"
-                f"{tb}",
-            )
-            latest_undone_action.error = tb
-            raise SkippingRedoBecauseItFailedException()
-        finally:
-            latest_undone_action.undone_at = None
-            latest_undone_action.save()
+        else:
+            action_being_redone = latest_undone_action
+            try:
+                action_type = action_type_registry.get(latest_undone_action.type)
+                latest_params = action_type.Params(**latest_undone_action.params)
+                action_type.redo(user, latest_params, action_being_redone)
+            except Exception:
+                tb = traceback.format_exc()
+                logger.error(
+                    f"Redoing {normal_action_happened_since_undo} failed because of: \n"
+                    f"{tb}",
+                )
+                latest_undone_action.error = tb
+            finally:
+                latest_undone_action.undone_at = None
+                latest_undone_action.save()
 
         return latest_undone_action

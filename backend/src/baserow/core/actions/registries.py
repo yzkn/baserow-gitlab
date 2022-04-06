@@ -95,7 +95,7 @@ class ActionType(Instance, abc.ABC, Generic[T]):
         pass
 
     @dataclasses.dataclass
-    class Params:
+    class passParams:
         pass
 
     @classmethod
