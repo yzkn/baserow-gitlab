@@ -17,7 +17,7 @@ import { mapState } from 'vuex'
 
 import Table from '@baserow/modules/database/components/table/Table'
 import { StoreItemLookupError } from '@baserow/modules/core/errors'
-import { ACTION_CATEGORIES } from '@baserow/modules/core/store/undoRedo'
+import {ACTION_CATEGORIES} from "@baserow/modules/core/utils/undoRedoConstants";
 
 /**
  * This page component is the skeleton for a table. Depending on the selected view it

@@ -1,6 +1,2 @@
-class SkippingUndoBecauseItFailedException(Exception):
-    pass
-
-
-class SkippingRedoBecauseItFailedException(Exception):
+class ClientSessionIdHeaderNotSetException(Exception):
     pass

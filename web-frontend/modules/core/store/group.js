@@ -4,7 +4,7 @@ import {
   setGroupCookie,
   unsetGroupCookie,
 } from '@baserow/modules/core/utils/group'
-import { ACTION_CATEGORIES } from '@baserow/modules/core/store/undoRedo'
+import {ACTION_CATEGORIES} from "@baserow/modules/core/utils/undoRedoConstants";
 
 function populateGroup(group) {
   group._ = { loading: false, selected: false }

@@ -3,12 +3,15 @@ from typing import List
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_jwt.serializers import JSONWebTokenSerializer
 
 from baserow.api.groups.invitations.serializers import UserGroupInvitationSerializer
 from baserow.api.mixins import UnknownFieldRaisesExceptionSerializerMixin
 from baserow.api.user.validators import password_validation, language_validation
+from baserow.core.actions.models import Action
 from baserow.core.actions.registries import action_category_registry, ActionCategoryStr
 from baserow.core.models import Template, UserLogEntry
 from baserow.core.user.utils import normalize_email_address
@@ -90,7 +93,14 @@ ActionCategoriesSerializer = get_action_categories_request_serializer()
 
 
 class UndoRedoRequestSerializer(serializers.Serializer):
-    categories = ActionCategoriesSerializer()
+    categories = ActionCategoriesSerializer(
+        required=True,
+        help_text="A JSON object with keys and values representing the various action "
+        "categories to include when undoing or redoing. Every action in Baserow will "
+        "be associated with a action category, when undoing/redoing only actions "
+        "which match any of the provided category key:value pairs will included when "
+        "this endpoint picks the next action to undo/redo.",
+    )
 
     @property
     def data(self) -> List[ActionCategoryStr]:
@@ -104,6 +114,52 @@ class UndoRedoRequestSerializer(serializers.Serializer):
                     category_type.valid_serializer_value_to_category_str(category_value)
                 )
         return category_list
+
+
+class UndoRedoResponseSerializer(serializers.ModelSerializer):
+    # Please keep code values in sync with
+    # web-frontend/modules/core/utils/undoRedoConstants.js:UNDO_REDO_RESULT_CODES
+    NOTHING_TO_DO = "NOTHING_TO_DO"
+    SUCCESS = "SUCCESS"
+    SKIPPED_DUE_TO_ERROR = "SKIPPED_DUE_TO_ERROR"
+
+    result_code = serializers.SerializerMethodField(
+        help_text=f"Indicates the result of the undo/redo operation. Will be "
+        f"'{SUCCESS}' on success, '{NOTHING_TO_DO}' when "
+        f"there is no action to undo/redo and "
+        f"'{SKIPPED_DUE_TO_ERROR}' when the undo/redo failed due "
+        f"to a conflict or error and was skipped over."
+    )
+
+    action_type = serializers.CharField(
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        source="type",
+        help_text="If an action was undone/redone/skipped due to an error this field "
+        "will contain the type of the action that was undone/redone.",
+    )
+    action_category = serializers.CharField(
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        source="category",
+        help_text="If an action was undone/redone/skipped due to an error this field "
+        "will contain the category of the action that was undone/redone.",
+    )
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_result(self, instance):
+        if instance is None:
+            return self.NOTHING_TO_DO
+        elif instance.error:
+            return self.SKIPPED_DUE_TO_ERROR
+        else:
+            return self.SUCCESS
+
+    class Meta:
+        model = Action
+        fields = ("action_type", "action_category", "result")
 
 
 class AccountSerializer(serializers.Serializer):

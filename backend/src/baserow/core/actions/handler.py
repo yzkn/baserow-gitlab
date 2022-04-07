@@ -1,17 +1,10 @@
 import logging
 import traceback
-from typing import List
+from typing import List, Optional
 
-from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from baserow.core.actions.exceptions import (
-    NoMoreActionsToUndoException,
-    NoMoreActionsToRedoException,
-    SkippingRedoBecauseItFailedException,
-    SkippingUndoBecauseItFailedException,
-)
 from baserow.core.actions.models import Action
 from baserow.core.actions.registries import action_type_registry, ActionCategoryStr
 from baserow.core.user.utils import UserType
@@ -35,7 +28,7 @@ class ActionHandler:
     @classmethod
     def undo(
         cls, user: UserType, categories: List[ActionCategoryStr], session: str
-    ) -> Action:
+    ) -> Optional[Action]:
         # Un-set the web_socket_id so the user doing this undo will receive any
         # events triggered by the action.
         user.web_socket_id = None
@@ -48,7 +41,7 @@ class ActionHandler:
             .first()
         )
         if latest_not_undone_action is None:
-            raise NoMoreActionsToUndoException()
+            return None
 
         action_being_undone = latest_not_undone_action
         action_being_undone.error = None
@@ -70,7 +63,7 @@ class ActionHandler:
     @classmethod
     def redo(
         cls, user: UserType, categories: List[ActionCategoryStr], session: str
-    ) -> Action:
+    ) -> Optional[Action]:
         # Un-set the web_socket_id so the user doing this redo will receive any
         # events triggered by the action.
         user.web_socket_id = None
@@ -85,8 +78,7 @@ class ActionHandler:
         )
 
         if latest_undone_action is None:
-            # There have been no undoes
-            raise NoMoreActionsToRedoException()
+            return None
 
         normal_action_happened_since_undo = (
             Action.objects.filter(
@@ -98,7 +90,7 @@ class ActionHandler:
             .exists()
         )
         if normal_action_happened_since_undo:
-            raise NoMoreActionsToRedoException()
+            return None
 
         if latest_undone_action.error:
             # We are redoing an undo action that failed and so we have nothing to redo

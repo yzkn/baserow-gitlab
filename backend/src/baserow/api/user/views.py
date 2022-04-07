@@ -20,18 +20,14 @@ from baserow.api.errors import (
     EXPIRED_TOKEN_SIGNATURE,
     ERROR_HOSTNAME_IS_NOT_ALLOWED,
 )
-from baserow.api.exceptions import RequestBodyValidationException
 from baserow.api.groups.invitations.errors import (
     ERROR_GROUP_INVITATION_DOES_NOT_EXIST,
     ERROR_GROUP_INVITATION_EMAIL_MISMATCH,
 )
 from baserow.api.schemas import get_error_schema
 from baserow.api.user.registries import user_data_registry
-from baserow.core.actions.exceptions import (
-    NoMoreActionsToRedoException,
-    NoMoreActionsToUndoException,
-)
 from baserow.core.actions.handler import ActionHandler
+from baserow.core.actions.registries import ActionCategoryStr
 from baserow.core.exceptions import (
     BaseURLHostnameNotAllowed,
     GroupInvitationEmailMismatch,
@@ -51,15 +47,9 @@ from .errors import (
     ERROR_USER_NOT_FOUND,
     ERROR_INVALID_OLD_PASSWORD,
     ERROR_DISABLED_SIGNUP,
-    ERROR_NO_MORE_ACTIONS_TO_UNDO,
-    ERROR_NO_MORE_ACTIONS_TO_REDO,
-    ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED,
-    ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED,
+    ERROR_CLIENT_SESSION_ID_HEADER_NOT_SET,
 )
-from .exceptions import (
-    SkippingUndoBecauseItFailedException,
-    SkippingRedoBecauseItFailedException,
-)
+from .exceptions import ClientSessionIdHeaderNotSetException
 from .schemas import create_user_response_schema, authenticate_user_schema
 from .serializers import (
     AccountSerializer,
@@ -71,8 +61,8 @@ from .serializers import (
     NormalizedEmailWebTokenSerializer,
     DashboardSerializer,
     UndoRedoRequestSerializer,
+    UndoRedoResponseSerializer,
 )
-from baserow.core.actions.registries import ActionCategoryStr
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
@@ -404,25 +394,29 @@ class UndoView(APIView):
         tags=["User"],
         request=UndoRedoRequestSerializer,
         operation_id="undo",
-        description=("@TODO docs"),
-        responses={204: None},
-    )
-    @map_exceptions(
-        {
-            NoMoreActionsToUndoException: ERROR_NO_MORE_ACTIONS_TO_UNDO,
-            SkippingUndoBecauseItFailedException: ERROR_SKIPPING_UNDO_BECAUSE_IT_FAILED,
-        }
+        description=(
+            "undoes the latest undoable action performed by the user making the "
+            f"request. a {settings.client_session_id_header} header must be provided "
+            f"and only actions which were performed the same user with the same "
+            f"{settings.client_session_id_header} value set on the api request that "
+            f"performed the action will be undone."
+            f"Additionally the {settings.CLIENT_SESSION_ID_HEADER} header must "
+            f"be between 1 and {settings.MAX_CLIENT_SESSION_ID_LENGTH} characters long "
+            f"and must only contain alphanumeric or the - characters."
+        ),
+        responses={200: UndoRedoResponseSerializer},
     )
     @validate_body(UndoRedoRequestSerializer)
+    @map_exceptions(
+        {ClientSessionIdHeaderNotSetException: ERROR_CLIENT_SESSION_ID_HEADER_NOT_SET}
+    )
+    @transaction.atomic
     def patch(self, request, data: List[ActionCategoryStr]):
-        with transaction.atomic():
-            undone_action = ActionHandler.undo(
-                request.user, data, get_untrusted_client_session_id(request.user)
-            )
-        if undone_action.error:
-            raise SkippingUndoBecauseItFailedException()
-        else:
-            return Response("", status=204)
+        session_id = get_untrusted_client_session_id(request.user)
+        if session_id is None:
+            raise ClientSessionIdHeaderNotSetException()
+        undone_action = ActionHandler.undo(request.user, data, session_id)
+        return Response(UndoRedoResponseSerializer(undone_action).data, status=200)
 
 
 class RedoView(APIView):
@@ -432,22 +426,30 @@ class RedoView(APIView):
         tags=["User"],
         request=UndoRedoRequestSerializer,
         operation_id="redo",
-        description=("@TODO docs"),
-        responses={204: None},
-    )
-    @map_exceptions(
-        {
-            NoMoreActionsToRedoException: ERROR_NO_MORE_ACTIONS_TO_REDO,
-            SkippingRedoBecauseItFailedException: ERROR_SKIPPING_REDO_BECAUSE_IT_FAILED,
-        }
+        description=(
+            "Redoes the latest redoable action performed by the user making the "
+            f"request. a {settings.client_session_id_header} header must be provided "
+            f"and only actions which were performed the same user with the same "
+            f"{settings.client_session_id_header} value set on the api request that "
+            f"performed the action will be redone."
+            f"Additionally the {settings.CLIENT_SESSION_ID_HEADER} header must "
+            f"be between 1 and {settings.MAX_CLIENT_SESSION_ID_LENGTH} characters long "
+            f"and must only contain alphanumeric or the - characters."
+        ),
+        responses={200: UndoRedoResponseSerializer},
     )
     @validate_body(UndoRedoRequestSerializer)
+    @map_exceptions(
+        {ClientSessionIdHeaderNotSetException: ERROR_CLIENT_SESSION_ID_HEADER_NOT_SET}
+    )
+    @transaction.atomic
     def patch(self, request, data: List[ActionCategoryStr]):
-        with transaction.atomic():
-            redone_action = ActionHandler.redo(
-                request.user, data, get_untrusted_client_session_id(request.user)
-            )
-        if redone_action.error:
-            raise SkippingRedoBecauseItFailedException()
-        else:
-            return Response("", status=204)
+        session_id = get_untrusted_client_session_id(request.user)
+        if session_id is None:
+            raise ClientSessionIdHeaderNotSetException()
+        redone_action = ActionHandler.redo(
+            request.user,
+            data,
+            session_id,
+        )
+        return Response(UndoRedoResponseSerializer(redone_action).data, status=200)

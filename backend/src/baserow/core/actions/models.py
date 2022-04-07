@@ -15,6 +15,10 @@ class JSONEncoderSupportingDataClasses(json.JSONEncoder):
 
 
 class Action(models.Model):
+    """
+    An action represents a user performed change to Baserow.
+    """
+
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.SET_NULL)
     session = models.TextField(null=True, blank=True)
     created_on = models.DateTimeField(auto_now_add=True)

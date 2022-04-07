@@ -1,7 +1,7 @@
 import { StoreItemLookupError } from '@baserow/modules/core/errors'
 import ApplicationService from '@baserow/modules/core/services/application'
 import { clone } from '@baserow/modules/core/utils/object'
-import { ACTION_CATEGORIES } from '@baserow/modules/core/store/undoRedo'
+import {ACTION_CATEGORIES} from "@baserow/modules/core/utils/undoRedoConstants";
 
 export function populateApplication(application, registry) {
   const type = registry.get('application', application.type)

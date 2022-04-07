@@ -28,7 +28,6 @@
 
 <script>
 import { mapState } from 'vuex'
-import { UNDO_REDO_STATES } from '@baserow/modules/core/store/undoRedo'
 
 import Notification from '@baserow/modules/core/components/notifications/Notification'
 import ConnectingNotification from '@baserow/modules/core/components/notifications/ConnectingNotification'
@@ -36,6 +35,7 @@ import FailedConnectingNotification from '@baserow/modules/core/components/notif
 import RestoreNotification from '@baserow/modules/core/components/notifications/RestoreNotification'
 import CopyingNotification from '@baserow/modules/core/components/notifications/CopyingNotification'
 import UndoRedoNotification from '@baserow/modules/core/components/notifications/UndoRedoNotification'
+import {UNDO_REDO_STATES} from "@baserow/modules/core/utils/undoRedoConstants";
 
 export default {
   name: 'Notifications',
