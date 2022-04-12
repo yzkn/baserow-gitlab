@@ -1,7 +1,7 @@
 import { StoreItemLookupError } from '@baserow/modules/core/errors'
 import ApplicationService from '@baserow/modules/core/services/application'
 import { clone } from '@baserow/modules/core/utils/object'
-import { ACTION_CATEGORIES } from '@baserow/modules/core/utils/undoRedoConstants'
+import { CORE_ACTION_SCOPES } from '@baserow/modules/core/utils/undoRedoConstants'
 
 export function populateApplication(application, registry) {
   const type = registry.get('application', application.type)
@@ -241,8 +241,8 @@ export const actions = {
   select({ commit, dispatch }, application) {
     commit('SET_SELECTED', application)
     dispatch(
-      'undoRedo/updateCurrentCategorySet',
-      ACTION_CATEGORIES.application(application.id),
+      'undoRedo/updateCurrentScopeSet',
+      CORE_ACTION_SCOPES.application(application.id),
       {
         root: true,
       }
@@ -265,8 +265,8 @@ export const actions = {
   unselect({ commit, dispatch }) {
     commit('UNSELECT', {})
     dispatch(
-      'undoRedo/updateCurrentCategorySet',
-      ACTION_CATEGORIES.application(null),
+      'undoRedo/updateCurrentScopeSet',
+      CORE_ACTION_SCOPES.application(null),
       {
         root: true,
       }

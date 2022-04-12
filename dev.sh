@@ -317,6 +317,7 @@ export DOCKER_BUILDKIT=1
 export REDIS_PASSWORD=baserow
 export DATABASE_PASSWORD=baserow
 export SECRET_KEY=baserow
+export ENABLE_UNDO_REDO=true
 if [[ "$dev" = true ]]; then
   # Caddy will just be the media server so change its port to match the MEDIA_URL
   export WEB_FRONTEND_PORT=4000

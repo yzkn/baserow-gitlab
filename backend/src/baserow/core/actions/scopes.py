@@ -2,34 +2,34 @@ from typing import cast
 
 from rest_framework import serializers
 
-from baserow.core.actions.registries import ActionCategoryType, ActionCategoryStr
+from baserow.core.actions.registries import ActionScopeType, ActionScopeStr
 
 
-class RootActionCategoryType(ActionCategoryType):
+class RootActionScopeType(ActionScopeType):
     type = "root"
 
     @classmethod
-    def value(cls) -> ActionCategoryStr:
-        return cast(ActionCategoryStr, cls.type)
+    def value(cls) -> ActionScopeStr:
+        return cast(ActionScopeStr, cls.type)
 
     def get_request_serializer_field(self) -> serializers.Field:
         return serializers.BooleanField(
             allow_null=True,
             required=False,
-            help_text="If set to true then actions registered in the root category "
+            help_text="If set to true then actions registered in the root scope "
             "will be included when undoing or redoing.",
         )
 
-    def valid_serializer_value_to_category_str(self, value) -> ActionCategoryStr:
+    def valid_serializer_value_to_scope_str(self, value) -> ActionScopeStr:
         return self.value()
 
 
-class GroupActionCategoryType(ActionCategoryType):
+class GroupActionScopeType(ActionScopeType):
     type = "group"
 
     @classmethod
-    def value(cls, group_id: int) -> ActionCategoryStr:
-        return cast(ActionCategoryStr, cls.type + str(group_id))
+    def value(cls, group_id: int) -> ActionScopeStr:
+        return cast(ActionScopeStr, cls.type + str(group_id))
 
     def get_request_serializer_field(self) -> serializers.Field:
         return serializers.IntegerField(
@@ -40,16 +40,16 @@ class GroupActionCategoryType(ActionCategoryType):
             "group will be be included when undoing or redoing.",
         )
 
-    def valid_serializer_value_to_category_str(self, value: int) -> ActionCategoryStr:
+    def valid_serializer_value_to_scope_str(self, value: int) -> ActionScopeStr:
         return self.value(value)
 
 
-class ApplicationActionCategoryType(ActionCategoryType):
+class ApplicationActionScopeType(ActionScopeType):
     type = "application"
 
     @classmethod
-    def value(cls, application_id: int) -> ActionCategoryStr:
-        return cast(ActionCategoryStr, cls.type + str(application_id))
+    def value(cls, application_id: int) -> ActionScopeStr:
+        return cast(ActionScopeStr, cls.type + str(application_id))
 
     def get_request_serializer_field(self) -> serializers.Field:
         return serializers.IntegerField(
@@ -60,5 +60,5 @@ class ApplicationActionCategoryType(ActionCategoryType):
             "to that application will be be included when undoing or redoing.",
         )
 
-    def valid_serializer_value_to_category_str(self, value: int) -> ActionCategoryStr:
+    def valid_serializer_value_to_scope_str(self, value: int) -> ActionScopeStr:
         return self.value(value)

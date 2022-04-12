@@ -7,9 +7,9 @@ import {
 export const state = () => ({
   undoing: false,
   redoing: false,
-  // A stack of objects, each object representing a set of visible action categories.
-  // The last object in the stack is the current set of categories which are visible.
-  actionCategoriesStack: [{}],
+  // A stack of objects, each object representing a set of visible action scopes.
+  // The last object in the stack is the current set of scopes which are visible.
+  actionScopesStack: [{}],
 })
 
 export const mutations = {
@@ -19,19 +19,18 @@ export const mutations = {
   SET_REDOING(state, value) {
     state.redoing = value
   },
-  RESET_ACTION_CATEGORY_SET_STACK(state, newCategorySet) {
-    state.actionCategoriesStack = [newCategorySet]
+  RESET_ACTION_SCOPE_SET_STACK(state, newScopeSet) {
+    state.actionScopesStack = [newScopeSet]
   },
-  PUSH_NEW_ACTION_CATEGORY_SET(state, newCategorySet) {
-    state.actionCategoriesStack.push(newCategorySet)
+  PUSH_NEW_ACTION_SCOPE_SET(state, newScopeSet) {
+    state.actionScopesStack.push(newScopeSet)
   },
-  POP_CURRENT_ACTION_CATEGORY_SET(state) {
-    state.actionCategoriesStack.pop()
+  POP_CURRENT_ACTION_SCOPE_SET(state) {
+    state.actionScopesStack.pop()
   },
-  UPDATE_CURRENT_CATEGORY_SET(state, newCategory) {
-    const current =
-      state.actionCategoriesStack[state.actionCategoriesStack.length - 1]
-    Object.assign(current, current, newCategory)
+  UPDATE_CURRENT_SCOPE_SET(state, newScope) {
+    const current = state.actionScopesStack[state.actionScopesStack.length - 1]
+    Object.assign(current, current, newScope)
   },
 }
 
@@ -44,8 +43,8 @@ export const actions = {
       serviceMethod: 'undo',
       doingNotificationState: UNDO_REDO_STATES.UNDOING,
       doneNotificationState: UNDO_REDO_STATES.UNDONE,
-      nothingToDoNotificationState: UNDO_REDO_STATES.NO_MORE_REDO,
-      skippedDueToErrorNotificationState: UNDO_REDO_STATES.ERROR_WITH_REDO,
+      nothingToDoNotificationState: UNDO_REDO_STATES.NO_MORE_UNDO,
+      skippedDueToErrorNotificationState: UNDO_REDO_STATES.ERROR_WITH_UNDO,
       commitName: 'SET_UNDOING',
     })
   },
@@ -114,22 +113,22 @@ export const actions = {
       commit(commitName, false)
     }
   },
-  resetCategorySetStack({ commit }, categorySet) {
+  resetScopeSetStack({ commit }, scopeSet) {
     // TODO do we need this? Perhaps when switching route entirely?
-    commit('RESET_ACTION_CATEGORY_SET_STACK', categorySet)
+    commit('RESET_ACTION_SCOPE_SET_STACK', scopeSet)
   },
-  pushNewCategorySet({ commit }, categorySet) {
-    // For use in modals. A modal will push a new category set when opened restricting
+  pushNewScopeSet({ commit }, scopeSet) {
+    // For use in modals. A modal will push a new scope set when opened restricting
     // the actions available for undo/redo to just those visible from the modal.
-    // When the modal closes it should then call popCurrentCategorySet to reset to
-    // previous category set.
-    commit('PUSH_NEW_ACTION_CATEGORY_SET', categorySet)
+    // When the modal closes it should then call popCurrentScopeSet to reset to
+    // previous scope set.
+    commit('PUSH_NEW_ACTION_SCOPE_SET', scopeSet)
   },
-  popCurrentCategorySet({ commit }) {
-    commit('POP_CURRENT_ACTION_CATEGORY_SET')
+  popCurrentScopeSet({ commit }) {
+    commit('POP_CURRENT_ACTION_SCOPE_SET')
   },
-  updateCurrentCategorySet({ commit }, category) {
-    commit('UPDATE_CURRENT_CATEGORY_SET', category)
+  updateCurrentScopeSet({ commit }, scope) {
+    commit('UPDATE_CURRENT_SCOPE_SET', scope)
   },
 }
 
@@ -141,7 +140,7 @@ export const getters = {
     return state.redoing
   },
   getCurrentScope(state) {
-    return state.actionCategoriesStack[state.actionCategoriesStack.length - 1]
+    return state.actionScopesStack[state.actionScopesStack.length - 1]
   },
 }
 

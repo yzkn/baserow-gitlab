@@ -27,7 +27,7 @@ from baserow.api.groups.invitations.errors import (
 from baserow.api.schemas import get_error_schema
 from baserow.api.user.registries import user_data_registry
 from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.registries import ActionCategoryStr
+from baserow.core.actions.registries import ActionScopeStr
 from baserow.core.exceptions import (
     BaseURLHostnameNotAllowed,
     GroupInvitationEmailMismatch,
@@ -411,12 +411,13 @@ class UndoView(APIView):
         {ClientSessionIdHeaderNotSetException: ERROR_CLIENT_SESSION_ID_HEADER_NOT_SET}
     )
     @transaction.atomic
-    def patch(self, request, data: List[ActionCategoryStr]):
+    def patch(self, request, data: List[ActionScopeStr]):
         session_id = get_untrusted_client_session_id(request.user)
         if session_id is None:
             raise ClientSessionIdHeaderNotSetException()
         undone_action = ActionHandler.undo(request.user, data, session_id)
-        return Response(UndoRedoResponseSerializer(undone_action).data, status=200)
+        serializer = UndoRedoResponseSerializer(undone_action)
+        return Response(serializer.data, status=200)
 
 
 class RedoView(APIView):
@@ -443,7 +444,7 @@ class RedoView(APIView):
         {ClientSessionIdHeaderNotSetException: ERROR_CLIENT_SESSION_ID_HEADER_NOT_SET}
     )
     @transaction.atomic
-    def patch(self, request, data: List[ActionCategoryStr]):
+    def patch(self, request, data: List[ActionScopeStr]):
         session_id = get_untrusted_client_session_id(request.user)
         if session_id is None:
             raise ClientSessionIdHeaderNotSetException()

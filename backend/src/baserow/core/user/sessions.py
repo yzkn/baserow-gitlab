@@ -15,7 +15,7 @@ def raise_if_not_valid_untrusted_client_session_id(value: Any):
         and re.match(r"^[0-9a-zA-Z-]+$", value)
         and len(value) <= settings.MAX_CLIENT_SESSION_ID_LENGTH
     )
-    if is_valid:
+    if not is_valid:
         raise InvalidClientSessionIdAPIException()
 
 

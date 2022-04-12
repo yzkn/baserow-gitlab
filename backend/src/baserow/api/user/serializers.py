@@ -12,7 +12,7 @@ from baserow.api.groups.invitations.serializers import UserGroupInvitationSerial
 from baserow.api.mixins import UnknownFieldRaisesExceptionSerializerMixin
 from baserow.api.user.validators import password_validation, language_validation
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import action_category_registry, ActionCategoryStr
+from baserow.core.actions.registries import action_scope_registry, ActionScopeStr
 from baserow.core.models import Template, UserLogEntry
 from baserow.core.user.utils import normalize_email_address
 
@@ -76,60 +76,78 @@ class RegisterSerializer(serializers.Serializer):
     )
 
 
-def get_action_categories_request_serializer():
+def get_action_scopes_request_serializer():
     attrs = {}
 
-    for category_type in action_category_registry.get_all():
-        attrs[category_type.type] = category_type.get_request_serializer_field()
+    for scope_type in action_scope_registry.get_all():
+        attrs[scope_type.type] = scope_type.get_request_serializer_field()
 
     return type(
-        "ActionCategoriesRequestSerializer",
+        "ActionScopesRequestSerializer",
         (serializers.Serializer, UnknownFieldRaisesExceptionSerializerMixin),
         attrs,
     )
 
 
-ActionCategoriesSerializer = get_action_categories_request_serializer()
+ActionScopesSerializer = get_action_scopes_request_serializer()
 
 
 class UndoRedoRequestSerializer(serializers.Serializer):
-    categories = ActionCategoriesSerializer(
+    scopes = ActionScopesSerializer(
         required=True,
         help_text="A JSON object with keys and values representing the various action "
-        "categories to include when undoing or redoing. Every action in Baserow will "
-        "be associated with a action category, when undoing/redoing only actions "
-        "which match any of the provided category key:value pairs will included when "
+        "scopes to include when undoing or redoing. Every action in Baserow will "
+        "be associated with a action scope, when undoing/redoing only actions "
+        "which match any of the provided scope key:value pairs will included when "
         "this endpoint picks the next action to undo/redo.",
     )
 
     @property
-    def data(self) -> List[ActionCategoryStr]:
-        category_list = []
-        for category_type_str, category_value in self.validated_data[
-            "categories"
-        ].items():
-            if category_value:
-                category_type = action_category_registry.get(category_type_str)
-                category_list.append(
-                    category_type.valid_serializer_value_to_category_str(category_value)
+    def data(self) -> List[ActionScopeStr]:
+        scope_list = []
+        for scope_type_str, scope_value in self.validated_data["scopes"].items():
+            if scope_value:
+                scope_type = action_scope_registry.get(scope_type_str)
+                scope_list.append(
+                    scope_type.valid_serializer_value_to_scope_str(scope_value)
                 )
-        return category_list
+        return scope_list
 
 
-class UndoRedoResponseSerializer(serializers.ModelSerializer):
+@extend_schema_field(OpenApiTypes.STR)
+class UndoRedoResultCodeField(serializers.Field):
     # Please keep code values in sync with
     # web-frontend/modules/core/utils/undoRedoConstants.js:UNDO_REDO_RESULT_CODES
     NOTHING_TO_DO = "NOTHING_TO_DO"
     SUCCESS = "SUCCESS"
     SKIPPED_DUE_TO_ERROR = "SKIPPED_DUE_TO_ERROR"
 
-    result_code = serializers.SerializerMethodField(
-        help_text=f"Indicates the result of the undo/redo operation. Will be "
-        f"'{SUCCESS}' on success, '{NOTHING_TO_DO}' when "
+    def __init__(self, *args, **kwargs):
+        kwargs[
+            "help_text"
+        ] = f"Indicates the result of the undo/redo operation. Will be "
+        f"'{self.SUCCESS}' on success, '{self.NOTHING_TO_DO}' when "
         f"there is no action to undo/redo and "
-        f"'{SKIPPED_DUE_TO_ERROR}' when the undo/redo failed due "
+        f"'{self.SKIPPED_DUE_TO_ERROR}' when the undo/redo failed due "
         f"to a conflict or error and was skipped over."
-    )
+        super().__init__(*args, **kwargs)
+
+    def get_attribute(self, instance):
+        return instance
+
+    def get_initial(self):
+        return self.NOTHING_TO_DO
+
+    def to_representation(self, instance):
+        if instance.has_error():
+            return self.SKIPPED_DUE_TO_ERROR
+        else:
+            return self.SUCCESS
+
+
+class UndoRedoResponseSerializer(serializers.ModelSerializer):
+
+    result_code = UndoRedoResultCodeField()
 
     action_type = serializers.CharField(
         required=False,
@@ -139,17 +157,17 @@ class UndoRedoResponseSerializer(serializers.ModelSerializer):
         help_text="If an action was undone/redone/skipped due to an error this field "
         "will contain the type of the action that was undone/redone.",
     )
-    action_category = serializers.CharField(
+    action_scope = serializers.CharField(
         required=False,
         allow_null=True,
         allow_blank=True,
-        source="category",
+        source="scope",
         help_text="If an action was undone/redone/skipped due to an error this field "
-        "will contain the category of the action that was undone/redone.",
+        "will contain the scope of the action that was undone/redone.",
     )
 
     @extend_schema_field(OpenApiTypes.STR)
-    def get_result(self, instance):
+    def get_result_code(self, instance):
         if instance is None:
             return self.NOTHING_TO_DO
         elif instance.error:
@@ -157,9 +175,12 @@ class UndoRedoResponseSerializer(serializers.ModelSerializer):
         else:
             return self.SUCCESS
 
+    def to_representation(self, instance):
+        return super().to_representation(instance)
+
     class Meta:
         model = Action
-        fields = ("action_type", "action_category", "result")
+        fields = ("action_type", "action_scope", "result_code")
 
 
 class AccountSerializer(serializers.Serializer):

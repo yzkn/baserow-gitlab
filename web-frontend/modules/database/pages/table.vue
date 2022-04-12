@@ -17,7 +17,7 @@ import { mapState } from 'vuex'
 
 import Table from '@baserow/modules/database/components/table/Table'
 import { StoreItemLookupError } from '@baserow/modules/core/errors'
-import { ACTION_CATEGORIES } from '@baserow/modules/core/utils/undoRedoConstants'
+import { DATABASE_ACTION_SCOPES } from '@baserow/modules/database/utils/undoRedoConstants'
 
 /**
  * This page component is the skeleton for a table. Depending on the selected view it
@@ -142,8 +142,8 @@ export default {
   mounted() {
     this.$realtime.subscribe('table', { table_id: this.table.id })
     this.$store.dispatch(
-      'undoRedo/updateCurrentCategorySet',
-      ACTION_CATEGORIES.table(this.table.id)
+      'undoRedo/updateCurrentScopeSet',
+      DATABASE_ACTION_SCOPES.table(this.table.id)
     )
   },
   beforeDestroy() {

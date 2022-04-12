@@ -2,17 +2,14 @@ import dataclasses
 
 from django.contrib.auth import get_user_model
 
-from baserow.core.actions.categories import (
-    RootActionCategoryType,
-)
+from baserow.core.actions.scopes import RootActionScopeType
 from baserow.core.actions.models import Action
 from baserow.core.actions.registries import (
     ActionType,
-    ActionCategoryStr,
+    ActionScopeStr,
 )
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
-from baserow.core.trash.actions import DeleteParams
 from baserow.core.trash.handler import TrashHandler
 from baserow.core.user.utils import UserType
 
@@ -22,18 +19,18 @@ User = get_user_model()
 class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
     type = "delete_group"
 
-    Params = DeleteParams
+    @dataclasses.dataclass
+    class Params:
+        deleted_group_id: int
 
     def do(self, user: UserType, group: LockedGroup):
         CoreHandler().delete_group(user, group)
 
-        self.register_action(
-            user, self.Params(group.id), category=self.default_category()
-        )
+        self.register_action(user, self.Params(group.id), scope=self.scope())
 
     @classmethod
-    def default_category(cls) -> ActionCategoryStr:
-        return RootActionCategoryType.value()
+    def scope(cls) -> ActionScopeStr:
+        return RootActionScopeType.value()
 
     @classmethod
     def undo(
@@ -45,7 +42,7 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
         TrashHandler.restore_item(
             user,
             "group",
-            params.trash_item_id,
+            params.deleted_group_id,
         )
 
     @classmethod
@@ -55,7 +52,7 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
         params: "DeleteGroupActionType.Params",
         action_to_redo: Action,
     ):
-        CoreHandler().delete_group_by_id(user, params.trash_item_id)
+        CoreHandler().delete_group_by_id(user, params.deleted_group_id)
 
 
 class CreateGroupActionType(ActionType["CreateGroupParameters"]):
@@ -76,13 +73,13 @@ class CreateGroupActionType(ActionType["CreateGroupParameters"]):
         cls.register_action(
             user=user,
             params=cls.Params(group_id, group_name),
-            category=cls.default_category(),
+            scope=cls.scope(),
         )
         return group_user
 
     @classmethod
-    def default_category(cls) -> ActionCategoryStr:
-        return RootActionCategoryType.value()
+    def scope(cls) -> ActionScopeStr:
+        return RootActionScopeType.value()
 
     @classmethod
     def undo(
@@ -126,13 +123,13 @@ class UpdateGroupActionType(ActionType["Params"]):
                 old_group_name=old_group_name,
                 new_group_name=new_group_name,
             ),
-            category=cls.default_category(),
+            scope=cls.scope(),
         )
         return group
 
     @classmethod
-    def default_category(cls) -> ActionCategoryStr:
-        return RootActionCategoryType.value()
+    def scope(cls) -> ActionScopeStr:
+        return RootActionScopeType.value()
 
     @classmethod
     def undo(

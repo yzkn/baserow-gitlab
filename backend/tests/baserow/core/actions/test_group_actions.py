@@ -1,13 +1,16 @@
 import pytest
 
-from baserow.core.actions.categories import (
-    RootActionCategoryType,
+from baserow.core.actions.scopes import (
+    RootActionScopeType,
 )
 from baserow.core.actions.handler import ActionHandler
 from baserow.core.actions.registries import (
     action_type_registry,
 )
-from baserow.core.group_actions import CreateGroupActionType, UpdateGroupActionType
+from baserow.core.actions.group_actions import (
+    CreateGroupActionType,
+    UpdateGroupActionType,
+)
 from baserow.core.models import Group
 from baserow.core.utils import mark_as_locked
 
@@ -22,7 +25,7 @@ def test_can_undo_creating_group(data_fixture, django_assert_num_queries):
     )
     group = group_user.group
 
-    ActionHandler.undo(user, [RootActionCategoryType.value()], session_id)
+    ActionHandler.undo(user, [RootActionScopeType.value()], session_id)
 
     assert Group.objects.filter(pk=group.id).count() == 0
 
@@ -41,12 +44,12 @@ def test_can_undo_redo_creating_group(data_fixture, django_assert_num_queries):
     group = group_user.group
     group2 = group2_user.group
 
-    ActionHandler.undo(user, [RootActionCategoryType.value()], session_id)
+    ActionHandler.undo(user, [RootActionScopeType.value()], session_id)
 
     assert not Group.objects.filter(pk=group2.id).exists()
     assert Group.objects.filter(pk=group.id).exists()
 
-    ActionHandler.redo(user, [RootActionCategoryType.value()], session_id)
+    ActionHandler.redo(user, [RootActionScopeType.value()], session_id)
 
     assert Group.objects.filter(pk=group2.id).exists()
     assert Group.objects.filter(pk=group.id).exists()
@@ -66,6 +69,6 @@ def test_can_undo_updating_group(data_fixture, django_assert_num_queries):
     )
 
     assert updated_group.name == "new name"
-    ActionHandler.undo(user, [RootActionCategoryType.value()], session_id)
+    ActionHandler.undo(user, [RootActionScopeType.value()], session_id)
     updated_group.refresh_from_db()
     assert updated_group.name == "test"

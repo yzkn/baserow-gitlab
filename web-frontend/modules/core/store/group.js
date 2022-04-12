@@ -4,7 +4,7 @@ import {
   setGroupCookie,
   unsetGroupCookie,
 } from '@baserow/modules/core/utils/group'
-import { ACTION_CATEGORIES } from '@baserow/modules/core/utils/undoRedoConstants'
+import { CORE_ACTION_SCOPES } from '@baserow/modules/core/utils/undoRedoConstants'
 
 function populateGroup(group) {
   group._ = { loading: false, selected: false }
@@ -206,8 +206,8 @@ export const actions = {
     commit('SET_SELECTED', group)
     setGroupCookie(group.id, this.app)
     dispatch(
-      'undoRedo/updateCurrentCategorySet',
-      ACTION_CATEGORIES.group(group.id),
+      'undoRedo/updateCurrentScopeSet',
+      CORE_ACTION_SCOPES.group(group.id),
       {
         root: true,
       }
@@ -229,13 +229,9 @@ export const actions = {
   unselect({ commit, dispatch, getters }, group) {
     commit('UNSELECT', {})
     unsetGroupCookie(this.app)
-    dispatch(
-      'undoRedo/updateCurrentCategorySet',
-      ACTION_CATEGORIES.group(null),
-      {
-        root: true,
-      }
-    )
+    dispatch('undoRedo/updateCurrentScopeSet', CORE_ACTION_SCOPES.group(null), {
+      root: true,
+    })
     return dispatch('application/clearAll', group, { root: true })
   },
 }

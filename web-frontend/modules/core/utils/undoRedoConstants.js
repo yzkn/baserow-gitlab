@@ -18,9 +18,8 @@ export const UNDO_REDO_STATES = {
   // There is no recent undo/redo action
   HIDDEN: 'HIDDEN',
 }
-// The different types of undo/redo categories available. Use this functions when
-// calling UPDATE_CURRENT_CATEGORY_SET.
-export const ACTION_CATEGORIES = {
+// The core types of undo/redo scopes available.
+export const CORE_ACTION_SCOPES = {
   root() {
     return {
       root: true,
@@ -34,12 +33,6 @@ export const ACTION_CATEGORIES = {
   application(applicationId) {
     return {
       application: applicationId,
-    }
-  },
-  // todo move to database module?
-  table(tableId) {
-    return {
-      table: tableId,
     }
   },
 }
