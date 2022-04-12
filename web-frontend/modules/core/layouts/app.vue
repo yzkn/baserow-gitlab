@@ -18,7 +18,7 @@ import { mapGetters } from 'vuex'
 import Notifications from '@baserow/modules/core/components/notifications/Notifications'
 import Sidebar from '@baserow/modules/core/components/sidebar/Sidebar'
 import undoRedo from '@baserow/modules/core/mixins/undoRedo'
-import {ACTION_CATEGORIES} from "@baserow/modules/core/utils/undoRedoConstants";
+import { ACTION_CATEGORIES } from '@baserow/modules/core/utils/undoRedoConstants'
 
 export default {
   components: {

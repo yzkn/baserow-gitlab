@@ -6,7 +6,10 @@ from baserow.core.actions.categories import (
     RootActionCategoryType,
 )
 from baserow.core.actions.models import Action
-from baserow.core.actions.registries import ActionType, ActionCategoryStr
+from baserow.core.actions.registries import (
+    ActionType,
+    ActionCategoryStr,
+)
 from baserow.core.handler import CoreHandler, LockedGroup
 from baserow.core.models import Group, GroupUser
 from baserow.core.trash.actions import DeleteParams

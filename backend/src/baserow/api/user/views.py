@@ -396,9 +396,9 @@ class UndoView(APIView):
         operation_id="undo",
         description=(
             "undoes the latest undoable action performed by the user making the "
-            f"request. a {settings.client_session_id_header} header must be provided "
+            f"request. a {settings.CLIENT_SESSION_ID_HEADER} header must be provided "
             f"and only actions which were performed the same user with the same "
-            f"{settings.client_session_id_header} value set on the api request that "
+            f"{settings.CLIENT_SESSION_ID_HEADER} value set on the api request that "
             f"performed the action will be undone."
             f"Additionally the {settings.CLIENT_SESSION_ID_HEADER} header must "
             f"be between 1 and {settings.MAX_CLIENT_SESSION_ID_LENGTH} characters long "
@@ -428,9 +428,9 @@ class RedoView(APIView):
         operation_id="redo",
         description=(
             "Redoes the latest redoable action performed by the user making the "
-            f"request. a {settings.client_session_id_header} header must be provided "
+            f"request. a {settings.CLIENT_SESSION_ID_HEADER} header must be provided "
             f"and only actions which were performed the same user with the same "
-            f"{settings.client_session_id_header} value set on the api request that "
+            f"{settings.CLIENT_SESSION_ID_HEADER} value set on the api request that "
             f"performed the action will be redone."
             f"Additionally the {settings.CLIENT_SESSION_ID_HEADER} header must "
             f"be between 1 and {settings.MAX_CLIENT_SESSION_ID_LENGTH} characters long "

@@ -17,7 +17,7 @@
 </template>
 
 <script>
-import {UNDO_REDO_STATES} from "@baserow/modules/core/utils/undoRedoConstants";
+import { UNDO_REDO_STATES } from '@baserow/modules/core/utils/undoRedoConstants'
 
 export default {
   name: 'UndoRedoNotification',

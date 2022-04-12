@@ -1,12 +1,11 @@
 import pytest
 
-from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.models import Action
-from baserow.core.actions.registries import (
-    action_type_registry,
-)
 from baserow.core.actions.categories import (
     RootActionCategoryType,
+)
+from baserow.core.actions.handler import ActionHandler
+from baserow.core.actions.registries import (
+    action_type_registry,
 )
 from baserow.core.group_actions import CreateGroupActionType, UpdateGroupActionType
 from baserow.core.models import Group

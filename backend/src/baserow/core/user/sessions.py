@@ -2,7 +2,6 @@ import re
 from typing import Any
 
 from django.conf import settings
-from rest_framework.exceptions import APIException
 
 from baserow.core.user.exceptions import InvalidClientSessionIdAPIException
 from baserow.core.user.utils import UserType
