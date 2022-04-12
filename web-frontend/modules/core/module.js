@@ -85,7 +85,7 @@ export default function CoreModule(options) {
         },
         {
           key: 'ENABLE_UNDO_REDO',
-          default: true,
+          default: false,
         },
       ],
     },
