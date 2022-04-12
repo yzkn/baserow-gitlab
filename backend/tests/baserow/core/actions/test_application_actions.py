@@ -1,6 +1,6 @@
 import pytest
 
-from baserow.core.actions.categories import GroupActionCategoryType
+from baserow.core.actions.scopes import GroupActionScopeType
 from baserow.core.actions.handler import ActionHandler
 from baserow.core.actions.registries import action_type_registry
 from baserow.core.actions.application_actions import CreateApplicationActionType
@@ -19,7 +19,7 @@ def test_can_undo_creating_application(data_fixture, django_assert_num_queries):
         user, group, application_type, name=application_name
     )
 
-    ActionHandler.undo(user, [GroupActionCategoryType.value(group_id=group.id)], session_id)
+    ActionHandler.undo(user, [GroupActionScopeType.value(group_id=group.id)], session_id)
 
     assert Application.objects.filter(pk=application.id).count() == 0
 
@@ -36,7 +36,7 @@ def test_can_undo_redo_creating_application(data_fixture, django_assert_num_quer
         user, group, application_type, name=application_name
     )
 
-    ActionHandler.undo(user, [GroupActionCategoryType.value(group_id=group.id)], session_id)
-    ActionHandler.redo(user, [GroupActionCategoryType.value(group_id=group.id)], session_id)
+    ActionHandler.undo(user, [GroupActionScopeType.value(group_id=group.id)], session_id)
+    ActionHandler.redo(user, [GroupActionScopeType.value(group_id=group.id)], session_id)
 
     assert Application.objects.filter(pk=application.id).count() == 1
