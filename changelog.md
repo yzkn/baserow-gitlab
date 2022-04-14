@@ -28,6 +28,7 @@
 * Fixed a bug that truncated characters for email in the sidebar.
 * Fixed a bug that would sometimes cancel multi-cell selection.
 * Upgraded node runtime to v16.14.0
+* Added undo/redo.
 
 ## Released (2022-03-03 1.9.1)
 

@@ -17,7 +17,7 @@ from baserow.api.errors import (
 from baserow.api.schemas import get_error_schema
 from baserow.api.groups.users.serializers import GroupUserGroupSerializer
 from baserow.api.trash.errors import ERROR_CANNOT_DELETE_ALREADY_DELETED_ITEM
-from baserow.core.models import GroupUser, Group
+from baserow.core.models import GroupUser
 from baserow.core.handler import CoreHandler
 from baserow.core.exceptions import (
     UserNotInGroup,
@@ -30,6 +30,12 @@ from baserow.core.trash.exceptions import CannotDeleteAlreadyDeletedItem
 from .serializers import GroupSerializer, OrderGroupsSerializer
 from .schemas import group_user_schema
 from .errors import ERROR_GROUP_USER_IS_LAST_ADMIN
+from baserow.core.actions.registries import action_type_registry
+from baserow.core.actions.group_actions import (
+    DeleteGroupActionType,
+    UpdateGroupActionType,
+    CreateGroupActionType,
+)
 
 
 class GroupsView(APIView):
@@ -71,7 +77,9 @@ class GroupsView(APIView):
     def post(self, request, data):
         """Creates a new group for a user."""
 
-        group_user = CoreHandler().create_group(request.user, name=data["name"])
+        group_user = action_type_registry.get_by_type(CreateGroupActionType).do(
+            request.user, data["name"]
+        )
         return Response(GroupUserGroupSerializer(group_user).data)
 
 
@@ -119,10 +127,10 @@ class GroupView(APIView):
     def patch(self, request, data, group_id):
         """Updates the group if it belongs to a user."""
 
-        group = CoreHandler().get_group(
-            group_id, base_queryset=Group.objects.select_for_update()
+        group = CoreHandler().get_group_for_update(group_id)
+        action_type_registry.get_by_type(UpdateGroupActionType).do(
+            request.user, group, data["name"]
         )
-        group = CoreHandler().update_group(request.user, group, name=data["name"])
         return Response(GroupSerializer(group).data)
 
     @extend_schema(
@@ -164,13 +172,13 @@ class GroupView(APIView):
             CannotDeleteAlreadyDeletedItem: ERROR_CANNOT_DELETE_ALREADY_DELETED_ITEM,
         }
     )
-    def delete(self, request, group_id):
+    def delete(self, request, group_id: int):
         """Deletes an existing group if it belongs to a user."""
 
-        group = CoreHandler().get_group(
-            group_id, base_queryset=Group.objects.select_for_update()
+        locked_group = CoreHandler().get_group_for_update(group_id)
+        action_type_registry.get_by_type(DeleteGroupActionType).do(
+            request.user, locked_group
         )
-        CoreHandler().delete_group(request.user, group)
         return Response(status=204)
 
 
