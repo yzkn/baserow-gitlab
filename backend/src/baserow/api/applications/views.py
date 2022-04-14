@@ -31,6 +31,8 @@ from .serializers import (
     OrderApplicationsSerializer,
     get_application_serializer,
 )
+from baserow.core.actions.application_actions import CreateApplicationActionType
+from baserow.core.actions.registries import action_type_registry
 
 application_type_serializers = {
     application_type.type: (
@@ -179,7 +181,7 @@ class ApplicationsView(APIView):
         """Creates a new application for a user."""
 
         group = CoreHandler().get_group(group_id)
-        application = CoreHandler().create_application(
+        application = action_type_registry.get_by_type(CreateApplicationActionType).do(
             request.user, group, data["type"], name=data["name"]
         )
 
