@@ -31,8 +31,8 @@ from .serializers import (
     OrderApplicationsSerializer,
     get_application_serializer,
 )
-from baserow.core.actions.application_actions import CreateApplicationActionType
-from baserow.core.actions.registries import action_type_registry
+from baserow.core.actions import CreateApplicationActionType
+from baserow.core.action.registries import action_type_registry
 
 application_type_serializers = {
     application_type.type: (

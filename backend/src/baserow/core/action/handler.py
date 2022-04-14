@@ -5,8 +5,8 @@ from typing import List, Optional
 from django.db.models import Q
 from django.utils import timezone
 
-from baserow.core.actions.models import Action
-from baserow.core.actions.registries import action_type_registry, ActionScopeStr
+from baserow.core.action.models import Action
+from baserow.core.action.registries import action_type_registry, ActionScopeStr
 from baserow.core.user.utils import UserType
 
 logger = logging.getLogger(__name__)

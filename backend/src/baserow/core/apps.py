@@ -6,7 +6,7 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         from baserow.core.trash.registries import trash_item_type_registry
-        from baserow.core.actions.registries import (
+        from baserow.core.action.registries import (
             action_type_registry,
             action_scope_registry,
         )
@@ -16,19 +16,17 @@ class CoreConfig(AppConfig):
         trash_item_type_registry.register(GroupTrashableItemType())
         trash_item_type_registry.register(ApplicationTrashableItemType())
 
-        from baserow.core.actions.group_actions import (
-            CreateGroupActionType,
-            UpdateGroupActionType,
-            DeleteGroupActionType,
-        )
-        from baserow.core.actions.application_actions import CreateApplicationActionType
+        from baserow.core.actions import UpdateGroupActionType
+        from baserow.core.actions import CreateGroupActionType
+        from baserow.core.actions import DeleteGroupActionType
+        from baserow.core.actions import CreateApplicationActionType
 
         action_type_registry.register(CreateGroupActionType())
         action_type_registry.register(DeleteGroupActionType())
         action_type_registry.register(UpdateGroupActionType())
         action_type_registry.register(CreateApplicationActionType())
 
-        from baserow.core.actions.scopes import (
+        from baserow.core.action.scopes import (
             RootActionScopeType,
             GroupActionScopeType,
             ApplicationActionScopeType,

@@ -11,8 +11,8 @@ from rest_framework_jwt.serializers import JSONWebTokenSerializer
 from baserow.api.groups.invitations.serializers import UserGroupInvitationSerializer
 from baserow.api.mixins import UnknownFieldRaisesExceptionSerializerMixin
 from baserow.api.user.validators import password_validation, language_validation
-from baserow.core.actions.models import Action
-from baserow.core.actions.registries import action_scope_registry, ActionScopeStr
+from baserow.core.action.models import Action
+from baserow.core.action.registries import action_scope_registry, ActionScopeStr
 from baserow.core.models import Template, UserLogEntry
 from baserow.core.user.utils import normalize_email_address
 

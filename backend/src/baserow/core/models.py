@@ -18,7 +18,7 @@ from .mixins import (
     ParentGroupTrashableModelMixin,
 )
 from .exceptions import UserNotInGroup, UserInvalidGroupPermissionsError
-from .actions.models import Action
+from .action.models import Action
 
 
 __all__ = [

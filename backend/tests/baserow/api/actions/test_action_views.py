@@ -5,7 +5,7 @@ from django.shortcuts import reverse
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from baserow.api.user.serializers import UndoRedoResultCodeField
-from baserow.core.actions.group_actions import CreateGroupActionType
+from baserow.core.actions import CreateGroupActionType
 from baserow.core.models import Group
 
 User = get_user_model()

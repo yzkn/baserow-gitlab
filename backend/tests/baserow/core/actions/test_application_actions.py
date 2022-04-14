@@ -1,9 +1,9 @@
 import pytest
 
-from baserow.core.actions.scopes import GroupActionScopeType
-from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.registries import action_type_registry
-from baserow.core.actions.application_actions import CreateApplicationActionType
+from baserow.core.action.scopes import GroupActionScopeType
+from baserow.core.action.handler import ActionHandler
+from baserow.core.action.registries import action_type_registry
+from baserow.core.actions import CreateApplicationActionType
 from baserow.core.models import Application
 
 

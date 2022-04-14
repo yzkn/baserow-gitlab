@@ -1,16 +1,13 @@
 import pytest
 
-from baserow.core.actions.scopes import (
+from baserow.core.action.scopes import (
     RootActionScopeType,
 )
-from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.registries import (
+from baserow.core.action.handler import ActionHandler
+from baserow.core.action.registries import (
     action_type_registry,
 )
-from baserow.core.actions.group_actions import (
-    CreateGroupActionType,
-    UpdateGroupActionType,
-)
+from baserow.core.actions import CreateGroupActionType, UpdateGroupActionType
 from baserow.core.models import Group
 from baserow.core.utils import mark_as_locked
 

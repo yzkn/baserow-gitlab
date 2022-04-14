@@ -26,8 +26,8 @@ from baserow.api.groups.invitations.errors import (
 )
 from baserow.api.schemas import get_error_schema
 from baserow.api.user.registries import user_data_registry
-from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.registries import ActionScopeStr
+from baserow.core.action.handler import ActionHandler
+from baserow.core.action.registries import ActionScopeStr
 from baserow.core.exceptions import (
     BaseURLHostnameNotAllowed,
     GroupInvitationEmailMismatch,

@@ -3,15 +3,12 @@ from typing import cast
 import pytest
 from django.contrib.auth import get_user_model
 
-from baserow.core.actions.handler import ActionHandler
-from baserow.core.actions.registries import (
+from baserow.core.action.handler import ActionHandler
+from baserow.core.action.registries import (
     action_type_registry,
     ActionScopeStr,
 )
-from baserow.core.actions.group_actions import (
-    CreateGroupActionType,
-    DeleteGroupActionType,
-)
+from baserow.core.actions import DeleteGroupActionType, CreateGroupActionType
 from baserow.core.handler import CoreHandler
 from baserow.core.models import Group, GROUP_USER_PERMISSION_ADMIN
 from baserow.core.user.sessions import set_untrusted_client_session_id

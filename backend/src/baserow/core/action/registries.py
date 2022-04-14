@@ -4,7 +4,7 @@ from typing import TypeVar, Generic, Any, NewType, Optional
 
 from rest_framework import serializers
 
-from baserow.core.actions.models import Action
+from baserow.core.action.models import Action
 from baserow.core.registry import Registry, Instance
 from baserow.core.user.sessions import get_untrusted_client_session_id
 from baserow.core.user.utils import UserType

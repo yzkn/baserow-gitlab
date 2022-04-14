@@ -30,11 +30,11 @@ from baserow.core.trash.exceptions import CannotDeleteAlreadyDeletedItem
 from .serializers import GroupSerializer, OrderGroupsSerializer
 from .schemas import group_user_schema
 from .errors import ERROR_GROUP_USER_IS_LAST_ADMIN
-from baserow.core.actions.registries import action_type_registry
-from baserow.core.actions.group_actions import (
+from baserow.core.action.registries import action_type_registry
+from baserow.core.actions import (
     DeleteGroupActionType,
-    UpdateGroupActionType,
     CreateGroupActionType,
+    UpdateGroupActionType,
 )
 
 

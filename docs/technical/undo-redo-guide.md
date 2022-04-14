@@ -27,7 +27,7 @@ e.g. `action_registry.get_by_type(DeleteGroupAction).do(user, group_to_delete)`)
 
 ### Quick summary of the Action Table
 
-See baserow.core.actions.models.Action for more details.
+See baserow.core.action.models.Action for more details.
 
 | id (serial) | user_id (fk to user table, nullable) | session (text nullable) |  category (text) | created_on (auto_now_add DateTimeField) | type (text) | params (JSONB) | undone_at (nullable DateTimeField) | error (text nullable) |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |

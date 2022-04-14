@@ -2,7 +2,7 @@ from typing import cast, Optional
 
 from rest_framework import serializers
 
-from baserow.core.actions.registries import ActionScopeType, ActionScopeStr
+from baserow.core.action.registries import ActionScopeType, ActionScopeStr
 
 
 class RootActionScopeType(ActionScopeType):
