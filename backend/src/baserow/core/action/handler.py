@@ -2,6 +2,7 @@ import logging
 import traceback
 from typing import List, Optional
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -45,10 +46,13 @@ class ActionHandler:
 
         action_being_undone = latest_not_undone_action
         action_being_undone.error = None
+        # noinspection PyBroadException
         try:
-            action_type = action_type_registry.get(latest_not_undone_action.type)
-            latest_params = action_type.Params(**latest_not_undone_action.params)
-            action_type.undo(user, latest_params, action_being_undone)
+            # Wrap with an inner transaction to ensure any errors get rolled back.
+            with transaction.atomic():
+                action_type = action_type_registry.get(latest_not_undone_action.type)
+                latest_params = action_type.Params(**latest_not_undone_action.params)
+                action_type.undo(user, latest_params, action_being_undone)
         except Exception:
             tb = traceback.format_exc()
             logger.error(
@@ -100,10 +104,13 @@ class ActionHandler:
             latest_undone_action.save()
         else:
             action_being_redone = latest_undone_action
+            # noinspection PyBroadException
             try:
-                action_type = action_type_registry.get(latest_undone_action.type)
-                latest_params = action_type.Params(**latest_undone_action.params)
-                action_type.redo(user, latest_params, action_being_redone)
+                # Wrap with an inner transaction to ensure any errors get rolled back.
+                with transaction.atomic():
+                    action_type = action_type_registry.get(latest_undone_action.type)
+                    latest_params = action_type.Params(**latest_undone_action.params)
+                    action_type.redo(user, latest_params, action_being_redone)
             except Exception:
                 tb = traceback.format_exc()
                 logger.error(

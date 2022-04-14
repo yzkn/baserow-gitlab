@@ -1,4 +1,5 @@
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -347,6 +348,36 @@ def test_when_undo_fails_can_try_undo_next_action(
 
 
 @pytest.mark.django_db
+@patch("baserow.core.signals.group_deleted.send")
+def test_when_undo_fails_the_action_is_rolled_back(
+    mock_group_deleted,
+    data_fixture,
+):
+    session_id = "session-id"
+    user = data_fixture.create_user(session_id=session_id)
+
+    group = (
+        action_type_registry.get_by_type(CreateGroupActionType)
+        .do(user, group_name="test2")
+        .group
+    )
+
+    mock_group_deleted.side_effect = Exception(
+        "Error that should make the undo rollback"
+    )
+
+    undone_action = ActionHandler.undo(
+        user, [CreateGroupActionType.scope()], session_id
+    )
+    assert undone_action.error
+
+    assert Group.objects.filter(id=group.id).exists(), (
+        "The group should still exist as the undo transaction should have failed and "
+        "rolled back. "
+    )
+
+
+@pytest.mark.django_db
 def test_when_undo_fails_can_try_redo_undo_to_try_again(
     data_fixture,
 ):
@@ -392,3 +423,39 @@ def test_when_undo_fails_can_try_redo_undo_to_try_again(
     ActionHandler.undo(user, [CreateGroupActionType.scope()], session_id)
 
     assert not Group.objects.exists()
+
+
+@pytest.mark.django_db
+def test_when_redo_fails_the_action_is_rolled_back(
+    data_fixture,
+):
+    session_id = "session-id"
+    user = data_fixture.create_user(session_id=session_id)
+
+    group = (
+        action_type_registry.get_by_type(CreateGroupActionType)
+        .do(user, group_name="test2")
+        .group
+    )
+    action_type_registry.get_by_type(DeleteGroupActionType).do(
+        user, CoreHandler().get_group_for_update(group.id)
+    )
+
+    # Undo the deletion restoring the group.
+    ActionHandler.undo(user, [CreateGroupActionType.scope()], session_id)
+
+    with patch("baserow.core.signals.group_deleted.send") as mock_group_deleted_send:
+        mock_group_deleted_send.side_effect = Exception(
+            "Error that should make the redo rollback"
+        )
+
+        # Redo the deletion
+        redone_action = ActionHandler.redo(
+            user, [CreateGroupActionType.scope()], session_id
+        )
+    assert redone_action.error
+
+    assert Group.objects.filter(id=group.id).exists(), (
+        "The group should still exist as the redo should have rolled back when it "
+        "failed. "
+    )
