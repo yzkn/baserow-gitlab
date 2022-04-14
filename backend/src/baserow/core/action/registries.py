@@ -1,6 +1,6 @@
 import abc
 import dataclasses
-from typing import TypeVar, Generic, Any, NewType, Optional
+from typing import Any, NewType, Optional
 
 from rest_framework import serializers
 
@@ -87,11 +87,7 @@ class ActionTypeRegistry(Registry):
     name = "action_type"
 
 
-T = TypeVar("T")
-K = TypeVar("K")
-
-
-class ActionType(Instance, abc.ABC, Generic[T]):
+class ActionType(Instance, abc.ABC):
     @property
     @abc.abstractmethod
     def type(self) -> str:
@@ -134,7 +130,7 @@ class ActionType(Instance, abc.ABC, Generic[T]):
 
     @classmethod
     @abc.abstractmethod
-    def undo(cls, user: UserType, params: T, action_being_undone: Action):
+    def undo(cls, user: UserType, params: Any, action_being_undone: Action):
         """
         Should undo the action done by the `do` method above, this should never call
         another ActionType's.do method as that would register a new action which we
@@ -149,7 +145,7 @@ class ActionType(Instance, abc.ABC, Generic[T]):
 
     @classmethod
     @abc.abstractmethod
-    def redo(cls, user: UserType, params: T, action_being_redone: Action):
+    def redo(cls, user: UserType, params: Any, action_being_redone: Action):
         """
         Should redo the action undone by the `undo` method above, this should never call
         another ActionType's.do method as that would register a new action which we
@@ -166,7 +162,7 @@ class ActionType(Instance, abc.ABC, Generic[T]):
     def register_action(
         cls,
         user: UserType,
-        params: T,
+        params: Any,
         scope: ActionScopeStr,
     ):
         """

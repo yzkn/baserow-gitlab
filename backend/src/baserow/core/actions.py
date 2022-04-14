@@ -10,7 +10,7 @@ from baserow.core.trash.handler import TrashHandler
 from baserow.core.user.utils import UserType
 
 
-class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
+class DeleteGroupActionType(ActionType):
     type = "delete_group"
 
     @dataclasses.dataclass
@@ -41,7 +41,7 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
     def undo(
         cls,
         user: UserType,
-        params: "DeleteGroupActionType.Params",
+        params: Params,
         action_to_undo: Action,
     ):
         TrashHandler.restore_item(
@@ -54,13 +54,13 @@ class DeleteGroupActionType(ActionType["DeleteGroupAction.Params"]):
     def redo(
         cls,
         user: UserType,
-        params: "DeleteGroupActionType.Params",
+        params: Params,
         action_to_redo: Action,
     ):
         CoreHandler().delete_group_by_id(user, params.deleted_group_id)
 
 
-class CreateGroupActionType(ActionType["CreateGroupParameters"]):
+class CreateGroupActionType(ActionType):
     type = "create_group"
 
     @dataclasses.dataclass
@@ -99,7 +99,7 @@ class CreateGroupActionType(ActionType["CreateGroupParameters"]):
     def undo(
         cls,
         user: UserType,
-        params: "CreateGroupActionType.Params",
+        params: Params,
         action_to_undo: Action,
     ):
         CoreHandler().delete_group_by_id(user, params.created_group_id)
@@ -108,7 +108,7 @@ class CreateGroupActionType(ActionType["CreateGroupParameters"]):
     def redo(
         cls,
         user: UserType,
-        params: "CreateGroupActionType.Params",
+        params: Params,
         action_to_redo: Action,
     ):
         TrashHandler.restore_item(
@@ -116,7 +116,7 @@ class CreateGroupActionType(ActionType["CreateGroupParameters"]):
         )
 
 
-class UpdateGroupActionType(ActionType["Params"]):
+class UpdateGroupActionType(ActionType):
     type = "update_group"
 
     @dataclasses.dataclass
@@ -161,7 +161,7 @@ class UpdateGroupActionType(ActionType["Params"]):
     def undo(
         cls,
         user: UserType,
-        params: "UpdateGroupActionType.Params",
+        params: Params,
         action_to_undo: Action,
     ):
         group = CoreHandler().get_group_for_update(params.updated_group_id)
@@ -175,7 +175,7 @@ class UpdateGroupActionType(ActionType["Params"]):
     def redo(
         cls,
         user: UserType,
-        params: "UpdateGroupActionType.Params",
+        params: Params,
         action_to_redo: Action,
     ):
         group = CoreHandler().get_group_for_update(params.updated_group_id)
@@ -186,7 +186,7 @@ class UpdateGroupActionType(ActionType["Params"]):
         )
 
 
-class CreateApplicationActionType(ActionType["CreateApplicationActionType.Params"]):
+class CreateApplicationActionType(ActionType):
     type = "create_application"
 
     @dataclasses.dataclass
