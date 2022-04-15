@@ -271,7 +271,6 @@
 
 <script>
 import { mapGetters, mapState } from 'vuex'
-import { CORE_FEATURE_FLAGS } from '@baserow/modules/core/featureFlags'
 
 import { notifyIf } from '@baserow/modules/core/utils/error'
 import SettingsModal from '@baserow/modules/core/components/settings/SettingsModal'
@@ -301,7 +300,7 @@ export default {
   mixins: [editGroup, undoRedo],
   computed: {
     enableUndoRedo() {
-      return this.$env.FEATURE_FLAGS.includes(CORE_FEATURE_FLAGS.UNDO)
+      return this.$featureFlags.includes('undo')
     },
     /**
      * Because all the applications that belong to the user are in the store we will

@@ -242,8 +242,6 @@ def test_update_group(send_mock, data_fixture):
     group = data_fixture.create_group(user=user_1)
 
     handler = CoreHandler()
-    with pytest.raises(ValueError, match="update_group only accepts locked Group's"):
-        handler.update_group(user=user_2, group=group, name="New name")
 
     group = handler.get_group_for_update(group.id)
     handler.update_group(user=user_1, group=group, name="New name")
@@ -315,9 +313,6 @@ def test_delete_group(send_mock, data_fixture):
     group_3 = data_fixture.create_group(user=user_2)
 
     handler = CoreHandler()
-
-    with pytest.raises(ValueError, match="delete_group only accepts locked Group's"):
-        handler.delete_group(user=user_2, group=group_1)
 
     group_1 = handler.get_group_for_update(group_1.id)
     group_3 = handler.get_group_for_update(group_3.id)

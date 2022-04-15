@@ -19,7 +19,6 @@ import Notifications from '@baserow/modules/core/components/notifications/Notifi
 import Sidebar from '@baserow/modules/core/components/sidebar/Sidebar'
 import undoRedo from '@baserow/modules/core/mixins/undoRedo'
 import { CORE_ACTION_SCOPES } from '@baserow/modules/core/utils/undoRedoConstants'
-import { CORE_FEATURE_FLAGS } from '@baserow/modules/core/featureFlags'
 
 export default {
   components: {
@@ -57,7 +56,7 @@ export default {
       const osSpecificModifierPressed = isMac ? event.metaKey : event.ctrlKey
       if (
         // Temporarily check if the undo redo is enabled.
-        this.$env.FEATURE_FLAGS.includes(CORE_FEATURE_FLAGS.UNDO) &&
+        this.$featureFlags.includes('undo') &&
         osSpecificModifierPressed &&
         event.code === 'KeyZ' &&
         // If the active element is the body, it means that we're not focussing on
