@@ -1,7 +1,5 @@
 import unicodedata
 
-from django.contrib.auth import models
-
 
 def normalize_email_address(email):
     """
@@ -15,6 +13,3 @@ def normalize_email_address(email):
     """
 
     return unicodedata.normalize("NFKC", email).strip().lower()
-
-
-UserType = models.User

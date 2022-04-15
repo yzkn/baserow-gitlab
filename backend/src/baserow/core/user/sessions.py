@@ -2,9 +2,9 @@ import re
 from typing import Any
 
 from django.conf import settings
+from django.contrib.auth.models import AbstractUser
 
 from baserow.core.user.exceptions import InvalidClientSessionIdAPIException
-from baserow.core.user.utils import UserType
 
 UNTRUSTED_CLIENT_SESSION_ID_USER_ATTR = "untrusted_client_session_id"
 
@@ -20,7 +20,7 @@ def _raise_if_not_valid_untrusted_client_session_id(value: Any):
 
 
 def set_untrusted_client_session_id_from_request_or_raise_if_invalid(
-    user: UserType, request
+    user: AbstractUser, request
 ):
     """
     Extracts the untrusted client session id from the requests headers and sets it
@@ -38,9 +38,9 @@ def set_untrusted_client_session_id_from_request_or_raise_if_invalid(
         set_untrusted_client_session_id(user, session_id)
 
 
-def set_untrusted_client_session_id(user: UserType, session_id: str):
+def set_untrusted_client_session_id(user: AbstractUser, session_id: str):
     setattr(user, UNTRUSTED_CLIENT_SESSION_ID_USER_ATTR, session_id)
 
 
-def get_untrusted_client_session_id(user: UserType):
+def get_untrusted_client_session_id(user: AbstractUser):
     return getattr(user, UNTRUSTED_CLIENT_SESSION_ID_USER_ATTR, None)

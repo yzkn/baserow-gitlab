@@ -2,12 +2,12 @@ import abc
 import dataclasses
 from typing import Any, NewType, Optional
 
+from django.contrib.auth.models import AbstractUser
 from rest_framework import serializers
 
 from baserow.core.action.models import Action
 from baserow.core.registry import Registry, Instance
 from baserow.core.user.sessions import get_untrusted_client_session_id
-from baserow.core.user.utils import UserType
 
 # An alias type of a str (its exactly a str, just with a different name in the type
 # system). We use this instead of a normal str for type safety ensuring
@@ -130,7 +130,7 @@ class ActionType(Instance, abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def undo(cls, user: UserType, params: Any, action_being_undone: Action):
+    def undo(cls, user: AbstractUser, params: Any, action_being_undone: Action):
         """
         Should undo the action done by the `do` method above, this should never call
         another ActionType's.do method as that would register a new action which we
@@ -145,7 +145,7 @@ class ActionType(Instance, abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def redo(cls, user: UserType, params: Any, action_being_redone: Action):
+    def redo(cls, user: AbstractUser, params: Any, action_being_redone: Action):
         """
         Should redo the action undone by the `undo` method above, this should never call
         another ActionType's.do method as that would register a new action which we
@@ -161,7 +161,7 @@ class ActionType(Instance, abc.ABC):
     @classmethod
     def register_action(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Any,
         scope: ActionScopeStr,
     ):

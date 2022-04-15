@@ -1,13 +1,14 @@
 import dataclasses
 from typing import Any
 
+from django.contrib.auth.models import AbstractUser
+
 from baserow.core.action.models import Action
 from baserow.core.action.registries import ActionType, ActionScopeStr
 from baserow.core.action.scopes import RootActionScopeType, GroupActionScopeType
-from baserow.core.handler import LockedGroup, CoreHandler
+from baserow.core.handler import GroupForUpdate, CoreHandler
 from baserow.core.models import GroupUser, Group, Application
 from baserow.core.trash.handler import TrashHandler
-from baserow.core.user.utils import UserType
 
 
 class DeleteGroupActionType(ActionType):
@@ -17,7 +18,7 @@ class DeleteGroupActionType(ActionType):
     class Params:
         deleted_group_id: int
 
-    def do(self, user: UserType, group: LockedGroup):
+    def do(self, user: AbstractUser, group: GroupForUpdate):
         """
         Deletes an existing group and related applications if the user has admin
         permissions for the group. See baserow.core.handler.CoreHandler.delete_group
@@ -40,7 +41,7 @@ class DeleteGroupActionType(ActionType):
     @classmethod
     def undo(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Params,
         action_to_undo: Action,
     ):
@@ -53,7 +54,7 @@ class DeleteGroupActionType(ActionType):
     @classmethod
     def redo(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Params,
         action_to_redo: Action,
     ):
@@ -69,7 +70,7 @@ class CreateGroupActionType(ActionType):
         group_name: str
 
     @classmethod
-    def do(cls, user: UserType, group_name: str) -> GroupUser:
+    def do(cls, user: AbstractUser, group_name: str) -> GroupUser:
         """
         Creates a new group for an existing user. See
         baserow.core.handler.CoreHandler.create_group for more details. Undoing this
@@ -98,7 +99,7 @@ class CreateGroupActionType(ActionType):
     @classmethod
     def undo(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Params,
         action_to_undo: Action,
     ):
@@ -107,7 +108,7 @@ class CreateGroupActionType(ActionType):
     @classmethod
     def redo(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Params,
         action_to_redo: Action,
     ):
@@ -126,7 +127,9 @@ class UpdateGroupActionType(ActionType):
         new_group_name: str
 
     @classmethod
-    def do(cls, user: UserType, group: LockedGroup, new_group_name: str) -> Group:
+    def do(
+        cls, user: AbstractUser, group: GroupForUpdate, new_group_name: str
+    ) -> Group:
         """
         Updates the values of a group if the user has admin permissions to the group.
         See baserow.core.handler.CoreHandler.upgrade_group for more details. Undoing
@@ -160,7 +163,7 @@ class UpdateGroupActionType(ActionType):
     @classmethod
     def undo(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Params,
         action_to_undo: Action,
     ):
@@ -174,7 +177,7 @@ class UpdateGroupActionType(ActionType):
     @classmethod
     def redo(
         cls,
-        user: UserType,
+        user: AbstractUser,
         params: Params,
         action_to_redo: Action,
     ):
@@ -194,7 +197,9 @@ class CreateApplicationActionType(ActionType):
         application_id: int
 
     @classmethod
-    def do(cls, user: UserType, group: Group, application_type: str, name: str) -> Any:
+    def do(
+        cls, user: AbstractUser, group: Group, application_type: str, name: str
+    ) -> Any:
         """
         Creates a new application based on the provided type. See
         baserow.core.handler.CoreHandler.create_application for further details.
@@ -221,12 +226,12 @@ class CreateApplicationActionType(ActionType):
         return GroupActionScopeType.value(group_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_being_undone: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_being_undone: Action):
         application = Application.objects.get(id=params.application_id)
         CoreHandler().delete_application(user, application)
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_being_redone: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_being_redone: Action):
         TrashHandler.restore_item(
             user, "application", params.application_id, parent_trash_item_id=None
         )

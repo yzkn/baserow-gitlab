@@ -2,13 +2,13 @@ import logging
 import traceback
 from typing import List, Optional
 
+from django.contrib.auth.models import AbstractUser
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from baserow.core.action.models import Action
 from baserow.core.action.registries import action_type_registry, ActionScopeStr
-from baserow.core.user.utils import UserType
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class ActionHandler:
 
     @classmethod
     def undo(
-        cls, user: UserType, scopes: List[ActionScopeStr], session: str
+        cls, user: AbstractUser, scopes: List[ActionScopeStr], session: str
     ) -> Optional[Action]:
         # Un-set the web_socket_id so the user doing this undo will receive any
         # events triggered by the action.
@@ -66,7 +66,7 @@ class ActionHandler:
 
     @classmethod
     def redo(
-        cls, user: UserType, scopes: List[ActionScopeStr], session: str
+        cls, user: AbstractUser, scopes: List[ActionScopeStr], session: str
     ) -> Optional[Action]:
         # Un-set the web_socket_id so the user doing this redo will receive any
         # events triggered by the action.

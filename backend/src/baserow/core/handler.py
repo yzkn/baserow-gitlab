@@ -3,8 +3,10 @@ import json
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import NewType
+from typing import NewType, cast
 from urllib.parse import urlparse, urljoin
+
+from django.contrib.auth.models import AbstractUser
 from itsdangerous import URLSafeSerializer
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -17,10 +19,8 @@ from tqdm import tqdm
 
 from baserow.core.utils import (
     ChildProgressBuilder,
-    raise_if_not_locked,
-    mark_as_locked,
 )
-from baserow.core.user.utils import normalize_email_address, UserType
+from baserow.core.user.utils import normalize_email_address
 
 from .models import (
     Settings,
@@ -64,10 +64,9 @@ from .signals import (
 )
 from .emails import GroupInvitationEmail
 
-
 User = get_user_model()
 
-LockedGroup = NewType("LockedGroup", Group)
+GroupForUpdate = NewType("GroupForUpdate", Group)
 
 
 class CoreHandler:
@@ -114,8 +113,9 @@ class CoreHandler:
         settings_instance.save()
         return settings_instance
 
-    def get_group_for_update(self, group_id: int) -> LockedGroup:
-        return mark_as_locked(
+    def get_group_for_update(self, group_id: int) -> GroupForUpdate:
+        return cast(
+            GroupForUpdate,
             self.get_group(group_id, base_queryset=Group.objects.select_for_update()),
         )
 
@@ -165,7 +165,9 @@ class CoreHandler:
 
         return group_user
 
-    def update_group(self, user: UserType, group: LockedGroup, name: str) -> Group:
+    def update_group(
+        self, user: AbstractUser, group: GroupForUpdate, name: str
+    ) -> Group:
         """
         Updates the values of a group if the user has admin permissions to the group.
 
@@ -178,8 +180,6 @@ class CoreHandler:
 
         if not isinstance(group, Group):
             raise ValueError("The group is not an instance of Group.")
-
-        raise_if_not_locked(group)
 
         group.has_user(user, "ADMIN", raise_error=True)
         group.name = name
@@ -230,7 +230,7 @@ class CoreHandler:
             self, group_user_id=group_user_id, group_user=group_user, user=user
         )
 
-    def delete_group_by_id(self, user: UserType, group_id: int):
+    def delete_group_by_id(self, user: AbstractUser, group_id: int):
         """
         Deletes a group by id and it's related applications instead of using an
         instance. Only if the user has admin permissions for the group.
@@ -243,7 +243,7 @@ class CoreHandler:
         locked_group = self.get_group_for_update(group_id)
         self.delete_group(user, locked_group)
 
-    def delete_group(self, user: UserType, group: LockedGroup):
+    def delete_group(self, user: AbstractUser, group: GroupForUpdate):
         """
         Deletes an existing group and related applications if the user has admin
         permissions for the group. The group can be restored after deletion using the
@@ -258,8 +258,6 @@ class CoreHandler:
 
         if not isinstance(group, Group):
             raise ValueError("The group is not an instance of Group.")
-
-        raise_if_not_locked(group)
 
         group.has_user(user, "ADMIN", raise_error=True)
 
@@ -668,7 +666,7 @@ class CoreHandler:
         return application
 
     def create_application(
-        self, user: UserType, group: Group, type_name: str, name: str
+        self, user: AbstractUser, group: Group, type_name: str, name: str
     ) -> Application:
         """
         Creates a new application based on the provided type.

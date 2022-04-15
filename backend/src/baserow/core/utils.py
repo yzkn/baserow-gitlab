@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import inspect
 import math
 import os
 import random
@@ -505,21 +504,3 @@ class ChildProgressBuilder:
 
 T = TypeVar("T")
 K = TypeVar("K")
-
-
-def mark_as_locked(model_instance: T) -> K:
-    model_instance._baserow_locked_marker = True
-    return model_instance
-
-
-def raise_if_not_locked(model_instance: T) -> T:
-    if not hasattr(model_instance, "_baserow_locked_marker"):
-        cls_name = model_instance.__class__.__name__
-        raise ValueError(
-            f"{inspect.stack()[1].function} only accepts locked "
-            f"{cls_name}'s, however"
-            f" an unlocked one was provided causing this error. Please provide "
-            f"a Locked{cls_name} obtained from the relevant handler's "
-            f"get_{cls_name.lower()}_for_update() method instead."
-        )
-    return model_instance
