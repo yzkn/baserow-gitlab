@@ -49,7 +49,7 @@ from .exceptions import (
     TemplateDoesNotExist,
 )
 from .trash.handler import TrashHandler
-from .utils import extract_allowed, set_allowed_attrs
+from .utils import set_allowed_attrs
 from .registries import application_type_registry
 from .signals import (
     application_created,
@@ -143,16 +143,16 @@ class CoreHandler:
 
         return group
 
-    def create_group(self, user: User, **kwargs) -> GroupUser:
+    def create_group(self, user: User, name: str) -> GroupUser:
         """
         Creates a new group for an existing user.
 
         :param user: The user that must be in the group.
+        :param name: The name of the group.
         :return: The newly created GroupUser object
         """
 
-        group_values = extract_allowed(kwargs, ["name"])
-        group = Group.objects.create(**group_values)
+        group = Group.objects.create(name=name)
         last_order = GroupUser.get_last_order(user)
         group_user = GroupUser.objects.create(
             group=group,
@@ -165,17 +165,15 @@ class CoreHandler:
 
         return group_user
 
-    def update_group(self, user: UserType, group: LockedGroup, **kwargs):
+    def update_group(self, user: UserType, group: LockedGroup, name: str) -> Group:
         """
         Updates the values of a group if the user has admin permissions to the group.
 
         :param user: The user on whose behalf the change is made.
-        :type user: User
         :param group: The group instance that must be updated.
-        :type group: Group
+        :param name: The new name to give the group.
         :raises ValueError: If one of the provided parameters is invalid.
         :return: The updated group
-        :rtype: Group
         """
 
         if not isinstance(group, Group):
@@ -184,7 +182,7 @@ class CoreHandler:
         raise_if_not_locked(group)
 
         group.has_user(user, "ADMIN", raise_error=True)
-        group = set_allowed_attrs(kwargs, ["name"], group)
+        group.name = name
         group.save()
 
         group_updated.send(self, group=group, user=user)
@@ -669,21 +667,18 @@ class CoreHandler:
 
         return application
 
-    def create_application(self, user, group, type_name, **kwargs):
+    def create_application(
+        self, user: UserType, group: Group, type_name: str, name: str
+    ) -> Application:
         """
         Creates a new application based on the provided type.
 
         :param user: The user on whose behalf the application is created.
-        :type user: User
         :param group: The group that the application instance belongs to.
-        :type group: Group
         :param type_name: The type name of the application. ApplicationType can be
             registered via the ApplicationTypeRegistry.
-        :type type_name: str
-        :param kwargs: The fields that need to be set upon creation.
-        :type kwargs: object
+        :param name: The name of the application.
         :return: The created application instance.
-        :rtype: Application
         """
 
         group.has_user(user, raise_error=True)
@@ -691,12 +686,9 @@ class CoreHandler:
         # Figure out which model is used for the given application type.
         application_type = application_type_registry.get(type_name)
         model = application_type.model_class
-        application_values = extract_allowed(kwargs, ["name"])
         last_order = model.get_last_order(group)
 
-        instance = model.objects.create(
-            group=group, order=last_order, **application_values
-        )
+        instance = model.objects.create(group=group, order=last_order, name=name)
 
         application_created.send(self, application=instance, user=user)
 

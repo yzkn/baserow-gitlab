@@ -65,7 +65,7 @@ class CreateGroupActionType(ActionType):
 
     @dataclasses.dataclass
     class Params:
-        created_group_id: int
+        group_id: int
         group_name: str
 
     @classmethod
@@ -102,7 +102,7 @@ class CreateGroupActionType(ActionType):
         params: Params,
         action_to_undo: Action,
     ):
-        CoreHandler().delete_group_by_id(user, params.created_group_id)
+        CoreHandler().delete_group_by_id(user, params.group_id)
 
     @classmethod
     def redo(
@@ -112,7 +112,7 @@ class CreateGroupActionType(ActionType):
         action_to_redo: Action,
     ):
         TrashHandler.restore_item(
-            user, "group", params.created_group_id, parent_trash_item_id=None
+            user, "group", params.group_id, parent_trash_item_id=None
         )
 
 
@@ -121,8 +121,8 @@ class UpdateGroupActionType(ActionType):
 
     @dataclasses.dataclass
     class Params:
-        updated_group_id: int
-        old_group_name: str
+        group_id: int
+        original_group_name: str
         new_group_name: str
 
     @classmethod
@@ -139,14 +139,14 @@ class UpdateGroupActionType(ActionType):
         :param new_group_name: The new name to give the group.
         """
 
-        old_group_name = group.name
+        original_group_name = group.name
         CoreHandler().update_group(user, group, name=new_group_name)
 
         cls.register_action(
             user=user,
             params=cls.Params(
                 group.id,
-                old_group_name=old_group_name,
+                original_group_name=original_group_name,
                 new_group_name=new_group_name,
             ),
             scope=cls.scope(),
@@ -164,11 +164,11 @@ class UpdateGroupActionType(ActionType):
         params: Params,
         action_to_undo: Action,
     ):
-        group = CoreHandler().get_group_for_update(params.updated_group_id)
+        group = CoreHandler().get_group_for_update(params.group_id)
         CoreHandler().update_group(
             user,
             group,
-            name=params.old_group_name,
+            name=params.original_group_name,
         )
 
     @classmethod
@@ -178,7 +178,7 @@ class UpdateGroupActionType(ActionType):
         params: Params,
         action_to_redo: Action,
     ):
-        group = CoreHandler().get_group_for_update(params.updated_group_id)
+        group = CoreHandler().get_group_for_update(params.group_id)
         CoreHandler().update_group(
             user,
             group,

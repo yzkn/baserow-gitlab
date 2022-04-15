@@ -16,10 +16,12 @@ class CoreConfig(AppConfig):
         trash_item_type_registry.register(GroupTrashableItemType())
         trash_item_type_registry.register(ApplicationTrashableItemType())
 
-        from baserow.core.actions import UpdateGroupActionType
-        from baserow.core.actions import CreateGroupActionType
-        from baserow.core.actions import DeleteGroupActionType
-        from baserow.core.actions import CreateApplicationActionType
+        from baserow.core.actions import (
+            UpdateGroupActionType,
+            CreateGroupActionType,
+            DeleteGroupActionType,
+            CreateApplicationActionType,
+        )
 
         action_type_registry.register(CreateGroupActionType())
         action_type_registry.register(DeleteGroupActionType())
