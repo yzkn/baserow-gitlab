@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 
 from baserow.core.action.scopes import (
@@ -8,8 +10,8 @@ from baserow.core.action.registries import (
     action_type_registry,
 )
 from baserow.core.actions import CreateGroupActionType, UpdateGroupActionType
+from baserow.core.handler import GroupForUpdate
 from baserow.core.models import Group
-from baserow.core.utils import mark_as_locked
 
 
 @pytest.mark.django_db
@@ -62,7 +64,7 @@ def test_can_undo_updating_group(data_fixture, django_assert_num_queries):
     )
 
     updated_group = action_type_registry.get_by_type(UpdateGroupActionType).do(
-        user, mark_as_locked(group_user.group), "new name"
+        user, cast(GroupForUpdate, group_user.group), "new name"
     )
 
     assert updated_group.name == "new name"

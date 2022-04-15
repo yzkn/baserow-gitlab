@@ -129,7 +129,7 @@ class UpdateGroupActionType(ActionType):
     @classmethod
     def do(
         cls, user: AbstractUser, group: GroupForUpdate, new_group_name: str
-    ) -> Group:
+    ) -> GroupForUpdate:
         """
         Updates the values of a group if the user has admin permissions to the group.
         See baserow.core.handler.CoreHandler.upgrade_group for more details. Undoing
@@ -140,6 +140,7 @@ class UpdateGroupActionType(ActionType):
         :param group: A LockedGroup obtained from CoreHandler.get_group_for_update on
             which the update will be run.
         :param new_group_name: The new name to give the group.
+        :returns: The updated group.
         """
 
         original_group_name = group.name
