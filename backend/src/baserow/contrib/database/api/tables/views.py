@@ -30,8 +30,15 @@ from baserow.contrib.database.table.exceptions import (
     InitialTableDataLimitExceeded,
     InitialTableDataDuplicateName,
 )
+from baserow.contrib.database.table.actions import (
+    CreateTableActionType,
+    DeleteTableActionType,
+    OrderTableActionType,
+    UpdateTableActionType,
+)
 from baserow.contrib.database.table.handler import TableHandler
 from baserow.contrib.database.table.models import Table
+from baserow.core.action.registries import action_type_registry
 from baserow.core.exceptions import UserNotInGroup, ApplicationDoesNotExist
 from baserow.core.handler import CoreHandler
 from baserow.core.trash.exceptions import CannotDeleteAlreadyDeletedItem
@@ -151,7 +158,7 @@ class TablesView(APIView):
         database = CoreHandler().get_application(
             database_id, base_queryset=Database.objects
         )
-        table = TableHandler().create_table(
+        table = action_type_registry.get_by_type(CreateTableActionType).do(
             request.user, database, fill_example=True, **data
         )
         serializer = TableSerializer(table)
@@ -231,7 +238,7 @@ class TableView(APIView):
     def patch(self, request, data, table_id):
         """Updates the values a table instance."""
 
-        table = TableHandler().update_table(
+        table = action_type_registry.get_by_type(UpdateTableActionType).do(
             request.user,
             TableHandler().get_table(
                 table_id,
@@ -276,7 +283,9 @@ class TableView(APIView):
     def delete(self, request, table_id):
         """Deletes an existing table."""
 
-        TableHandler().delete_table(request.user, TableHandler().get_table(table_id))
+        action_type_registry.get_by_type(DeleteTableActionType).do(
+            request.user, TableHandler().get_table(table_id)
+        )
         return Response(status=204)
 
 
@@ -325,5 +334,7 @@ class OrderTablesView(APIView):
         database = CoreHandler().get_application(
             database_id, base_queryset=Database.objects
         )
-        TableHandler().order_tables(request.user, database, data["table_ids"])
+        action_type_registry.get_by_type(OrderTableActionType).do(
+            request.user, database, data["table_ids"]
+        )
         return Response(status=204)
