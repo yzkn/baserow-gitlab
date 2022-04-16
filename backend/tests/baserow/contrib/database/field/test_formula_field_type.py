@@ -1059,7 +1059,7 @@ def test_renaming_dependency_maintains_dependency_link(data_fixture):
 
 
 @pytest.mark.django_db
-def test_can_insert_and_update_rows_with_formula_referencing_single_select(
+def test_can_insert_and_update_row_by_ids_with_formula_referencing_single_select(
     data_fixture,
 ):
     user = data_fixture.create_user()
@@ -1093,7 +1093,7 @@ def test_can_insert_and_update_rows_with_formula_referencing_single_select(
         "value": option_a.value,
     }
 
-    row = RowHandler().update_row(
+    row = RowHandler().update_row_by_id(
         user=user,
         table=table,
         row_id=row.id,

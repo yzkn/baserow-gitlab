@@ -39,6 +39,12 @@ from baserow.contrib.database.fields.exceptions import (
     FilterFieldNotFound,
     FieldDoesNotExist,
 )
+from baserow.contrib.database.rows.actions import (
+    CreateRowActionType,
+    DeleteRowActionType,
+    MoveRowActionType,
+)
+from baserow.core.action.registries import action_type_registry
 from baserow.contrib.database.rows.exceptions import RowDoesNotExist
 from baserow.contrib.database.rows.handler import RowHandler
 from baserow.contrib.database.table.exceptions import TableDoesNotExist
@@ -383,7 +389,7 @@ class RowsView(APIView):
         )
 
         try:
-            row = RowHandler().create_row(
+            row = action_type_registry.get_by_type(CreateRowActionType).do(
                 request.user,
                 table,
                 data,
@@ -573,7 +579,7 @@ class RowView(APIView):
         data = validate_data(validation_serializer, request.data)
 
         try:
-            row = RowHandler().update_row(
+            row = RowHandler().update_row_by_id(
                 request.user,
                 table,
                 row_id,
@@ -640,7 +646,9 @@ class RowView(APIView):
 
         table = TableHandler().get_table(table_id)
         TokenHandler().check_table_permissions(request, "delete", table, False)
-        RowHandler().delete_row(request.user, table, row_id)
+        action_type_registry.get_by_type(DeleteRowActionType).do(
+            request.user, table, row_id
+        )
 
         return Response(status=204)
 
@@ -718,14 +726,20 @@ class RowMoveView(APIView):
         user_field_names = "user_field_names" in request.GET
 
         model = table.get_model()
+
+        row_handler = RowHandler()
+
         before_id = query_params.get("before_id")
         before = (
-            RowHandler().get_row(request.user, table, before_id, model)
+            row_handler.get_row(request.user, table, before_id, model)
             if before_id
             else None
         )
-        row = RowHandler().move_row(
-            request.user, table, row_id, before=before, model=model
+
+        row = row_handler.get_row_for_update(request.user, table, row_id, model)
+
+        row = action_type_registry.get_by_type(MoveRowActionType).do(
+            request.user, table, row, before=before, model=model
         )
 
         serializer_class = get_row_serializer_class(

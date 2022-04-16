@@ -1,12 +1,16 @@
 import re
 from decimal import Decimal
 from math import floor, ceil
+from typing import Any, Dict, cast, NewType
 
+from django.contrib.auth.models import AbstractUser
 from django.db import transaction
-from django.db.models import Max, F
+from django.db.models import Max, F, QuerySet
 from django.db.models.fields.related import ManyToManyField
 
+from baserow.contrib.database.table.models import Table, GeneratedTableModel
 from baserow.core.trash.handler import TrashHandler
+
 from .exceptions import RowDoesNotExist
 from .signals import (
     before_row_update,
@@ -17,6 +21,11 @@ from .signals import (
 )
 from baserow.contrib.database.fields.dependencies.update_collector import (
     CachingFieldUpdateCollector,
+)
+
+
+GeneratedTableModelForUpdate = NewType(
+    "GeneratedTableModelForUpdate", GeneratedTableModel
 )
 
 
@@ -130,36 +139,77 @@ class RowHandler:
 
         return order
 
-    def get_row(self, user, table, row_id, model=None):
+    def get_row(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row_id: int,
+        model: GeneratedTableModel = None,
+        base_queryset: QuerySet = None,
+    ):
         """
         Fetches a single row from the provided table.
 
         :param user: The user of whose behalf the row is requested.
-        :type user: User
         :param table: The table where the row must be fetched from.
-        :type table: Table
         :param row_id: The id of the row that must be fetched.
-        :type row_id: int
         :param model: If the correct model has already been generated it can be
             provided so that it does not have to be generated for a second time.
-        :type model: Model
         :raises RowDoesNotExist: When the row with the provided id does not exist.
         :return: The requested row instance.
-        :rtype: Model
         """
 
         if not model:
             model = table.get_model()
 
+        if not base_queryset:
+            base_queryset = model.objects
+
         group = table.database.group
         group.has_user(user, raise_error=True)
 
         try:
-            row = model.objects.get(id=row_id)
+            row = base_queryset.get(id=row_id)
         except model.DoesNotExist:
             raise RowDoesNotExist(f"The row with id {row_id} does not exist.")
 
         return row
+
+    def get_row_for_update(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row_id: int,
+        enhance_by_fields: bool = False,
+        model: GeneratedTableModel = None,
+    ) -> GeneratedTableModelForUpdate:
+        """
+        Fetches a single row from the provided table and lock it for update.
+
+        :param user: The user of whose behalf the row is requested.
+        :param table: The table where the row must be fetched from.
+        :param row_id: The id of the row that must be fetched.
+        :param model: If the correct model has already been generated it can be
+            provided so that it does not have to be generated for a second time.
+        :raises RowDoesNotExist: When the row with the provided id does not exist.
+        :return: The requested row instance.
+        """
+
+        if not model:
+            model = table.get_model()
+
+        queryset = model.objects.select_for_update()
+        if enhance_by_fields:
+            queryset = queryset.enhance_by_fields()
+
+        row = self.get_row(
+            user,
+            table,
+            row_id,
+            model=model,
+            base_queryset=queryset,
+        )
+        return cast(GeneratedTableModelForUpdate, row)
 
     # noinspection PyMethodMayBeStatic
     def has_row(self, user, table, row_id, raise_error=False, model=None):
@@ -338,29 +388,28 @@ class RowHandler:
         values = mapped_back_to_internal_field_names
         return values
 
-    def update_row(
-        self, user, table, row_id, values, model=None, user_field_names=False
-    ):
+    def update_row_by_id(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row_id: int,
+        values: Dict[str, Any],
+        model: GeneratedTableModel = None,
+        user_field_names: bool = False,
+    ) -> GeneratedTableModelForUpdate:
         """
         Updates one or more values of the provided row_id.
 
         :param user: The user of whose behalf the change is made.
-        :type user: User
         :param table: The table for which the row must be updated.
-        :type table: Table
         :param row_id: The id of the row that must be updated.
-        :type row_id: int
         :param values: The values that must be updated. The keys must be the field ids.
-        :type values: dict
         :param model: If the correct model has already been generated it can be
             provided so that it does not have to be generated for a second time.
-        :type model: Model
         :param user_field_names: Whether or not the values are keyed by the internal
             Baserow field name (field_1,field_2 etc) or by the user field names.
-        :type user_field_names: True
         :raises RowDoesNotExist: When the row with the provided id does not exist.
         :return: The updated row instance.
-        :rtype: Model
         """
 
         group = table.database.group
@@ -377,53 +426,85 @@ class RowHandler:
             except model.DoesNotExist:
                 raise RowDoesNotExist(f"The row with id {row_id} does not exist.")
 
-            updated_fields = []
-            updated_field_ids = set()
-            for field_id, field in model._field_objects.items():
-                if field_id in values or field["name"] in values:
-                    updated_field_ids.add(field_id)
-                    updated_fields.append(field["field"])
+            return self.update_row(user, table, row, values, model, user_field_names)
 
-            before_return = before_row_update.send(
-                self,
-                row=row,
-                user=user,
-                table=table,
-                model=model,
-                updated_field_ids=updated_field_ids,
+    def update_row(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row: GeneratedTableModelForUpdate,
+        values: Dict[str, Any],
+        model: GeneratedTableModel = None,
+        user_field_names: bool = False,
+    ) -> GeneratedTableModelForUpdate:
+        """
+        Updates one or more values of the provided row_id.
+
+        :param user: The user of whose behalf the change is made.
+        :param table: The table for which the row must be updated.
+        :param row: The the row that must be updated.
+        :param values: The values that must be updated. The keys must be the field ids.
+        :param model: If the correct model has already been generated it can be
+            provided so that it does not have to be generated for a second time.
+        :param user_field_names: Whether or not the values are keyed by the internal
+            Baserow field name (field_1,field_2 etc) or by the user field names.
+        :raises RowDoesNotExist: When the row with the provided id does not exist.
+        :return: The updated row instance.
+        """
+
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        if not model:
+            model = table.get_model()
+
+        updated_fields = []
+        updated_field_ids = set()
+        for field_id, field in model._field_objects.items():
+            if field_id in values or field["name"] in values:
+                updated_field_ids.add(field_id)
+                updated_fields.append(field["field"])
+
+        before_return = before_row_update.send(
+            self,
+            row=row,
+            user=user,
+            table=table,
+            model=model,
+            updated_field_ids=updated_field_ids,
+        )
+        if user_field_names:
+            values = self.map_user_field_name_dict_to_internal(
+                model._field_objects, values
             )
-            if user_field_names:
-                values = self.map_user_field_name_dict_to_internal(
-                    model._field_objects, values
+        values = self.prepare_values(model._field_objects, values)
+        values, manytomany_values = self.extract_manytomany_values(values, model)
+
+        for name, value in values.items():
+            setattr(row, name, value)
+
+        for name, value in manytomany_values.items():
+            getattr(row, name).set(value)
+
+        row.save()
+
+        update_collector = CachingFieldUpdateCollector(
+            table, starting_row_id=row.id, existing_model=model
+        )
+        for field in updated_fields:
+            for (
+                dependant_field,
+                dependant_field_type,
+                path_to_starting_table,
+            ) in field.dependant_fields_with_types(update_collector):
+                dependant_field_type.row_of_dependency_updated(
+                    dependant_field, row, update_collector, path_to_starting_table
                 )
-            values = self.prepare_values(model._field_objects, values)
-            values, manytomany_values = self.extract_manytomany_values(values, model)
-
-            for name, value in values.items():
-                setattr(row, name, value)
-
-            for name, value in manytomany_values.items():
-                getattr(row, name).set(value)
-
-            row.save()
-
-            update_collector = CachingFieldUpdateCollector(
-                table, starting_row_id=row.id, existing_model=model
-            )
-            for field in updated_fields:
-                for (
-                    dependant_field,
-                    dependant_field_type,
-                    path_to_starting_table,
-                ) in field.dependant_fields_with_types(update_collector):
-                    dependant_field_type.row_of_dependency_updated(
-                        dependant_field, row, update_collector, path_to_starting_table
-                    )
-            update_collector.apply_updates_and_get_updated_fields()
-            # We need to refresh here as ExpressionFields might have had their values
-            # updated. Django does not support UPDATE .... RETURNING and so we need to
-            # query for the rows updated values instead.
-            row.refresh_from_db(fields=model.fields_requiring_refresh_after_update())
+        update_collector.apply_updates_and_get_updated_fields()
+        # We need to refresh here as ExpressionFields might have had their values
+        # updated. Django does not support UPDATE .... RETURNING and so we need to
+        # query for the rows updated values instead.
+        row.refresh_from_db(fields=model.fields_requiring_refresh_after_update())
 
         row_updated.send(
             self,
@@ -437,24 +518,24 @@ class RowHandler:
 
         return row
 
-    def move_row(self, user, table, row_id, before=None, model=None):
+    def move_row_by_id(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row_id: int,
+        before: GeneratedTableModel = None,
+        model=None,
+    ) -> GeneratedTableModelForUpdate:
         """
-        Moves the row related to the row_id before another row or to the end if no
-        before row is provided. This moving is done by updating the `order` value of
-        the order.
+        Updates the row order value.
 
         :param user: The user of whose behalf the row is moved
-        :type user: User
         :param table: The table that contains the row that needs to be moved.
-        :type table: Table
         :param row_id: The row id that needs to be moved.
-        :type row_id: int
         :param before: If provided the new row will be placed right before that row
             instance. Otherwise the row will be moved to the end.
-        :type before: Table
         :param model: If the correct model has already been generated, it can be
             provided so that it does not have to be generated for a second time.
-        :type model: Model
         """
 
         group = table.database.group
@@ -463,10 +544,34 @@ class RowHandler:
         if not model:
             model = table.get_model()
 
-        try:
-            row = model.objects.select_for_update().get(id=row_id)
-        except model.DoesNotExist:
-            raise RowDoesNotExist(f"The row with id {row_id} does not exist.")
+        row = self.get_row_for_update(user, table, row_id, model=model)
+        return self.move_row(user, table, row, before=before, model=model)
+
+    def move_row(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row: GeneratedTableModelForUpdate,
+        before: GeneratedTableModel = None,
+        model=None,
+    ) -> GeneratedTableModelForUpdate:
+        """
+        Updates the row order value.
+
+        :param user: The user of whose behalf the row is moved
+        :param table: The table that contains the row that needs to be moved.
+        :param row: The row that needs to be moved.
+        :param before: If provided the new row will be placed right before that row
+            instance. Otherwise the row will be moved to the end.
+        :param model: If the correct model has already been generated, it can be
+            provided so that it does not have to be generated for a second time.
+        """
+
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        if not model:
+            model = table.get_model()
 
         before_return = before_row_update.send(
             self, row=row, user=user, table=table, model=model, updated_field_ids=[]
@@ -504,7 +609,13 @@ class RowHandler:
 
         return row
 
-    def delete_row(self, user, table, row_id, model=None):
+    def delete_row_by_id(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row_id: int,
+        model: GeneratedTableModel = None,
+    ):
         """
         Deletes an existing row of the given table and with row_id.
 
@@ -529,6 +640,32 @@ class RowHandler:
             row = model.objects.get(id=row_id)
         except model.DoesNotExist:
             raise RowDoesNotExist(f"The row with id {row_id} does not exist.")
+
+        self.delete_row(user, table, row, model=model)
+
+    def delete_row(
+        self,
+        user: AbstractUser,
+        table: Table,
+        row: GeneratedTableModelForUpdate,
+        model: GeneratedTableModel = None,
+    ):
+        """
+        Deletes an existing row of the given table and with row_id.
+
+        :param user: The user of whose behalf the change is made.
+        :param table: The table for which the row must be deleted.
+        :param row_: The row that must be deleted.
+        :param model: If the correct model has already been generated, it can be
+            provided so that it does not have to be generated for a second time.
+        :raises RowDoesNotExist: When the row with the provided id does not exist.
+        """
+
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        if not model:
+            model = table.get_model()
 
         before_return = before_row_delete.send(
             self, row=row, user=user, table=table, model=model
