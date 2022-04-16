@@ -6,6 +6,8 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from baserow.contrib.database.views.actions import CreateViewFilterActionType
+from baserow.core.action.registries import action_type_registry
 
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
@@ -572,13 +574,12 @@ class ViewFiltersView(APIView):
     def post(self, request, data, view_id):
         """Creates a new filter for the provided view."""
 
-        view_handler = ViewHandler()
-        view = view_handler.get_view(view_id)
-        # We can safely assume the field exists because the CreateViewFilterSerializer
-        # has already checked that.
-        field = Field.objects.get(pk=data["field"])
-        view_filter = view_handler.create_filter(
-            request.user, view, field, data["type"], data["value"]
+        view_filter = action_type_registry.get_by_type(CreateViewFilterActionType).do(
+            view_id,
+            request.user,
+            data["field"],
+            data["type"],
+            data["value"],
         )
 
         serializer = ViewFilterSerializer(view_filter)
