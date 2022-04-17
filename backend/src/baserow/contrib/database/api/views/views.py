@@ -6,7 +6,11 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from baserow.contrib.database.views.actions import CreateViewFilterActionType
+from baserow.contrib.database.views.actions import (
+    CreateViewFilterActionType,
+    DeleteViewFilterActionType,
+    UpdateViewFilterActionType,
+)
 from baserow.core.action.registries import action_type_registry
 
 from drf_spectacular.utils import extend_schema
@@ -680,7 +684,13 @@ class ViewFilterView(APIView):
         if "type" in data:
             data["type_name"] = data.pop("type")
 
-        view_filter = handler.update_filter(request.user, view_filter, **data)
+        view_filter = action_type_registry.get_by_type(UpdateViewFilterActionType).do(
+            request.user,
+            view_filter,
+            data.get("field"),
+            data.get("type_name"),
+            data.get("value"),
+        )
 
         serializer = ViewFilterSerializer(view_filter)
         return Response(serializer.data)
@@ -716,8 +726,9 @@ class ViewFilterView(APIView):
     def delete(self, request, view_filter_id):
         """Deletes an existing filter if the user belongs to the group."""
 
-        view = ViewHandler().get_filter(request.user, view_filter_id)
-        ViewHandler().delete_filter(request.user, view)
+        action_type_registry.get_by_type(DeleteViewFilterActionType).do(
+            request.user, view_filter_id
+        )
 
         return Response(status=204)
 

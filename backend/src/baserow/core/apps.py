@@ -28,9 +28,15 @@ class CoreConfig(AppConfig):
         action_type_registry.register(UpdateGroupActionType())
         action_type_registry.register(CreateApplicationActionType())
 
-        from baserow.contrib.database.views.actions import CreateViewFilterActionType
+        from baserow.contrib.database.views.actions import (
+            CreateViewFilterActionType,
+            UpdateViewFilterActionType,
+            DeleteViewFilterActionType,
+        )
 
         action_type_registry.register(CreateViewFilterActionType())
+        action_type_registry.register(UpdateViewFilterActionType())
+        action_type_registry.register(DeleteViewFilterActionType())
 
         from baserow.core.action.scopes import (
             RootActionScopeType,
