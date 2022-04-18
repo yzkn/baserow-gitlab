@@ -18,19 +18,28 @@ def test_can_undo_creating_view_filter(data_fixture):
     grid_view = data_fixture.create_grid_view(table=table)
     text_field = data_fixture.create_text_field(table=table)
 
-    view_filter = action_type_registry.get_by_type(CreateViewFilterActionType).do(
-        grid_view.id,
+    assert ViewFilter.objects.count() == 0
+
+    action_type_registry.get_by_type(CreateViewFilterActionType).do(
         user,
+        grid_view.id,
         text_field.id,
         "equal",
-        "",
+        "123",
     )
+
+    assert ViewFilter.objects.count() == 1
+    view_filter = ViewFilter.objects.first()
+    assert view_filter.view.id == grid_view.id
+    assert view_filter.field.id == text_field.id
+    assert view_filter.type == "equal"
+    assert view_filter.value == "123"
 
     ActionHandler.undo(
         user, [ApplicationActionScopeType.value(table.database.id)], session_id
     )
 
-    assert ViewFilter.objects.filter(pk=view_filter.id).count() == 0
+    assert ViewFilter.objects.count() == 0
 
 
 @pytest.mark.django_db
@@ -41,25 +50,39 @@ def test_can_undo_redo_creating_view_filter(data_fixture):
     grid_view = data_fixture.create_grid_view(table=table)
     text_field = data_fixture.create_text_field(table=table)
 
-    view_filter = action_type_registry.get_by_type(CreateViewFilterActionType).do(
-        grid_view.id,
+    assert ViewFilter.objects.count() == 0
+
+    action_type_registry.get_by_type(CreateViewFilterActionType).do(
         user,
+        grid_view.id,
         text_field.id,
         "equal",
-        "",
+        "123",
     )
+
+    assert ViewFilter.objects.count() == 1
+    view_filter = ViewFilter.objects.first()
+    assert view_filter.view.id == grid_view.id
+    assert view_filter.field.id == text_field.id
+    assert view_filter.type == "equal"
+    assert view_filter.value == "123"
 
     ActionHandler.undo(
         user, [ApplicationActionScopeType.value(table.database.id)], session_id
     )
 
-    assert not ViewFilter.objects.filter(pk=view_filter.id).exists()
+    assert ViewFilter.objects.count() == 0
 
     ActionHandler.redo(
         user, [ApplicationActionScopeType.value(table.database.id)], session_id
     )
 
-    assert ViewFilter.objects.filter().count() == 1
+    assert ViewFilter.objects.count() == 1
+    view_filter = ViewFilter.objects.first()
+    assert view_filter.view.id == grid_view.id
+    assert view_filter.field.id == text_field.id
+    assert view_filter.type == "equal"
+    assert view_filter.value == "123"
 
 
 @pytest.mark.django_db
@@ -157,6 +180,10 @@ def test_can_undo_deleting_view_filter(data_fixture):
     )
 
     assert ViewFilter.objects.count() == 1
+    assert view_filter.view.id == grid_view.id
+    assert view_filter.field.id == text_field.id
+    assert view_filter.type == "equal"
+    assert view_filter.value == "Test"
 
     action_type_registry.get_by_type(DeleteViewFilterActionType).do(
         user, view_filter.id
@@ -169,6 +196,11 @@ def test_can_undo_deleting_view_filter(data_fixture):
     )
 
     assert ViewFilter.objects.count() == 1
+    view_filter = ViewFilter.objects.first()
+    assert view_filter.view.id == grid_view.id
+    assert view_filter.field.id == text_field.id
+    assert view_filter.type == "equal"
+    assert view_filter.value == "Test"
 
 
 @pytest.mark.django_db
@@ -183,6 +215,10 @@ def test_can_undo_redo_deleting_view_filter(data_fixture):
     )
 
     assert ViewFilter.objects.count() == 1
+    assert view_filter.view.id == grid_view.id
+    assert view_filter.field.id == text_field.id
+    assert view_filter.type == "equal"
+    assert view_filter.value == "Test"
 
     action_type_registry.get_by_type(DeleteViewFilterActionType).do(
         user, view_filter.id

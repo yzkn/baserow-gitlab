@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.views.handler import ViewHandler
-from baserow.contrib.database.views.models import View, ViewFilter
+from baserow.contrib.database.views.models import View, ViewFilter, ViewSort
 from baserow.core.action.models import Action
 from baserow.core.action.registries import ActionScopeStr, ActionType
 from baserow.core.action.scopes import ApplicationActionScopeType
@@ -26,8 +26,8 @@ class CreateViewFilterActionType(ActionType):
     @classmethod
     def do(
         cls,
-        view_id: int,
         user: UserType,
+        view_id: int,
         field_id: int,
         filter_type: str,
         filter_value: str,
@@ -35,8 +35,8 @@ class CreateViewFilterActionType(ActionType):
         """
         Creates a new filter for the provided view.
 
-        :param view_id: The id of the view to create the filter for.
         :param user: The user creating the filter.
+        :param view_id: The id of the view to create the filter for.
         :param field_id: The id of the field to filter by.
         :param filter_type: Indicates how the field's value
         must be compared to the filter's value.
@@ -240,3 +240,62 @@ class DeleteViewFilterActionType(ActionType):
         ).first()
 
         ViewHandler().delete_filter(user, view_filter)
+
+
+class CreateViewSortActionType(ActionType):
+    type = "create_view_sort"
+
+    @dataclasses.dataclass
+    class Params:
+        view_id: int
+        field_id: int
+        sort_order: str
+
+    @classmethod
+    def do(
+        cls, user: UserType, view_id: int, field_id: int, sort_order: str
+    ) -> ViewSort:
+        """
+        Creates a new view sort.
+
+        :param user: The user on whose behalf the view sort is created.
+        :param view_id: The id of the view for which the sort needs to be created.
+        :param field_id: The id of the field that needs to be sorted.
+        :param sort_order: The desired order, can either be ascending (A to Z) or
+            descending (Z to A).
+        """
+
+        view_handler = ViewHandler()
+        view = view_handler.get_view(view_id)
+        field = Field.objects.get(pk=field_id)
+        view_sort = view_handler.create_sort(user, view, field, sort_order)
+
+        cls.register_action(
+            user=user,
+            params=cls.Params(view_id, field_id, sort_order),
+            scope=cls.scope(view.table.database.id),
+        )
+        return view_sort
+
+    @classmethod
+    def scope(cls, database_id: int) -> ActionScopeStr:
+        return ApplicationActionScopeType.value(database_id)
+
+    @classmethod
+    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+        field = Field.objects.get(pk=params.field_id)
+        view = View.objects.get(pk=params.view_id)
+
+        view_sort = ViewSort.objects.filter(
+            view=view, field=field, order=params.sort_order
+        ).first()
+
+        ViewHandler().delete_sort(user, view_sort)
+
+    @classmethod
+    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+        view_handler = ViewHandler()
+        view = view_handler.get_view(params.view_id)
+        field = Field.objects.get(pk=params.field_id)
+
+        view_handler.create_sort(user, view, field, params.sort_order)

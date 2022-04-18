@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from baserow.contrib.database.views.actions import (
     CreateViewFilterActionType,
+    CreateViewSortActionType,
     DeleteViewFilterActionType,
     UpdateViewFilterActionType,
 )
@@ -579,8 +580,8 @@ class ViewFiltersView(APIView):
         """Creates a new filter for the provided view."""
 
         view_filter = action_type_registry.get_by_type(CreateViewFilterActionType).do(
-            view_id,
             request.user,
+            view_id,
             data["field"],
             data["type"],
             data["value"],
@@ -828,12 +829,9 @@ class ViewSortingsView(APIView):
     def post(self, request, data, view_id):
         """Creates a new sort for the provided view."""
 
-        view_handler = ViewHandler()
-        view = view_handler.get_view(view_id)
-        # We can safely assume the field exists because the CreateViewSortSerializer
-        # has already checked that.
-        field = Field.objects.get(pk=data["field"])
-        view_sort = view_handler.create_sort(request.user, view, field, data["order"])
+        view_sort = action_type_registry.get_by_type(CreateViewSortActionType).do(
+            request.user, view_id, data["field"], data["order"]
+        )
 
         serializer = ViewSortSerializer(view_sort)
         return Response(serializer.data)
