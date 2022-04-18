@@ -117,11 +117,11 @@ class UpdateViewFilterActionType(ActionType):
         """
 
         data = {}
-        if field:
+        if field is not None:
             data["field"] = field
-        if filter_type:
+        if filter_type is not None:
             data["type_name"] = filter_type
-        if filter_value:
+        if filter_value is not None:
             data["value"] = filter_value
 
         old_view_filter = deepcopy(view_filter)
@@ -155,9 +155,9 @@ class UpdateViewFilterActionType(ActionType):
         view_filter = view_handler.get_filter(user, params.view_filter_id)
 
         data = {"field": field}
-        if params.old_filter_type:
+        if params.old_filter_type is not None:
             data["type_name"] = params.old_filter_type
-        if params.old_filter_value:
+        if params.old_filter_value is not None:
             data["value"] = params.old_filter_value
 
         view_handler.update_filter(user, view_filter, **data)
@@ -170,9 +170,9 @@ class UpdateViewFilterActionType(ActionType):
         view_filter = view_handler.get_filter(user, params.view_filter_id)
 
         data = {"field": field}
-        if params.new_filter_type:
+        if params.new_filter_type is not None:
             data["type_name"] = params.new_filter_type
-        if params.new_filter_value:
+        if params.new_filter_value is not None:
             data["value"] = params.new_filter_value
 
         view_handler.update_filter(user, view_filter, **data)
