@@ -33,12 +33,16 @@ class CoreConfig(AppConfig):
             UpdateViewFilterActionType,
             DeleteViewFilterActionType,
             CreateViewSortActionType,
+            UpdateViewSortActionType,
+            DeleteViewSortActionType,
         )
 
         action_type_registry.register(CreateViewFilterActionType())
         action_type_registry.register(UpdateViewFilterActionType())
         action_type_registry.register(DeleteViewFilterActionType())
         action_type_registry.register(CreateViewSortActionType())
+        action_type_registry.register(UpdateViewSortActionType())
+        action_type_registry.register(DeleteViewSortActionType())
 
         from baserow.core.action.scopes import (
             RootActionScopeType,

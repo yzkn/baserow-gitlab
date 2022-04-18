@@ -299,3 +299,142 @@ class CreateViewSortActionType(ActionType):
         field = Field.objects.get(pk=params.field_id)
 
         view_handler.create_sort(user, view, field, params.sort_order)
+
+
+class UpdateViewSortActionType(ActionType):
+    type = "update_view_sort"
+
+    @dataclasses.dataclass
+    class Params:
+        view_sort_id: int
+        old_field_id: int
+        old_sort_order: str
+        new_field_id: int
+        new_sort_order: str
+
+    @classmethod
+    def do(
+        cls,
+        user: UserType,
+        view_sort: ViewSort,
+        field: typing.Optional[Field] = None,
+        order: typing.Optional[str] = None,
+    ) -> ViewSort:
+        """
+        Updates the values of an existing view sort.
+
+        :param user: The user on whose behalf the view sort is updated.
+        :param view_sort: The view sort that needs to be updated.
+        :param field: The field that must be sorted on.
+        :param order: Indicates the sort order direction.
+        """
+
+        data = {}
+        if field is not None:
+            data["field"] = field
+        if order is not None:
+            data["order"] = order
+
+        old_view_sort = deepcopy(view_sort)
+        handler = ViewHandler()
+        updated_view_sort = handler.update_sort(user, view_sort, **data)
+
+        cls.register_action(
+            user=user,
+            params=cls.Params(
+                view_sort.id,
+                old_view_sort.field.id,
+                old_view_sort.order,
+                updated_view_sort.field.id,
+                updated_view_sort.order,
+            ),
+            scope=cls.scope(view_sort.view.table.database.id),
+        )
+
+        return updated_view_sort
+
+    @classmethod
+    def scope(cls, database_id: int) -> ActionScopeStr:
+        return ApplicationActionScopeType.value(database_id)
+
+    @classmethod
+    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+        field = Field.objects.get(pk=params.old_field_id)
+
+        view_handler = ViewHandler()
+        view_sort = view_handler.get_sort(user, params.view_sort_id)
+
+        data = {"field": field}
+        if params.old_sort_order is not None:
+            data["order"] = params.old_sort_order
+
+        view_handler.update_sort(user, view_sort, **data)
+
+    @classmethod
+    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+        field = Field.objects.get(pk=params.new_field_id)
+
+        view_handler = ViewHandler()
+        view_sort = view_handler.get_sort(user, params.view_sort_id)
+
+        data = {"field": field}
+        if params.new_sort_order is not None:
+            data["order"] = params.new_sort_order
+
+        view_handler.update_sort(user, view_sort, **data)
+
+
+class DeleteViewSortActionType(ActionType):
+    type = "delete_view_sort"
+
+    @dataclasses.dataclass
+    class Params:
+        view_id: int
+        field_id: int
+        sort_order: str
+
+    @classmethod
+    def do(cls, user: UserType, view_sort_id: int):
+        """
+        Deletes an existing view sort.
+
+        :param user: The user on whose behalf the view sort is deleted.
+        :param view_sort_id: The id of the view sort instance that needs
+        to be deleted.
+        """
+
+        view_sort = ViewHandler().get_sort(user, view_sort_id)
+        ViewHandler().delete_sort(user, view_sort)
+
+        cls.register_action(
+            user=user,
+            params=cls.Params(
+                view_sort.view.id,
+                view_sort.field.id,
+                view_sort.order,
+            ),
+            scope=cls.scope(view_sort.view.table.database.id),
+        )
+
+    @classmethod
+    def scope(cls, database_id: int) -> ActionScopeStr:
+        return ApplicationActionScopeType.value(database_id)
+
+    @classmethod
+    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+        view_handler = ViewHandler()
+        view = view_handler.get_view(params.view_id)
+        field = Field.objects.get(pk=params.field_id)
+
+        view_handler.create_sort(user, view, field, params.sort_order)
+
+    @classmethod
+    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+        field = Field.objects.get(pk=params.field_id)
+        view = View.objects.get(pk=params.view_id)
+
+        view_sort = ViewSort.objects.filter(
+            view=view, field=field, order=params.sort_order
+        ).first()
+
+        ViewHandler().delete_sort(user, view_sort)

@@ -10,7 +10,9 @@ from baserow.contrib.database.views.actions import (
     CreateViewFilterActionType,
     CreateViewSortActionType,
     DeleteViewFilterActionType,
+    DeleteViewSortActionType,
     UpdateViewFilterActionType,
+    UpdateViewSortActionType,
 )
 from baserow.core.action.registries import action_type_registry
 
@@ -928,7 +930,12 @@ class ViewSortView(APIView):
             # UpdateViewSortSerializer has already checked that.
             data["field"] = Field.objects.get(pk=data["field"])
 
-        view_sort = handler.update_sort(request.user, view_sort, **data)
+        view_sort = action_type_registry.get_by_type(UpdateViewSortActionType).do(
+            request.user,
+            view_sort,
+            data.get("field"),
+            data.get("order"),
+        )
 
         serializer = ViewSortSerializer(view_sort)
         return Response(serializer.data)
@@ -964,8 +971,9 @@ class ViewSortView(APIView):
     def delete(self, request, view_sort_id):
         """Deletes an existing sort if the user belongs to the group."""
 
-        view = ViewHandler().get_sort(request.user, view_sort_id)
-        ViewHandler().delete_sort(request.user, view)
+        action_type_registry.get_by_type(DeleteViewSortActionType).do(
+            request.user, view_sort_id
+        )
 
         return Response(status=204)
 
