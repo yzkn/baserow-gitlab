@@ -2,6 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils.functional import cached_property
 from django.core.validators import MinValueValidator, MaxValueValidator
+from baserow.contrib.database.fields.fields import BaserowLastModifiedField
 from baserow.contrib.database.fields.mixins import (
     BaseDateMixin,
     TimezoneMixin,

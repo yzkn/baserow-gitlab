@@ -104,6 +104,7 @@ from .models import (
     Field,
     LookupField,
 )
+from baserow.contrib.database.fields.fields import BaserowLastModifiedField
 from .registries import FieldType, field_type_registry
 
 
@@ -931,6 +932,12 @@ class LastModifiedFieldType(CreatedOnLastModifiedBaseFieldType):
     model_class = LastModifiedField
     source_field_name = "updated_on"
     model_field_kwargs = {"auto_now": True}
+
+    def get_model_field(self, instance, **kwargs):
+        kwargs["null"] = True
+        kwargs["blank"] = True
+        kwargs.update(self.model_field_kwargs)
+        return BaserowLastModifiedField(**kwargs)
 
 
 class CreatedOnFieldType(CreatedOnLastModifiedBaseFieldType):
