@@ -23,7 +23,7 @@ def test_can_undo_creating_view_sort(data_fixture):
     assert ViewSort.objects.count() == 0
 
     action_type_registry.get_by_type(CreateViewSortActionType).do(
-        user, grid_view.id, number_field.id, "DESC"
+        user, grid_view, number_field, "DESC"
     )
 
     assert ViewSort.objects.count() == 1
@@ -52,7 +52,7 @@ def test_can_undo_redo_creating_view_sort(data_fixture):
     assert ViewSort.objects.count() == 0
 
     action_type_registry.get_by_type(CreateViewSortActionType).do(
-        user, grid_view.id, number_field.id, "DESC"
+        user, grid_view, number_field, "DESC"
     )
 
     assert ViewSort.objects.count() == 1
@@ -161,7 +161,7 @@ def test_can_undo_deleting_view_sort(data_fixture):
     assert view_sort.field.id == text_field.id
     assert view_sort.order == "ASC"
 
-    action_type_registry.get_by_type(DeleteViewSortActionType).do(user, view_sort.id)
+    action_type_registry.get_by_type(DeleteViewSortActionType).do(user, view_sort)
 
     assert ViewSort.objects.count() == 0
 
@@ -192,7 +192,7 @@ def test_can_undo_redo_deleting_view_sort(data_fixture):
     assert view_sort.field.id == text_field.id
     assert view_sort.order == "ASC"
 
-    action_type_registry.get_by_type(DeleteViewSortActionType).do(user, view_sort.id)
+    action_type_registry.get_by_type(DeleteViewSortActionType).do(user, view_sort)
 
     assert ViewSort.objects.count() == 0
 

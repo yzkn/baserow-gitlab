@@ -22,8 +22,8 @@ def test_can_undo_creating_view_filter(data_fixture):
 
     action_type_registry.get_by_type(CreateViewFilterActionType).do(
         user,
-        grid_view.id,
-        text_field.id,
+        grid_view,
+        text_field,
         "equal",
         "123",
     )
@@ -54,8 +54,8 @@ def test_can_undo_redo_creating_view_filter(data_fixture):
 
     action_type_registry.get_by_type(CreateViewFilterActionType).do(
         user,
-        grid_view.id,
-        text_field.id,
+        grid_view,
+        text_field,
         "equal",
         "123",
     )
@@ -185,9 +185,7 @@ def test_can_undo_deleting_view_filter(data_fixture):
     assert view_filter.type == "equal"
     assert view_filter.value == "Test"
 
-    action_type_registry.get_by_type(DeleteViewFilterActionType).do(
-        user, view_filter.id
-    )
+    action_type_registry.get_by_type(DeleteViewFilterActionType).do(user, view_filter)
 
     assert ViewFilter.objects.count() == 0
 
@@ -220,9 +218,7 @@ def test_can_undo_redo_deleting_view_filter(data_fixture):
     assert view_filter.type == "equal"
     assert view_filter.value == "Test"
 
-    action_type_registry.get_by_type(DeleteViewFilterActionType).do(
-        user, view_filter.id
-    )
+    action_type_registry.get_by_type(DeleteViewFilterActionType).do(user, view_filter)
 
     assert ViewFilter.objects.count() == 0
 

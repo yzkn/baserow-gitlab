@@ -6,6 +6,7 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.views.actions import (
     CreateViewFilterActionType,
     CreateViewSortActionType,
@@ -581,10 +582,13 @@ class ViewFiltersView(APIView):
     def post(self, request, data, view_id):
         """Creates a new filter for the provided view."""
 
+        view = ViewHandler().get_view(view_id)
+        field = FieldHandler().get_field(data["field"])
+
         view_filter = action_type_registry.get_by_type(CreateViewFilterActionType).do(
             request.user,
-            view_id,
-            data["field"],
+            view,
+            field,
             data["type"],
             data["value"],
         )
@@ -729,8 +733,10 @@ class ViewFilterView(APIView):
     def delete(self, request, view_filter_id):
         """Deletes an existing filter if the user belongs to the group."""
 
+        view_filter = ViewHandler().get_filter(request.user, view_filter_id)
+
         action_type_registry.get_by_type(DeleteViewFilterActionType).do(
-            request.user, view_filter_id
+            request.user, view_filter
         )
 
         return Response(status=204)
@@ -831,8 +837,11 @@ class ViewSortingsView(APIView):
     def post(self, request, data, view_id):
         """Creates a new sort for the provided view."""
 
+        view = ViewHandler().get_view(view_id)
+        field = FieldHandler().get_field(data["field"])
+
         view_sort = action_type_registry.get_by_type(CreateViewSortActionType).do(
-            request.user, view_id, data["field"], data["order"]
+            request.user, view, field, data["order"]
         )
 
         serializer = ViewSortSerializer(view_sort)
@@ -971,8 +980,9 @@ class ViewSortView(APIView):
     def delete(self, request, view_sort_id):
         """Deletes an existing sort if the user belongs to the group."""
 
+        view_sort = ViewHandler().get_sort(request.user, view_sort_id)
         action_type_registry.get_by_type(DeleteViewSortActionType).do(
-            request.user, view_sort_id
+            request.user, view_sort
         )
 
         return Response(status=204)
