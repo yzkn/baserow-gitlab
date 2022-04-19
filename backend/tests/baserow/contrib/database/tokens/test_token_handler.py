@@ -122,7 +122,9 @@ def test_create_token(data_fixture):
         try:
             permissions_types.remove(permissions[i].type)
         except KeyError:
-            assert False, f"Permission type '{permissions[i].type}' not found"
+            assert (
+                False
+            ), f"Permission type '{permissions[i].type}' not found, have {','.join(list(permissions_types))} instead"
         assert permissions[i].database_id is None
         assert permissions[i].table_id is None
 
