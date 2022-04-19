@@ -8,9 +8,7 @@ from baserow.contrib.database.views.models import View, ViewFilter, ViewSort
 from baserow.core.action.models import Action
 from baserow.core.action.registries import ActionScopeStr, ActionType
 from baserow.core.action.scopes import ApplicationActionScopeType
-from django.contrib.auth import get_user_model
-
-UserType = get_user_model()
+from django.contrib.auth import AbstractUser
 
 
 class CreateViewFilterActionType(ActionType):
@@ -26,7 +24,7 @@ class CreateViewFilterActionType(ActionType):
     @classmethod
     def do(
         cls,
-        user: UserType,
+        user: AbstractUser,
         view_id: int,
         field_id: int,
         filter_type: str,
@@ -62,7 +60,7 @@ class CreateViewFilterActionType(ActionType):
         return ApplicationActionScopeType.value(database_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
         field = Field.objects.get(pk=params.field_id)
         view = View.objects.get(pk=params.view_id)
 
@@ -73,7 +71,7 @@ class CreateViewFilterActionType(ActionType):
         ViewHandler().delete_filter(user, view_filter)
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
         view_handler = ViewHandler()
         view = view_handler.get_view(params.view_id)
         field = Field.objects.get(pk=params.field_id)
@@ -98,7 +96,7 @@ class UpdateViewFilterActionType(ActionType):
     @classmethod
     def do(
         cls,
-        user: UserType,
+        user: AbstractUser,
         view_filter: ViewFilter,
         field: typing.Optional[Field] = None,
         filter_type: typing.Optional[str] = None,
@@ -148,7 +146,7 @@ class UpdateViewFilterActionType(ActionType):
         return ApplicationActionScopeType.value(database_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
         field = Field.objects.get(pk=params.old_field_id)
 
         view_handler = ViewHandler()
@@ -163,7 +161,7 @@ class UpdateViewFilterActionType(ActionType):
         view_handler.update_filter(user, view_filter, **data)
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
         field = Field.objects.get(pk=params.new_field_id)
 
         view_handler = ViewHandler()
@@ -191,7 +189,7 @@ class DeleteViewFilterActionType(ActionType):
     @classmethod
     def do(
         cls,
-        user: UserType,
+        user: AbstractUser,
         view_filter_id: int,
     ):
         """
@@ -221,7 +219,7 @@ class DeleteViewFilterActionType(ActionType):
         return ApplicationActionScopeType.value(database_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
         view_handler = ViewHandler()
         view = view_handler.get_view(params.view_id)
         field = Field.objects.get(pk=params.field_id)
@@ -231,7 +229,7 @@ class DeleteViewFilterActionType(ActionType):
         )
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
         field = Field.objects.get(pk=params.field_id)
         view = View.objects.get(pk=params.view_id)
 
@@ -253,7 +251,7 @@ class CreateViewSortActionType(ActionType):
 
     @classmethod
     def do(
-        cls, user: UserType, view_id: int, field_id: int, sort_order: str
+        cls, user: AbstractUser, view_id: int, field_id: int, sort_order: str
     ) -> ViewSort:
         """
         Creates a new view sort.
@@ -282,7 +280,7 @@ class CreateViewSortActionType(ActionType):
         return ApplicationActionScopeType.value(database_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
         field = Field.objects.get(pk=params.field_id)
         view = View.objects.get(pk=params.view_id)
 
@@ -293,7 +291,7 @@ class CreateViewSortActionType(ActionType):
         ViewHandler().delete_sort(user, view_sort)
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
         view_handler = ViewHandler()
         view = view_handler.get_view(params.view_id)
         field = Field.objects.get(pk=params.field_id)
@@ -315,7 +313,7 @@ class UpdateViewSortActionType(ActionType):
     @classmethod
     def do(
         cls,
-        user: UserType,
+        user: AbstractUser,
         view_sort: ViewSort,
         field: typing.Optional[Field] = None,
         order: typing.Optional[str] = None,
@@ -358,7 +356,7 @@ class UpdateViewSortActionType(ActionType):
         return ApplicationActionScopeType.value(database_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
         field = Field.objects.get(pk=params.old_field_id)
 
         view_handler = ViewHandler()
@@ -371,7 +369,7 @@ class UpdateViewSortActionType(ActionType):
         view_handler.update_sort(user, view_sort, **data)
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
         field = Field.objects.get(pk=params.new_field_id)
 
         view_handler = ViewHandler()
@@ -394,7 +392,7 @@ class DeleteViewSortActionType(ActionType):
         sort_order: str
 
     @classmethod
-    def do(cls, user: UserType, view_sort_id: int):
+    def do(cls, user: AbstractUser, view_sort_id: int):
         """
         Deletes an existing view sort.
 
@@ -421,7 +419,7 @@ class DeleteViewSortActionType(ActionType):
         return ApplicationActionScopeType.value(database_id)
 
     @classmethod
-    def undo(cls, user: UserType, params: Params, action_to_undo: Action):
+    def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
         view_handler = ViewHandler()
         view = view_handler.get_view(params.view_id)
         field = Field.objects.get(pk=params.field_id)
@@ -429,7 +427,7 @@ class DeleteViewSortActionType(ActionType):
         view_handler.create_sort(user, view, field, params.sort_order)
 
     @classmethod
-    def redo(cls, user: UserType, params: Params, action_to_redo: Action):
+    def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
         field = Field.objects.get(pk=params.field_id)
         view = View.objects.get(pk=params.view_id)
 
