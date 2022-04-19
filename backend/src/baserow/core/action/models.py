@@ -20,12 +20,12 @@ class Action(models.Model):
     """
 
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.SET_NULL)
-    session = models.TextField(null=True, blank=True)
-    created_on = models.DateTimeField(auto_now_add=True)
+    session = models.TextField(null=True, blank=True, db_index=True)
+    created_on = models.DateTimeField(auto_now_add=True, db_index=True)
     type = models.TextField()
     params = models.JSONField(encoder=JSONEncoderSupportingDataClasses)
-    scope = models.TextField()
-    undone_at = models.DateTimeField(null=True, blank=True)
+    scope = models.TextField(db_index=True)
+    undone_at = models.DateTimeField(null=True, blank=True, db_index=True)
     error = models.TextField(null=True, blank=True)
 
     def is_undone(self):
@@ -43,5 +43,7 @@ class Action(models.Model):
 
     class Meta:
         ordering = ("-created_on",)
-        # TODO think/test indexes
-        indexes = [models.Index(fields=["user", "-created_on", "scope", "session"])]
+        indexes = [
+            models.Index(fields=["-created_on", "-id"]),
+            models.Index(fields=["-undone_at", "-id"]),
+        ]

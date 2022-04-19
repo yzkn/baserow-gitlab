@@ -2,7 +2,8 @@ from typing import List
 
 from django.conf import settings
 from django.db import transaction
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from itsdangerous.exc import BadSignature, BadTimeSignature, SignatureExpired
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -41,7 +42,7 @@ from baserow.core.user.exceptions import (
     DisabledSignupError,
 )
 from baserow.core.user.handler import UserHandler
-from baserow.core.user.sessions import get_untrusted_client_session_id
+from baserow.api.sessions import get_untrusted_client_session_id
 from .errors import (
     ERROR_ALREADY_EXISTS,
     ERROR_USER_NOT_FOUND,
@@ -391,6 +392,17 @@ class UndoView(APIView):
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name=settings.CLIENT_SESSION_ID_HEADER,
+                location=OpenApiParameter.HEADER,
+                type=OpenApiTypes.UUID,
+                required=True,
+                description="The particular client session to undo actions for. The "
+                "actions must have been performed with this same header set with the "
+                "same value for them to be undoable by this endpoint.",
+            )
+        ],
         tags=["User"],
         request=UndoRedoRequestSerializer,
         operation_id="undo",
@@ -424,6 +436,17 @@ class RedoView(APIView):
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name=settings.CLIENT_SESSION_ID_HEADER,
+                location=OpenApiParameter.HEADER,
+                type=OpenApiTypes.UUID,
+                required=True,
+                description="The particular client session to redo actions for. The "
+                "actions must have been performed with this same header set with the "
+                "same value for them to be redoable by this endpoint.",
+            )
+        ],
         tags=["User"],
         request=UndoRedoRequestSerializer,
         operation_id="redo",

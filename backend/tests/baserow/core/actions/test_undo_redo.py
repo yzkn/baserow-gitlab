@@ -12,7 +12,7 @@ from baserow.core.action.registries import (
 from baserow.core.actions import DeleteGroupActionType, CreateGroupActionType
 from baserow.core.handler import CoreHandler
 from baserow.core.models import Group, GROUP_USER_PERMISSION_ADMIN
-from baserow.core.user.sessions import set_untrusted_client_session_id
+from baserow.api.sessions import set_untrusted_client_session_id
 
 User = get_user_model()
 

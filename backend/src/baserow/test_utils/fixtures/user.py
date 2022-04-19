@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework_jwt.settings import api_settings
 
 from baserow.core.models import UserProfile
-from baserow.core.user.sessions import set_untrusted_client_session_id
+from baserow.api.sessions import set_untrusted_client_session_id
 
 User = get_user_model()
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER

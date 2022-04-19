@@ -10,7 +10,7 @@ from rest_framework_jwt.blacklist.exceptions import (
 )
 from rest_framework_jwt.compat import ExpiredSignature
 
-from baserow.core.user.sessions import (
+from baserow.api.sessions import (
     set_untrusted_client_session_id_from_request_or_raise_if_invalid,
 )
 

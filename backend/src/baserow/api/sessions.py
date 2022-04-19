@@ -4,7 +4,7 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 
-from baserow.core.user.exceptions import InvalidClientSessionIdAPIException
+from baserow.api.exceptions import InvalidClientSessionIdAPIException
 
 UNTRUSTED_CLIENT_SESSION_ID_USER_ATTR = "untrusted_client_session_id"
 
