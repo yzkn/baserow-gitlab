@@ -48,8 +48,10 @@ class CoreConfig(AppConfig):
             RootActionScopeType,
             GroupActionScopeType,
             ApplicationActionScopeType,
+            ViewActionScopeType,
         )
 
         action_scope_registry.register(RootActionScopeType())
         action_scope_registry.register(GroupActionScopeType())
         action_scope_registry.register(ApplicationActionScopeType())
+        action_scope_registry.register(ViewActionScopeType())

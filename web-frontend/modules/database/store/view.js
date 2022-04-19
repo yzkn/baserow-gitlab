@@ -4,6 +4,7 @@ import ViewService from '@baserow/modules/database/services/view'
 import FilterService from '@baserow/modules/database/services/filter'
 import SortService from '@baserow/modules/database/services/sort'
 import { clone } from '@baserow/modules/core/utils/object'
+import { DATABASE_ACTION_SCOPES } from '@baserow/modules/database/utils/undoRedoConstants'
 
 export function populateFilter(filter) {
   filter._ = {
@@ -335,6 +336,13 @@ export const actions = {
    */
   select({ commit, dispatch }, view) {
     commit('SET_SELECTED', view)
+    dispatch(
+      'undoRedo/updateCurrentScopeSet',
+      DATABASE_ACTION_SCOPES.view(view.id),
+      {
+        root: true,
+      }
+    )
     return { view }
   },
   /**

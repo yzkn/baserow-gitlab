@@ -7,7 +7,7 @@ from baserow.contrib.database.views.actions import (
 from baserow.contrib.database.views.models import ViewSort
 from baserow.core.action.handler import ActionHandler
 from baserow.core.action.registries import action_type_registry
-from baserow.core.action.scopes import ApplicationActionScopeType
+from baserow.core.action.scopes import ViewActionScopeType
 
 
 @pytest.mark.django_db
@@ -32,9 +32,7 @@ def test_can_undo_creating_view_sort(data_fixture):
     assert view_sort.field.id == number_field.id
     assert view_sort.order == "DESC"
 
-    ActionHandler.undo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.undo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     assert ViewSort.objects.count() == 0
 
@@ -61,15 +59,11 @@ def test_can_undo_redo_creating_view_sort(data_fixture):
     assert view_sort.field.id == number_field.id
     assert view_sort.order == "DESC"
 
-    ActionHandler.undo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.undo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     assert ViewSort.objects.count() == 0
 
-    ActionHandler.redo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.redo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     assert ViewSort.objects.count() == 1
     ViewSort.objects.first()
@@ -100,9 +94,7 @@ def test_can_undo_updating_view_sort(data_fixture):
     view_sort.refresh_from_db()
     assert view_sort.order == "DESC"
 
-    ActionHandler.undo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.undo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     view_sort.refresh_from_db()
     assert view_sort.order == "ASC"
@@ -130,16 +122,12 @@ def test_can_undo_redo_updating_view_sort(data_fixture):
     view_sort.refresh_from_db()
     assert view_sort.order == "DESC"
 
-    ActionHandler.undo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.undo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     view_sort.refresh_from_db()
     assert view_sort.order == "ASC"
 
-    ActionHandler.redo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.redo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     view_sort.refresh_from_db()
     assert view_sort.order == "DESC"
@@ -165,9 +153,7 @@ def test_can_undo_deleting_view_sort(data_fixture):
 
     assert ViewSort.objects.count() == 0
 
-    ActionHandler.undo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.undo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     assert ViewSort.objects.count() == 1
     view_sort = ViewSort.objects.first()
@@ -196,14 +182,10 @@ def test_can_undo_redo_deleting_view_sort(data_fixture):
 
     assert ViewSort.objects.count() == 0
 
-    ActionHandler.undo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.undo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     assert ViewSort.objects.count() == 1
 
-    ActionHandler.redo(
-        user, [ApplicationActionScopeType.value(table.database.id)], session_id
-    )
+    ActionHandler.redo(user, [ViewActionScopeType.value(grid_view.id)], session_id)
 
     assert ViewSort.objects.count() == 0

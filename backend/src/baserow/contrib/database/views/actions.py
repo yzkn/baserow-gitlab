@@ -7,7 +7,7 @@ from baserow.contrib.database.views.handler import ViewHandler
 from baserow.contrib.database.views.models import View, ViewFilter, ViewSort
 from baserow.core.action.models import Action
 from baserow.core.action.registries import ActionScopeStr, ActionType
-from baserow.core.action.scopes import ApplicationActionScopeType
+from baserow.core.action.scopes import ViewActionScopeType
 from django.contrib.auth.models import AbstractUser
 
 
@@ -54,13 +54,13 @@ class CreateViewFilterActionType(ActionType):
             params=cls.Params(
                 view_filter.id, view.id, field.id, filter_type, filter_value
             ),
-            scope=cls.scope(view.table.database.id),
+            scope=cls.scope(view.id),
         )
         return view_filter
 
     @classmethod
-    def scope(cls, database_id: int) -> ActionScopeStr:
-        return ApplicationActionScopeType.value(database_id)
+    def scope(cls, view_id: int) -> ActionScopeStr:
+        return ViewActionScopeType.value(view_id)
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
@@ -144,14 +144,14 @@ class UpdateViewFilterActionType(ActionType):
                 updated_view_filter.type,
                 updated_view_filter.value,
             ),
-            scope=cls.scope(view_filter.view.table.database.id),
+            scope=cls.scope(view_filter.view.id),
         )
 
         return updated_view_filter
 
     @classmethod
-    def scope(cls, database_id: int) -> ActionScopeStr:
-        return ApplicationActionScopeType.value(database_id)
+    def scope(cls, view_id: int) -> ActionScopeStr:
+        return ViewActionScopeType.value(view_id)
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
@@ -222,12 +222,12 @@ class DeleteViewFilterActionType(ActionType):
                 view_filter.type,
                 view_filter.value,
             ),
-            scope=cls.scope(view_filter.view.table.database.id),
+            scope=cls.scope(view_filter.view.id),
         )
 
     @classmethod
-    def scope(cls, database_id: int) -> ActionScopeStr:
-        return ApplicationActionScopeType.value(database_id)
+    def scope(cls, view_id: int) -> ActionScopeStr:
+        return ViewActionScopeType.value(view_id)
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
@@ -279,13 +279,13 @@ class CreateViewSortActionType(ActionType):
         cls.register_action(
             user=user,
             params=cls.Params(view_sort.id, view.id, field.id, sort_order),
-            scope=cls.scope(view.table.database.id),
+            scope=cls.scope(view.id),
         )
         return view_sort
 
     @classmethod
-    def scope(cls, database_id: int) -> ActionScopeStr:
-        return ApplicationActionScopeType.value(database_id)
+    def scope(cls, view_id: int) -> ActionScopeStr:
+        return ViewActionScopeType.value(view_id)
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
@@ -355,14 +355,14 @@ class UpdateViewSortActionType(ActionType):
                 updated_view_sort.field.id,
                 updated_view_sort.order,
             ),
-            scope=cls.scope(view_sort.view.table.database.id),
+            scope=cls.scope(view_sort.view.id),
         )
 
         return updated_view_sort
 
     @classmethod
-    def scope(cls, database_id: int) -> ActionScopeStr:
-        return ApplicationActionScopeType.value(database_id)
+    def scope(cls, view_id: int) -> ActionScopeStr:
+        return ViewActionScopeType.value(view_id)
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
@@ -424,12 +424,12 @@ class DeleteViewSortActionType(ActionType):
                 view_sort.field.id,
                 view_sort.order,
             ),
-            scope=cls.scope(view_sort.view.table.database.id),
+            scope=cls.scope(view_sort.view.id),
         )
 
     @classmethod
-    def scope(cls, database_id: int) -> ActionScopeStr:
-        return ApplicationActionScopeType.value(database_id)
+    def scope(cls, view_id: int) -> ActionScopeStr:
+        return ViewActionScopeType.value(view_id)
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
