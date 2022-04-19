@@ -32,6 +32,9 @@ class CreateViewFilterActionType(ActionType):
     ) -> ViewFilter:
         """
         Creates a new filter for the provided view.
+        See baserow.contrib.database.views.handler.ViewHandler.create_field
+        for more. When undone the view_filter is fully deleted from the
+        database and when redone it is recreated.
 
         :param user: The user creating the filter.
         :param view_id: The id of the view to create the filter for.
@@ -104,6 +107,9 @@ class UpdateViewFilterActionType(ActionType):
     ) -> ViewFilter:
         """
         Updates the values of an existing view filter.
+        See baserow.contrib.database.views.handler.ViewHandler.update_filter
+        for more. When undone the view_filter is restored to it's original state
+        and when redone it is updated to it's new state.
 
         :param user: The user on whose behalf the view filter is updated.
         :param view_filter: The view filter that needs to be updated.
@@ -194,6 +200,9 @@ class DeleteViewFilterActionType(ActionType):
     ):
         """
         Deletes an existing view filter.
+        See baserow.contrib.database.views.handler.ViewHandler.delete_filter
+        for more. When undone the view_filter is recreated and when redone
+        it is deleted.
 
         :param user: The user on whose behalf the view filter is deleted.
         :param view_filter_id: The id of the view filter that needs to be deleted.
@@ -255,6 +264,9 @@ class CreateViewSortActionType(ActionType):
     ) -> ViewSort:
         """
         Creates a new view sort.
+        See baserow.contrib.database.views.handler.ViewHandler.create_sort
+        for more. When undone the view_sort is fully deleted from the
+        database and when redone it is recreated.
 
         :param user: The user on whose behalf the view sort is created.
         :param view_id: The id of the view for which the sort needs to be created.
@@ -320,6 +332,9 @@ class UpdateViewSortActionType(ActionType):
     ) -> ViewSort:
         """
         Updates the values of an existing view sort.
+        See baserow.contrib.database.views.handler.ViewHandler.update_sort
+        for more. When undone the view_sort is restored to it's original state
+        and when redone it is updated to it's new state.
 
         :param user: The user on whose behalf the view sort is updated.
         :param view_sort: The view sort that needs to be updated.
@@ -395,6 +410,9 @@ class DeleteViewSortActionType(ActionType):
     def do(cls, user: AbstractUser, view_sort_id: int):
         """
         Deletes an existing view sort.
+        See baserow.contrib.database.views.handler.ViewHandler.delete_sort
+        for more. When undone the view_sort is recreated and when redone
+        it is deleted.
 
         :param user: The user on whose behalf the view sort is deleted.
         :param view_sort_id: The id of the view sort instance that needs
