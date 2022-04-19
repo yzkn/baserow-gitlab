@@ -16,6 +16,7 @@ class CreateViewFilterActionType(ActionType):
 
     @dataclasses.dataclass
     class Params:
+        view_filter_id: int
         view_id: int
         field_id: int
         filter_type: str
@@ -50,7 +51,9 @@ class CreateViewFilterActionType(ActionType):
         )
         cls.register_action(
             user=user,
-            params=cls.Params(view.id, field.id, filter_type, filter_value),
+            params=cls.Params(
+                view_filter.id, view.id, field.id, filter_type, filter_value
+            ),
             scope=cls.scope(view.table.database.id),
         )
         return view_filter
@@ -61,12 +64,7 @@ class CreateViewFilterActionType(ActionType):
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
-        field = FieldHandler().get_field(params.field_id)
-        view = ViewHandler().get_view(params.view_id)
-
-        view_filter = ViewFilter.objects.filter(
-            view=view, field=field, type=params.filter_type, value=params.filter_value
-        ).first()
+        view_filter = ViewHandler().get_filter(user, params.view_filter_id)
 
         ViewHandler().delete_filter(user, view_filter)
 
@@ -76,9 +74,12 @@ class CreateViewFilterActionType(ActionType):
         view = view_handler.get_view(params.view_id)
         field = FieldHandler().get_field(params.field_id)
 
-        view_handler.create_filter(
+        view_filter = view_handler.create_filter(
             user, view, field, params.filter_type, params.filter_value
         )
+
+        # Update params with id of newly created view filter
+        action_to_redo.params["view_filter_id"] = view_filter.id
 
 
 class UpdateViewFilterActionType(ActionType):
@@ -188,6 +189,7 @@ class DeleteViewFilterActionType(ActionType):
 
     @dataclasses.dataclass
     class Params:
+        view_filter_id: int
         view_id: int
         field_id: int
         filter_type: str
@@ -214,6 +216,7 @@ class DeleteViewFilterActionType(ActionType):
         cls.register_action(
             user=user,
             params=cls.Params(
+                view_filter.id,
                 view_filter.view.id,
                 view_filter.field.id,
                 view_filter.type,
@@ -232,18 +235,14 @@ class DeleteViewFilterActionType(ActionType):
         view = view_handler.get_view(params.view_id)
         field = FieldHandler().get_field(params.field_id)
 
-        view_handler.create_filter(
+        view_filter = view_handler.create_filter(
             user, view, field, params.filter_type, params.filter_value
         )
+        action_to_undo.params["view_filter_id"] = view_filter.id
 
     @classmethod
     def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
-        view = ViewHandler().get_view(params.view_id)
-        field = FieldHandler().get_field(params.field_id)
-
-        view_filter = ViewFilter.objects.filter(
-            view=view, field=field, type=params.filter_type, value=params.filter_value
-        ).first()
+        view_filter = ViewHandler().get_filter(user, params.view_filter_id)
 
         ViewHandler().delete_filter(user, view_filter)
 
@@ -253,6 +252,7 @@ class CreateViewSortActionType(ActionType):
 
     @dataclasses.dataclass
     class Params:
+        view_sort_id: int
         view_id: int
         field_id: int
         sort_order: str
@@ -278,7 +278,7 @@ class CreateViewSortActionType(ActionType):
 
         cls.register_action(
             user=user,
-            params=cls.Params(view.id, field.id, sort_order),
+            params=cls.Params(view_sort.id, view.id, field.id, sort_order),
             scope=cls.scope(view.table.database.id),
         )
         return view_sort
@@ -289,12 +289,7 @@ class CreateViewSortActionType(ActionType):
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
-        field = FieldHandler().get_field(params.field_id)
-        view = ViewHandler().get_view(params.view_id)
-
-        view_sort = ViewSort.objects.filter(
-            view=view, field=field, order=params.sort_order
-        ).first()
+        view_sort = ViewHandler().get_sort(user, params.view_sort_id)
 
         ViewHandler().delete_sort(user, view_sort)
 
@@ -304,7 +299,8 @@ class CreateViewSortActionType(ActionType):
         field = FieldHandler().get_field(params.field_id)
         view = view_handler.get_view(params.view_id)
 
-        view_handler.create_sort(user, view, field, params.sort_order)
+        view_sort = view_handler.create_sort(user, view, field, params.sort_order)
+        action_to_redo.params["view_sort_id"] = view_sort.id
 
 
 class UpdateViewSortActionType(ActionType):
@@ -400,6 +396,7 @@ class DeleteViewSortActionType(ActionType):
 
     @dataclasses.dataclass
     class Params:
+        view_sort_id: int
         view_id: int
         field_id: int
         sort_order: str
@@ -422,6 +419,7 @@ class DeleteViewSortActionType(ActionType):
         cls.register_action(
             user=user,
             params=cls.Params(
+                view_sort.id,
                 view_sort.view.id,
                 view_sort.field.id,
                 view_sort.order,
@@ -439,15 +437,11 @@ class DeleteViewSortActionType(ActionType):
         view = view_handler.get_view(params.view_id)
         field = FieldHandler().get_field(params.field_id)
 
-        view_handler.create_sort(user, view, field, params.sort_order)
+        view_sort = view_handler.create_sort(user, view, field, params.sort_order)
+        action_to_undo.params["view_sort_id"] = view_sort.id
 
     @classmethod
     def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
-        view = ViewHandler().get_view(params.view_id)
-        field = FieldHandler().get_field(params.field_id)
-
-        view_sort = ViewSort.objects.filter(
-            view=view, field=field, order=params.sort_order
-        ).first()
+        view_sort = ViewHandler().get_sort(user, params.view_sort_id)
 
         ViewHandler().delete_sort(user, view_sort)
