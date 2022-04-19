@@ -1,6 +1,5 @@
 import dataclasses
 from typing import Optional
-from copy import deepcopy
 from baserow.contrib.database.fields.handler import FieldHandler
 
 from baserow.contrib.database.fields.models import Field
@@ -88,9 +87,9 @@ class UpdateViewFilterActionType(ActionType):
     @dataclasses.dataclass
     class Params:
         view_filter_id: int
-        old_field_id: int
-        old_filter_type: str
-        old_filter_value: str
+        original_field_id: int
+        original_filter_type: str
+        original_filter_value: str
         new_field_id: int
         new_filter_type: str
         new_filter_value: str
@@ -127,16 +126,19 @@ class UpdateViewFilterActionType(ActionType):
         if filter_value is not None:
             data["value"] = filter_value
 
-        old_view_filter = deepcopy(view_filter)
+        original_view_filter_field_id = view_filter.field.id
+        original_view_filter_type = view_filter.type
+        original_view_filter_value = view_filter.value
+
         view_handler = ViewHandler()
         updated_view_filter = view_handler.update_filter(user, view_filter, **data)
         cls.register_action(
             user=user,
             params=cls.Params(
                 view_filter.id,
-                old_view_filter.field.id,
-                old_view_filter.type,
-                old_view_filter.value,
+                original_view_filter_field_id,
+                original_view_filter_type,
+                original_view_filter_value,
                 updated_view_filter.field.id,
                 updated_view_filter.type,
                 updated_view_filter.value,
@@ -152,16 +154,16 @@ class UpdateViewFilterActionType(ActionType):
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
-        field = FieldHandler().get_field(params.old_field_id)
+        field = FieldHandler().get_field(params.original_field_id)
 
         view_handler = ViewHandler()
         view_filter = view_handler.get_filter(user, params.view_filter_id)
 
         data = {"field": field}
-        if params.old_filter_type is not None:
-            data["type_name"] = params.old_filter_type
-        if params.old_filter_value is not None:
-            data["value"] = params.old_filter_value
+        if params.original_filter_type is not None:
+            data["type_name"] = params.original_filter_type
+        if params.original_filter_value is not None:
+            data["value"] = params.original_filter_value
 
         view_handler.update_filter(user, view_filter, **data)
 
@@ -311,8 +313,8 @@ class UpdateViewSortActionType(ActionType):
     @dataclasses.dataclass
     class Params:
         view_sort_id: int
-        old_field_id: int
-        old_sort_order: str
+        original_field_id: int
+        original_sort_order: str
         new_field_id: int
         new_sort_order: str
 
@@ -342,7 +344,9 @@ class UpdateViewSortActionType(ActionType):
         if order is not None:
             data["order"] = order
 
-        old_view_sort = deepcopy(view_sort)
+        original_view_sort_field_id = view_sort.field.id
+        original_view_sort_sort_order = view_sort.order
+
         handler = ViewHandler()
         updated_view_sort = handler.update_sort(user, view_sort, **data)
 
@@ -350,8 +354,8 @@ class UpdateViewSortActionType(ActionType):
             user=user,
             params=cls.Params(
                 view_sort.id,
-                old_view_sort.field.id,
-                old_view_sort.order,
+                original_view_sort_field_id,
+                original_view_sort_sort_order,
                 updated_view_sort.field.id,
                 updated_view_sort.order,
             ),
@@ -366,14 +370,14 @@ class UpdateViewSortActionType(ActionType):
 
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_to_undo: Action):
-        field = FieldHandler().get_field(params.old_field_id)
+        field = FieldHandler().get_field(params.original_field_id)
 
         view_handler = ViewHandler()
         view_sort = view_handler.get_sort(user, params.view_sort_id)
 
         data = {"field": field}
-        if params.old_sort_order is not None:
-            data["order"] = params.old_sort_order
+        if params.original_sort_order is not None:
+            data["order"] = params.original_sort_order
 
         view_handler.update_sort(user, view_sort, **data)
 
