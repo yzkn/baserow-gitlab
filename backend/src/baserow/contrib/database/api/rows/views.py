@@ -43,6 +43,7 @@ from baserow.contrib.database.rows.actions import (
     CreateRowActionType,
     DeleteRowActionType,
     MoveRowActionType,
+    UpdateRowActionType,
 )
 from baserow.core.action.registries import action_type_registry
 from baserow.contrib.database.rows.exceptions import RowDoesNotExist
@@ -569,7 +570,9 @@ class RowView(APIView):
             field_names = request.data.keys()
         else:
             field_ids = RowHandler().extract_field_ids_from_dict(request.data)
+
         model = table.get_model()
+
         validation_serializer = get_row_serializer_class(
             model,
             field_ids=field_ids,
@@ -579,16 +582,16 @@ class RowView(APIView):
         data = validate_data(validation_serializer, request.data)
 
         try:
-            row = RowHandler().update_row_by_id(
+            row = action_type_registry.get_by_type(UpdateRowActionType).do(
                 request.user,
                 table,
                 row_id,
                 data,
-                model,
+                model=model,
                 user_field_names=user_field_names,
             )
-        except ValidationError as e:
-            raise RequestBodyValidationException(detail=e.message)
+        except ValidationError as exc:
+            raise RequestBodyValidationException(detail=exc.message)
 
         serializer_class = get_row_serializer_class(
             model, RowSerializer, is_response=True, user_field_names=user_field_names
@@ -731,15 +734,13 @@ class RowMoveView(APIView):
 
         before_id = query_params.get("before_id")
         before = (
-            row_handler.get_row(request.user, table, before_id, model)
+            row_handler.get_row(request.user, table, before_id, model=model)
             if before_id
             else None
         )
 
-        row = row_handler.get_row_for_update(request.user, table, row_id, model)
-
         row = action_type_registry.get_by_type(MoveRowActionType).do(
-            request.user, table, row, before=before, model=model
+            request.user, table, row_id, before=before, model=model
         )
 
         serializer_class = get_row_serializer_class(

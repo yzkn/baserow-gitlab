@@ -103,7 +103,9 @@ def test_can_undo_ordering_tables(data_fixture):
         return [t.id for t in database.table_set.order_by("order")]
 
     original_order = get_tables_order()
-    new_order = [table_1.id, table_3.id, table_2.id]
+    new_order = [table_2.id, table_3.id, table_1.id]
+
+    assert original_order != new_order
 
     action_type_registry.get_by_type(OrderTableActionType).do(
         user, database, order=new_order
@@ -128,10 +130,10 @@ def test_can_undo_redo_ordering_tables(data_fixture):
     def get_tables_order():
         return [t.id for t in database.table_set.all()]
 
-    original_order = [table_3.id, table_2.id, table_1.id]
-    new_order = [table_1.id, table_3.id, table_2.id]
+    original_order = get_tables_order()
+    new_order = [table_2.id, table_3.id, table_1.id]
 
-    assert get_tables_order() == original_order
+    assert original_order != new_order
 
     action_type_registry.get_by_type(OrderTableActionType).do(
         user, database, order=new_order

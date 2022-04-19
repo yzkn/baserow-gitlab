@@ -284,7 +284,7 @@ def test_get_row(data_fixture):
 
 @pytest.mark.django_db
 @patch("baserow.contrib.database.rows.signals.row_updated.send")
-def test_update_row_by_id(send_mock, data_fixture):
+def test_update_row(send_mock, data_fixture):
     user = data_fixture.create_user()
     user_2 = data_fixture.create_user()
     table = data_fixture.create_database_table(name="Car", user=user)
@@ -405,7 +405,7 @@ def test_move_row(before_send_mock, send_mock, data_fixture):
 @pytest.mark.django_db
 @patch("baserow.contrib.database.rows.signals.row_deleted.send")
 @patch("baserow.contrib.database.rows.signals.before_row_delete.send")
-def test_delete_row_by_id(before_send_mock, send_mock, data_fixture):
+def test_delete_row(before_send_mock, send_mock, data_fixture):
     user = data_fixture.create_user()
     user_2 = data_fixture.create_user()
     table = data_fixture.create_database_table(name="Car", user=user)

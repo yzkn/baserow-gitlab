@@ -128,8 +128,8 @@ class OrderTableActionType(ActionType):
     @dataclasses.dataclass
     class Params:
         database_id: int
-        original_table_order: List[int]
-        new_table_order: List[int]
+        original_tables_order: List[int]
+        new_tables_order: List[int]
 
     @classmethod
     def do(cls, user: AbstractUser, database: Database, order: List[int]) -> Table:
@@ -147,7 +147,7 @@ class OrderTableActionType(ActionType):
         """
 
         original_table_order = [t.id for t in database.table_set.order_by("order")]
-        params = cls.Params(database.id, original_table_order, new_table_order=order)
+        params = cls.Params(database.id, original_table_order, new_tables_order=order)
 
         TableHandler().order_tables(user, database, order=order)
 
@@ -160,12 +160,12 @@ class OrderTableActionType(ActionType):
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_being_undone: Action):
         database = Database.objects.get(id=params.database_id)
-        TableHandler().order_tables(user, database, order=params.original_table_order)
+        TableHandler().order_tables(user, database, order=params.original_tables_order)
 
     @classmethod
     def redo(cls, user: AbstractUser, params: Params, action_being_redone: Action):
         database = Database.objects.get(id=params.database_id)
-        TableHandler().order_tables(user, database, order=params.new_table_order)
+        TableHandler().order_tables(user, database, order=params.new_tables_order)
 
 
 class UpdateTableActionType(ActionType):

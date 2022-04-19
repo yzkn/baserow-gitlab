@@ -2,15 +2,17 @@ import dataclasses
 from typing import Any, Dict
 
 from django.contrib.auth.models import AbstractUser
+from django.db import transaction
 
 from baserow.core.action.models import Action
 from baserow.core.action.registries import ActionType, ActionScopeStr
+from baserow.core.action.utils import params_dumps, params_loads
 from baserow.contrib.database.action.scopes import TableActionScopeType
 from baserow.contrib.database.rows.handler import (
     GeneratedTableModelForUpdate,
     RowHandler,
 )
-from baserow.contrib.database.table.models import Table
+from baserow.contrib.database.table.models import GeneratedTableModel, Table
 from baserow.core.trash.handler import TrashHandler
 
 
@@ -140,7 +142,7 @@ class MoveRowActionType(ActionType):
         cls,
         user: AbstractUser,
         table: Table,
-        row: GeneratedTableModelForUpdate,
+        row_id: int,
         before: Table = None,
         model: Any = None,
     ) -> GeneratedTableModelForUpdate:
@@ -161,12 +163,22 @@ class MoveRowActionType(ActionType):
             provided so that it does not have to be generated for a second time.
         """
 
+        if not model:
+            model = table.get_model()
+
         row_handler = RowHandler()
-        original_row_before = (
-            model.objects.order_by("order").filter(order__gt=row.order).first()
-        )
-        original_row_before_id = original_row_before.id if original_row_before else None
-        updated_row = row_handler.move_row(user, table, row, before=before, model=model)
+        with transaction.atomic():
+            row = row_handler.get_row_for_update(user, table, row_id, model=model)
+            original_row_before = (
+                model.objects.filter(order__gt=row.order).order_by("order").first()
+            )
+            original_row_before_id = (
+                original_row_before.id if original_row_before else None
+            )
+
+            updated_row = row_handler.move_row(
+                user, table, row, before=before, model=model
+            )
 
         params = cls.Params(
             table.id, row.id, original_row_before_id, before.id if before else None
@@ -182,29 +194,121 @@ class MoveRowActionType(ActionType):
     @classmethod
     def undo(cls, user: AbstractUser, params: Params, action_being_undone: Action):
         table = Table.objects.get(id=params.table_id)
-        row_handler = RowHandler()
-
         model = table.get_model()
 
+        row_handler = RowHandler()
         before_id = params.original_before_row_id
         before = (
             row_handler.get_row(user, table, before_id, model) if before_id else None
         )
-
-        row = row_handler.get_row_for_update(user, table, params.row_id, model)
-        row_handler.move_row(user, table, row, before=before)
+        with transaction.atomic():
+            row = row_handler.get_row_for_update(user, table, params.row_id, model)
+            row_handler.move_row(user, table, row, before=before)
 
     @classmethod
     def redo(cls, user: AbstractUser, params: Params, action_being_redone: Action):
         table = Table.objects.get(id=params.table_id)
-        row_handler = RowHandler()
-
         model = table.get_model()
 
+        row_handler = RowHandler()
         before_id = params.new_before_row_id
         before = (
             row_handler.get_row(user, table, before_id, model) if before_id else None
         )
+        with transaction.atomic():
+            row = row_handler.get_row_for_update(user, table, params.row_id, model)
+            row_handler.move_row(user, table, row, before=before)
 
-        row = row_handler.get_row_for_update(user, table, params.row_id, model)
-        row_handler.move_row(user, table, row, before=before)
+
+class UpdateRowActionType(ActionType):
+    type = "update_row"
+
+    @dataclasses.dataclass
+    class Params:
+        table_id: int
+        row_id: int
+        original_row_values: str
+        new_row_values: str
+
+    @classmethod
+    def do(
+        cls,
+        user: AbstractUser,
+        table: Table,
+        row_id: int,
+        values: Dict[str, any],
+        model: GeneratedTableModel = None,
+        user_field_names: bool = False,
+    ) -> GeneratedTableModelForUpdate:
+        """
+        Updates one or more values of the provided row_id.
+
+        :param user: The user of whose behalf the change is made.
+        :param table: The table for which the row must be updated.
+        :param row_id: The id of the row that must be updated.
+        :param values: The values that must be updated. The keys must be the field ids.
+        :param model: If the correct model has already been generated it can be
+            provided so that it does not have to be generated for a second time.
+        :param user_field_names: Whether or not the values are keyed by the internal
+            Baserow field name (field_1,field_2 etc) or by the user field names.
+        :raises RowDoesNotExist: When the row with the provided id does not exist.
+        :return: The updated row instance.
+        """
+
+        if not model:
+            model = table.get_model()
+
+        row_handler = RowHandler()
+
+        with transaction.atomic():
+            row = RowHandler().get_row_for_update(
+                user, table, row_id, enhance_by_fields=True, model=model
+            )
+
+            original_field_values = row_handler.get_export_values_for_fields(
+                row, values.keys(), user_field_name=user_field_names
+            )
+
+            # if there are no values to update, we can just return the row and skip
+            # registering the action
+            if not original_field_values:
+                return row
+
+            updated_row = row_handler.update_row(
+                user, table, row, values, model=model, user_field_names=user_field_names
+            )
+            new_field_values = row_handler.get_export_values_for_fields(
+                row, values.keys(), user_field_name=user_field_names
+            )
+
+        params = cls.Params(
+            table.id,
+            row.id,
+            params_dumps(original_field_values),
+            params_dumps(new_field_values),
+        )
+        cls.register_action(user, params, cls.scope(table.id))
+
+        return updated_row
+
+    @classmethod
+    def scope(cls, table_id) -> ActionScopeStr:
+        return TableActionScopeType.value(table_id)
+
+    @classmethod
+    def undo(cls, user: AbstractUser, params: Params, action_being_undone: Action):
+        RowHandler().update_row_by_id(
+            user,
+            Table.objects.get(id=params.table_id),
+            row_id=params.row_id,
+            values=params_loads(params.original_row_values),
+        )
+
+    @classmethod
+    def redo(cls, user: AbstractUser, params: Params, action_being_redone: Action):
+        RowHandler().update_row_by_id(
+            user,
+            Table.objects.get(id=params.table_id),
+            row_id=params.row_id,
+            values=params_loads(params.new_row_values),
+        )

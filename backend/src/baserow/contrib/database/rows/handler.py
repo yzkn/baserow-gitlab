@@ -1,7 +1,7 @@
 import re
 from decimal import Decimal
 from math import floor, ceil
-from typing import Any, Dict, cast, NewType
+from typing import cast, Any, Dict, List, NewType
 
 from django.contrib.auth.models import AbstractUser
 from django.db import transaction
@@ -54,24 +54,76 @@ class RowHandler:
             if field_id in values or field["name"] in values
         }
 
-    def extract_field_ids_from_dict(self, values):
+    def extract_field_ids(self, field_keys: List[str]) -> List[str]:
         """
-        Extracts the field ids from a dict containing the values that need to
-        updated. For example keys like 'field_2', '3', 4 will be seen ass field ids.
+        Extracts the field ids from a list of field_keys that need to updated.
+        For example keys like 'field_2', '3', 4 will be seen ass field ids.
 
         :param values: The values where to extract the fields ids from.
-        :type values: dict
         :return: A list containing the field ids as integers.
-        :rtype: list
         """
 
         field_pattern = re.compile("^field_([0-9]+)$")
         # @TODO improve this function
         return [
             int(re.sub("[^0-9]", "", str(key)))
-            for key in values.keys()
+            for key in field_keys
             if str(key).isnumeric() or field_pattern.match(str(key))
         ]
+
+    def extract_field_ids_from_dict(self, values: Dict) -> List[str]:
+        """
+        Extracts the field ids from a dict containing the values that need to
+        updated. For example keys like 'field_2', '3', 4 will be seen ass field ids.
+
+        :param values: The values where to extract the fields ids from.
+        :return: A list containing the field ids as integers.
+        """
+
+        return self.extract_field_ids(values.keys())
+
+    def get_export_values_for_fields(
+        self,
+        row: GeneratedTableModel,
+        fields_keys: List[str],
+        user_field_name: bool = False,
+    ) -> Dict:
+        """
+        Gets the current values of the row before the update.
+
+        :param row: The row instance.
+        :params: fields: The fields that need to be returned.
+        :param user_field_name: The name of the user field.
+        :param model: The model of the related table
+        :return: The current values of the row before the update.
+        """
+        if user_field_name:
+            to_internal_name = {}
+            for field_object in row._field_objects.values():
+                to_internal_name[field_object["field"].name] = field_object["name"]
+            fields_keys = [to_internal_name[field_name] for field_name in fields_keys]
+
+        values = {}
+        for field_id in self.extract_field_ids(fields_keys):
+            field_name = f"field_{field_id}"
+            field = row._field_objects[field_id]
+            field_value = field["type"].get_export_value(
+                getattr(row, field_name), field
+            )
+            values[field_name] = field_value
+        return values
+
+    def is_many_to_many_field(
+        self, model: GeneratedTableModel, field_name: str
+    ) -> bool:
+        """
+        Checks if the field is a ManyToManyField.
+
+        :param field_name: The name of the field.
+        :return: True if the field is a ManyToManyField, False otherwise.
+        """
+        model_field = model._meta.get_field(field_name)
+        return isinstance(model_field, ManyToManyField)
 
     def extract_manytomany_values(self, values, model):
         """
@@ -91,9 +143,8 @@ class RowHandler:
 
         manytomany_values = {}
 
-        for name, value in values.items():
-            model_field = model._meta.get_field(name)
-            if isinstance(model_field, ManyToManyField):
+        for name in values.keys():
+            if self.is_many_to_many_field(model, name):
                 manytomany_values[name] = values[name]
 
         for name in manytomany_values.keys():
@@ -198,17 +249,18 @@ class RowHandler:
         if not model:
             model = table.get_model()
 
-        queryset = model.objects.select_for_update()
+        base_queryset = model.objects.select_for_update()
         if enhance_by_fields:
-            queryset = queryset.enhance_by_fields()
+            base_queryset = base_queryset.enhance_by_fields()
 
         row = self.get_row(
             user,
             table,
             row_id,
             model=model,
-            base_queryset=queryset,
+            base_queryset=base_queryset,
         )
+
         return cast(GeneratedTableModelForUpdate, row)
 
     # noinspection PyMethodMayBeStatic
@@ -253,30 +305,29 @@ class RowHandler:
             return row_exists
 
     def create_row(
-        self, user, table, values=None, model=None, before=None, user_field_names=False
-    ):
+        self,
+        user: AbstractUser,
+        table: Table,
+        values: Dict[str, Any] = None,
+        model: GeneratedTableModel = None,
+        before: GeneratedTableModel = None,
+        user_field_names: bool = False,
+    ) -> GeneratedTableModel:
         """
         Creates a new row for a given table with the provided values if the user
         belongs to the related group. It also calls the row_created signal.
 
         :param user: The user of whose behalf the row is created.
-        :type user: User
         :param table: The table for which to create a row for.
-        :type table: Table
         :param values: The values that must be set upon creating the row. The keys must
             be the field ids.
-        :type values: dict
         :param model: If a model is already generated it can be provided here to avoid
             having to generate the model again.
-        :type model: Model
         :param before: If provided the new row will be placed right before that row
             instance.
-        :type before: Table
         :param user_field_names: Whether or not the values are keyed by the internal
             Baserow field name (field_1,field_2 etc) or by the user field names.
-        :type user_field_names: True
         :return: The created row instance.
-        :rtype: Model
         """
 
         if not model:
@@ -419,14 +470,12 @@ class RowHandler:
             model = table.get_model()
 
         with transaction.atomic():
-            try:
-                row = (
-                    model.objects.select_for_update().enhance_by_fields().get(id=row_id)
-                )
-            except model.DoesNotExist:
-                raise RowDoesNotExist(f"The row with id {row_id} does not exist.")
-
-            return self.update_row(user, table, row, values, model, user_field_names)
+            row = self.get_row_for_update(
+                user, table, row_id, enhance_by_fields=True, model=model
+            )
+            return self.update_row(
+                user, table, row, values, model=model, user_field_names=user_field_names
+            )
 
     def update_row(
         self,
@@ -543,9 +592,9 @@ class RowHandler:
 
         if not model:
             model = table.get_model()
-
-        row = self.get_row_for_update(user, table, row_id, model=model)
-        return self.move_row(user, table, row, before=before, model=model)
+        with transaction.atomic():
+            row = self.get_row_for_update(user, table, row_id, model=model)
+            return self.move_row(user, table, row, before=before, model=model)
 
     def move_row(
         self,
@@ -580,9 +629,7 @@ class RowHandler:
         row.order = self.get_order_before_row(before, model)
         row.save()
 
-        updated_fields = [
-            field["field"] for field_id, field in model._field_objects.items()
-        ]
+        updated_fields = [field["field"] for _, field in model._field_objects.items()]
         update_collector = CachingFieldUpdateCollector(
             table, starting_row_id=row.id, existing_model=model
         )
@@ -636,12 +683,9 @@ class RowHandler:
         if not model:
             model = table.get_model()
 
-        try:
-            row = model.objects.get(id=row_id)
-        except model.DoesNotExist:
-            raise RowDoesNotExist(f"The row with id {row_id} does not exist.")
-
-        self.delete_row(user, table, row, model=model)
+        with transaction.atomic():
+            row = self.get_row(user, table, row_id, model=model)
+            self.delete_row(user, table, row, model=model)
 
     def delete_row(
         self,
@@ -671,8 +715,6 @@ class RowHandler:
             self, row=row, user=user, table=table, model=model
         )
 
-        row_id = row.id
-
         TrashHandler.trash(user, group, table.database, row, parent_id=table.id)
         updated_fields = [field["field"] for field in model._field_objects.values()]
         update_collector = CachingFieldUpdateCollector(
@@ -691,7 +733,7 @@ class RowHandler:
 
         row_deleted.send(
             self,
-            row_id=row_id,
+            row_id=row.id,
             row=row,
             user=user,
             table=table,
