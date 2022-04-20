@@ -34,6 +34,8 @@
 * Stopped the generated model cache clear operation also deleting all other redis keys.
 * Added Spanish and Italian languages.
 * Added undo/redo.
+* Fixed bug where the link row field `link_row_relation_id` could when two simultaneous
+  requests are made.
 
 ## Released (2022-03-03 1.9.1)
 

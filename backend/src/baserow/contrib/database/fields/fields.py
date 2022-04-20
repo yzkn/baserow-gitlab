@@ -6,6 +6,7 @@ from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
     ManyToManyDescriptor,
 )
+from django.db.models.expressions import RawSQL
 from django.utils.functional import cached_property
 
 from baserow.contrib.database.formula import BaserowExpression, FormulaHandler
@@ -197,3 +198,24 @@ class BaserowExpressionField(models.Field):
                         self.expression, model_instance
                     )
                 )
+
+
+class SerialField(models.Field):
+    """
+    @TODO docs.
+    """
+
+    db_returning = True
+
+    def db_type(self, connection):
+        return "serial"
+
+    def pre_save(self, model_instance, add):
+        if add and not getattr(model_instance, self.name):
+            sequence_name = f"{model_instance._meta.db_table}_{self.name}_seq"
+            return RawSQL(
+                f"nextval('{sequence_name}'::regclass)",
+                (),
+            )
+        else:
+            return super().pre_save(model_instance, add)
