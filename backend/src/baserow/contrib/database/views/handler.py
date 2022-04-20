@@ -719,29 +719,31 @@ class ViewHandler:
 
         return view_sort
 
-    def update_sort(self, user, view_sort, **kwargs):
+    def update_sort(
+        self,
+        user: AbstractUser,
+        view_sort: ViewSort,
+        field: Field = None,
+        order: str = None,
+    ) -> ViewSort:
         """
         Updates the values of an existing view sort.
 
         :param user: The user on whose behalf the view sort is updated.
-        :type user: User
         :param view_sort: The view sort that needs to be updated.
-        :type view_sort: ViewSort
-        :param kwargs: The values that need to be updated, allowed values are
-            `field` and `order`.
-        :type kwargs: dict
+        :param field: The field that must be sorted on.
+        :param order: Indicates the sort order direction.
         :raises ViewSortFieldNotSupported: When the field does not support sorting.
         :raises FieldNotInTable:  When the provided field does not belong to the
             provided view's table.
         :return: The updated view sort instance.
-        :rtype: ViewSort
         """
 
         group = view_sort.view.table.database.group
         group.has_user(user, raise_error=True)
 
-        field = kwargs.get("field", view_sort.field)
-        order = kwargs.get("order", view_sort.order)
+        field = field if field is not None else view_sort.field
+        order = order if order is not None else view_sort.order
 
         # If the field has changed we need to check if the field belongs to the table.
         if (

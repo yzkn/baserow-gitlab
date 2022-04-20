@@ -328,17 +328,11 @@ class UpdateViewSortActionType(ActionType):
         :param order: Indicates the sort order direction.
         """
 
-        data = {}
-        if field is not None:
-            data["field"] = field
-        if order is not None:
-            data["order"] = order
-
         original_view_sort_field_id = view_sort.field.id
         original_view_sort_sort_order = view_sort.order
 
         handler = ViewHandler()
-        updated_view_sort = handler.update_sort(user, view_sort, **data)
+        updated_view_sort = handler.update_sort(user, view_sort, field, order)
 
         cls.register_action(
             user=user,
@@ -365,11 +359,7 @@ class UpdateViewSortActionType(ActionType):
         view_handler = ViewHandler()
         view_sort = view_handler.get_sort(user, params.view_sort_id)
 
-        data = {"field": field}
-        if params.original_sort_order is not None:
-            data["order"] = params.original_sort_order
-
-        view_handler.update_sort(user, view_sort, **data)
+        view_handler.update_sort(user, view_sort, field, params.original_sort_order)
 
     @classmethod
     def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):
@@ -378,11 +368,7 @@ class UpdateViewSortActionType(ActionType):
         view_handler = ViewHandler()
         view_sort = view_handler.get_sort(user, params.view_sort_id)
 
-        data = {"field": field}
-        if params.new_sort_order is not None:
-            data["order"] = params.new_sort_order
-
-        view_handler.update_sort(user, view_sort, **data)
+        view_handler.update_sort(user, view_sort, field, params.new_sort_order)
 
 
 class DeleteViewSortActionType(ActionType):
