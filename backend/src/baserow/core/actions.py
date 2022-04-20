@@ -9,6 +9,7 @@ from baserow.core.action.scopes import RootActionScopeType, GroupActionScopeType
 from baserow.core.handler import GroupForUpdate, CoreHandler
 from baserow.core.models import GroupUser, Group, Application
 from baserow.core.trash.handler import TrashHandler
+from baserow.core.utils import extract_allowed, set_allowed_attrs
 
 
 class DeleteGroupActionType(ActionType):
@@ -236,3 +237,54 @@ class CreateApplicationActionType(ActionType):
         TrashHandler.restore_item(
             user, "application", params.application_id, parent_trash_item_id=None
         )
+
+
+class UpdateApplicationActionType(ActionType):
+    type = "update_application"
+
+    @dataclasses.dataclass
+    class Params:
+        application_id: Application
+        original_name: str
+        new_name: str
+
+    @classmethod
+    def do(cls, user: AbstractUser, application: Application, name: str) -> Application:
+        """
+        Updates an existing application instance.
+        See baserow.core.handler.CoreHandler.update_application for further details.
+        Undoing this action trashes the application and redoing restores it.
+
+        :param user: The user on whose behalf the application is updated.
+        :param application: The application instance that needs to be updated.
+        :param kwargs: The fields that need to be updated.
+        :raises ValueError: If one of the provided parameters is invalid.
+        :return: The updated application instance.
+        """
+        if not isinstance(application, Application):
+            raise ValueError("The application is not an instance of Application.")
+
+        application.group.has_user(user, raise_error=True)
+
+        original_name = application.name
+
+        application = CoreHandler().update_application(user, application, name)
+
+        params = cls.Params(application.id, original_name, name)
+        cls.register_action(user, params, cls.scope(application.group.id))
+
+        return application
+
+    @classmethod
+    def scope(cls, group_id) -> ActionScopeStr:
+        return GroupActionScopeType.value(group_id)
+
+    @classmethod
+    def undo(cls, user: AbstractUser, params: Params, action_being_undone: Action):
+        application = CoreHandler().get_application(params.application_id)
+        CoreHandler().update_application(user, application, params.original_name)
+
+    @classmethod
+    def redo(cls, user: AbstractUser, params: Params, action_being_redone: Action):
+        application = CoreHandler().get_application(params.application_id)
+        CoreHandler().update_application(user, application, params.new_name)
