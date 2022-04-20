@@ -119,20 +119,14 @@ class UpdateViewFilterActionType(ActionType):
         compared to the field's value.
         """
 
-        data = {}
-        if field is not None:
-            data["field"] = field
-        if filter_type is not None:
-            data["type_name"] = filter_type
-        if filter_value is not None:
-            data["value"] = filter_value
-
         original_view_filter_field_id = view_filter.field.id
         original_view_filter_type = view_filter.type
         original_view_filter_value = view_filter.value
 
         view_handler = ViewHandler()
-        updated_view_filter = view_handler.update_filter(user, view_filter, **data)
+        updated_view_filter = view_handler.update_filter(
+            user, view_filter, field, filter_type, filter_value
+        )
         cls.register_action(
             user=user,
             params=cls.Params(
@@ -160,13 +154,13 @@ class UpdateViewFilterActionType(ActionType):
         view_handler = ViewHandler()
         view_filter = view_handler.get_filter(user, params.view_filter_id)
 
-        data = {"field": field}
-        if params.original_filter_type is not None:
-            data["type_name"] = params.original_filter_type
-        if params.original_filter_value is not None:
-            data["value"] = params.original_filter_value
-
-        view_handler.update_filter(user, view_filter, **data)
+        view_handler.update_filter(
+            user,
+            view_filter,
+            field,
+            params.original_filter_type,
+            params.original_filter_value,
+        )
 
     @classmethod
     def redo(cls, user: AbstractUser, params: Params, action_to_redo: Action):

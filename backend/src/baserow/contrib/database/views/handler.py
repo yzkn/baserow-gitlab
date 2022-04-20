@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional, Iterable, Tuple
 from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.db import models as django_models
 from django.db.models import F, Count
+from django.contrib.auth.models import AbstractUser
 
 from baserow.contrib.database.fields.exceptions import FieldNotInTable
 from baserow.contrib.database.fields.field_filters import FilterBuilder
@@ -466,31 +467,36 @@ class ViewHandler:
 
         return view_filter
 
-    def update_filter(self, user, view_filter, **kwargs):
+    def update_filter(
+        self,
+        user: AbstractUser,
+        view_filter: ViewFilter,
+        field: Field = None,
+        type_name: str = None,
+        value: str = None,
+    ) -> ViewFilter:
         """
         Updates the values of an existing view filter.
 
         :param user: The user on whose behalf the view filter is updated.
-        :type user: User
         :param view_filter: The view filter that needs to be updated.
-        :type view_filter: ViewFilter
-        :param kwargs: The values that need to be updated, allowed values are
-            `field`, `value` and `type_name`.
-        :type kwargs: dict
+        :param field: The model of the field to filter by.
+        :param type_name: Indicates how the field's value must be compared
+        to the filter's value.
+        :param value: The filter value that must be compared to the field's value.
         :raises ViewFilterTypeNotAllowedForField: When the field does not supports the
             filter type.
         :raises FieldNotInTable: When the provided field does not belong to the
             view's table.
         :return: The updated view filter instance.
-        :rtype: ViewFilter
         """
 
         group = view_filter.view.table.database.group
         group.has_user(user, raise_error=True)
 
-        type_name = kwargs.get("type_name", view_filter.type)
-        field = kwargs.get("field", view_filter.field)
-        value = kwargs.get("value", view_filter.value)
+        type_name = type_name if type_name is not None else view_filter.type
+        field = field if field is not None else view_filter.field
+        value = value if value is not None else view_filter.value
         view_filter_type = view_filter_type_registry.get(type_name)
         field_type = field_type_registry.get_by_model(field.specific_class)
 
