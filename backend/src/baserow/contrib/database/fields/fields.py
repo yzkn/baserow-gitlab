@@ -202,7 +202,11 @@ class BaserowExpressionField(models.Field):
 
 class SerialField(models.Field):
     """
-    @TODO docs.
+    The serial field works very similar compared to the `AutoField` (primary key field).
+    Everytime a new row is created and the value is not set, it will automatically
+    increment a sequence and that will be set as value. It's basically an auto
+    increment column. The sequence is independent of a transaction to prevent race
+    conditions.
     """
 
     db_returning = True
@@ -213,7 +217,7 @@ class SerialField(models.Field):
     def pre_save(self, model_instance, add):
         if add and not getattr(model_instance, self.name):
             sequence_name = f"{model_instance._meta.db_table}_{self.name}_seq"
-            return RawSQL(
+            return RawSQL(  # nosec
                 f"nextval('{sequence_name}'::regclass)",
                 (),
             )
