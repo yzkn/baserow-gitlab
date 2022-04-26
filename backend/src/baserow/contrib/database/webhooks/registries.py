@@ -39,8 +39,18 @@ class WebhookEventType(Instance):
         super().__init__()
         self.signal.connect(self.listener)
 
-    def get_test_call_before_return(self, **kwargs):
-        """Prepare a `before_return` value for a webhook event."""
+    # TODO:
+    def get_test_call_payload(self, table, model, event_id, webhook):
+        row = model(id=0, order=0)
+        payload = self.get_payload(
+            event_id=event_id,
+            webhook=webhook,
+            model=model,
+            table=table,
+            row=row,
+            before_return=None,
+        )
+        return payload
 
     def get_payload(self, event_id, webhook, **kwargs):
         """

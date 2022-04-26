@@ -61,6 +61,7 @@ import {
 import {
   RowCreatedWebhookEventType,
   RowUpdatedWebhookEventType,
+  RowsUpdatedWebhookEventType,
   RowDeletedWebhookEventType,
 } from '@baserow/modules/database/webhookEventTypes'
 import {
@@ -306,6 +307,10 @@ export default (context) => {
   app.$registry.register(
     'webhookEvent',
     new RowDeletedWebhookEventType(context)
+  )
+  app.$registry.register(
+    'webhookEvent',
+    new RowsUpdatedWebhookEventType(context)
   )
 
   // Text functions

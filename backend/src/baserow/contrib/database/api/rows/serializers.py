@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, List
 
 from django.conf import settings
 from rest_framework import serializers
@@ -289,6 +289,17 @@ def get_example_row_metadata_field_serializer():
         "additional metadata about that row. A row might not have metadata and will "
         "not be present as a key if so.",
     )
+
+
+def remap_serialized_rows_to_user_field_names(serialized_rows: List[Dict], model: ModelBase):
+    """
+    Remap the values of rows from field ids to the user defined field names.
+
+    :param serialized_rows: The rows whose fields to remap.
+    :param model: The model for which to generate a serializer.
+    """
+    
+    return [remap_serialized_row_to_user_field_names(row, model) for row in serialized_rows]
 
 
 def remap_serialized_row_to_user_field_names(serialized_row: Dict, model: ModelBase):

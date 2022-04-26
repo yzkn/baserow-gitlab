@@ -69,6 +69,24 @@ export class RowUpdatedWebhookEventType extends WebhookEventType {
   }
 }
 
+export class RowsUpdatedWebhookEventType extends WebhookEventType {
+  getType() {
+    return 'rows.updated'
+  }
+
+  getName() {
+    const { i18n } = this.app
+    return i18n.t('webhook.eventType.rowsUpdated')
+  }
+
+  getExamplePayload(table, rowExample) {
+    const payload = super.getExamplePayload(table, rowExample)
+    payload.items = [rowExample]
+    payload.old_items = [rowExample]
+    return payload
+  }
+}
+
 export class RowDeletedWebhookEventType extends WebhookEventType {
   getType() {
     return 'row.deleted'

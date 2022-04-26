@@ -172,6 +172,7 @@
         "eventType": {
             "rowCreated": "When a row is created",
             "rowUpdated": "When a row is updated",
+            "rowsUpdated": "When rows are updated",
             "rowDeleted": "When a row is deleted"
         }
     },

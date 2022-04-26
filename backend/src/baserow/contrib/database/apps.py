@@ -337,12 +337,14 @@ class DatabaseConfig(AppConfig):
         from .rows.webhook_event_types import (
             RowCreatedEventType,
             RowUpdatedEventType,
+            RowsUpdatedEventType,
             RowDeletedEventType,
         )
 
         webhook_event_type_registry.register(RowCreatedEventType())
         webhook_event_type_registry.register(RowUpdatedEventType())
         webhook_event_type_registry.register(RowDeletedEventType())
+        webhook_event_type_registry.register(RowsUpdatedEventType())
 
         from .airtable.airtable_column_types import (
             TextAirtableColumnType,
