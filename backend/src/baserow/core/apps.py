@@ -20,20 +20,48 @@ class CoreConfig(AppConfig):
             UpdateGroupActionType,
             CreateGroupActionType,
             DeleteGroupActionType,
+            OrderGroupsActionType,
             CreateApplicationActionType,
+            UpdateApplicationActionType,
+            DeleteApplicationActionType,
+            OrderApplicationsActionType,
         )
 
         action_type_registry.register(CreateGroupActionType())
         action_type_registry.register(DeleteGroupActionType())
         action_type_registry.register(UpdateGroupActionType())
+        action_type_registry.register(OrderGroupsActionType())
         action_type_registry.register(CreateApplicationActionType())
+        action_type_registry.register(UpdateApplicationActionType())
+        action_type_registry.register(DeleteApplicationActionType())
+        action_type_registry.register(OrderApplicationsActionType())
+
+        from baserow.contrib.database.views.actions import (
+            CreateViewFilterActionType,
+            UpdateViewFilterActionType,
+            DeleteViewFilterActionType,
+            CreateViewSortActionType,
+            UpdateViewSortActionType,
+            DeleteViewSortActionType,
+            OrderViewsActionType,
+        )
+
+        action_type_registry.register(CreateViewFilterActionType())
+        action_type_registry.register(UpdateViewFilterActionType())
+        action_type_registry.register(DeleteViewFilterActionType())
+        action_type_registry.register(CreateViewSortActionType())
+        action_type_registry.register(UpdateViewSortActionType())
+        action_type_registry.register(DeleteViewSortActionType())
+        action_type_registry.register(OrderViewsActionType())
 
         from baserow.core.action.scopes import (
             RootActionScopeType,
             GroupActionScopeType,
             ApplicationActionScopeType,
+            ViewActionScopeType,
         )
 
         action_scope_registry.register(RootActionScopeType())
         action_scope_registry.register(GroupActionScopeType())
         action_scope_registry.register(ApplicationActionScopeType())
+        action_scope_registry.register(ViewActionScopeType())

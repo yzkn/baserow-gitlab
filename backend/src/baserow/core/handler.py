@@ -3,7 +3,7 @@ import json
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import NewType, cast
+from typing import NewType, cast, List
 from urllib.parse import urlparse, urljoin
 
 from django.contrib.auth.models import AbstractUser
@@ -61,6 +61,7 @@ from .signals import (
     group_deleted,
     group_user_updated,
     group_user_deleted,
+    groups_reordered,
 )
 from .emails import GroupInvitationEmail
 
@@ -272,20 +273,32 @@ class CoreHandler:
             self, group_id=group_id, group=group, group_users=group_users, user=user
         )
 
-    def order_groups(self, user, group_ids):
+    def order_groups(self, user: AbstractUser, group_ids: List[int]):
         """
         Changes the order of groups for a user.
 
         :param user: The user on whose behalf the ordering is done.
-        :type: user: User
         :param group_ids: A list of group ids ordered the way they need to be ordered.
-        :type group_ids: List[int]
         """
 
         for index, group_id in enumerate(group_ids):
             GroupUser.objects.filter(user=user, group_id=group_id).update(
                 order=index + 1
             )
+        groups_reordered.send(self, user=user, group_ids=group_ids)
+
+    def get_groups_order(self, user: AbstractUser) -> List[int]:
+        """
+        Returns the order of groups for a user.
+
+        :param user: The user on whose behalf the ordering is done.
+        :return: A list of group ids ordered the way they need to be ordered.
+        """
+
+        return [
+            group_user.group_id
+            for group_user in GroupUser.objects.filter(user=user).order_by("order")
+        ]
 
     def get_group_user(self, group_user_id, base_queryset=None):
         """
@@ -692,51 +705,46 @@ class CoreHandler:
 
         return instance
 
-    def update_application(self, user, application, **kwargs):
+    def update_application(
+        self, user: AbstractUser, application: Application, name: str
+    ) -> Application:
         """
         Updates an existing application instance.
 
         :param user: The user on whose behalf the application is updated.
-        :type user: User
         :param application: The application instance that needs to be updated.
-        :type application: Application
-        :param kwargs: The fields that need to be updated.
-        :type kwargs: object
-        :raises ValueError: If one of the provided parameters is invalid.
+        :param name: The new name of the application.
         :return: The updated application instance.
-        :rtype: Application
         """
-
-        if not isinstance(application, Application):
-            raise ValueError("The application is not an instance of Application.")
 
         application.group.has_user(user, raise_error=True)
 
-        application = set_allowed_attrs(kwargs, ["name"], application)
+        application.name = name
+
         application.save()
 
         application_updated.send(self, application=application, user=user)
 
         return application
 
-    def order_applications(self, user, group, order):
+    def order_applications(
+        self, user: User, group: Group, order: List[int]
+    ) -> List[int]:
         """
         Updates the order of the applications in the given group. The order of the
         applications that are not in the `order` parameter set set to `0`.
 
         :param user: The user on whose behalf the tables are ordered.
-        :type user: User
         :param group: The group of which the applications must be updated.
-        :type group: Group
         :param order: A list containing the application ids in the desired order.
-        :type order: list
         :raises ApplicationNotInGroup: If one of the applications ids in the order does
             not belong to the database.
+        :return: The old order of application ids.
         """
 
         group.has_user(user, raise_error=True)
 
-        queryset = Application.objects.filter(group_id=group.id)
+        queryset = Application.objects.filter(group_id=group.id).order_by("order")
         application_ids = queryset.values_list("id", flat=True)
 
         for application_id in order:
@@ -746,15 +754,15 @@ class CoreHandler:
         Application.order_objects(queryset, order)
         applications_reordered.send(self, group=group, order=order, user=user)
 
-    def delete_application(self, user, application):
+        return application_ids
+
+    def delete_application(self, user: AbstractUser, application: Application):
         """
         Deletes an existing application instance if the user has access to the
         related group. The `application_deleted` signal is also called.
 
         :param user: The user on whose behalf the application is deleted.
-        :type user: User
         :param application: The application instance that needs to be deleted.
-        :type application: Application
         :raises ValueError: If one of the provided parameters is invalid.
         """
 

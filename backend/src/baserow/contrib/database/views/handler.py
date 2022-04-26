@@ -1,12 +1,15 @@
 from collections import defaultdict
 from copy import deepcopy
 from typing import Dict, Any, List, Optional, Iterable, Tuple, Union
+
 from redis.exceptions import LockNotOwnedError
 
 from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.core.cache import cache
 from django.db import models as django_models
 from django.db.models import F, Count
+from django.db.models.query import QuerySet
+from django.contrib.auth.models import AbstractUser
 
 from baserow.contrib.database.fields.exceptions import FieldNotInTable
 from baserow.contrib.database.fields.field_filters import FilterBuilder
@@ -35,8 +38,10 @@ from .exceptions import (
     ViewDoesNotSupportFieldOptions,
     FieldAggregationNotSupported,
     CannotShareViewTypeError,
+    ViewDecorationNotSupported,
+    ViewDecorationDoesNotExist,
 )
-from .models import View, ViewFilter, ViewSort
+from .models import View, ViewDecoration, ViewFilter, ViewSort
 from .registries import (
     view_type_registry,
     view_filter_type_registry,
@@ -53,6 +58,9 @@ from .signals import (
     view_sort_created,
     view_sort_updated,
     view_sort_deleted,
+    view_decoration_created,
+    view_decoration_updated,
+    view_decoration_deleted,
     view_field_options_updated,
 )
 from .validators import EMPTY_VALUES
@@ -176,17 +184,14 @@ class ViewHandler:
 
         return view
 
-    def order_views(self, user, table, order):
+    def order_views(self, user: AbstractUser, table: Table, order: List[int]):
         """
         Updates the order of the views in the given table. The order of the views
         that are not in the `order` parameter set set to `0`.
 
         :param user: The user on whose behalf the views are ordered.
-        :type user: User
         :param table: The table of which the views must be updated.
-        :type table: Table
         :param order: A list containing the view ids in the desired order.
-        :type order: list
         :raises ViewNotInTable: If one of the view ids in the order does not belong
             to the table.
         """
@@ -203,6 +208,26 @@ class ViewHandler:
 
         View.order_objects(queryset, order)
         views_reordered.send(self, table=table, order=order, user=user)
+
+    def get_views_order(self, user: AbstractUser, table: Table):
+        """
+        Returns the order of the views in the given table.
+
+        :param user: The user on whose behalf the views are ordered.
+        :param table: The table of which the views must be updated.
+        :raises ViewNotInTable: If one of the view ids in the order does not belong
+            to the table.
+        """
+
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        queryset = View.objects.filter(table_id=table.id)
+
+        order = queryset.values_list("id", flat=True)
+        order = list(order)
+
+        return order
 
     def delete_view(self, user, view):
         """
@@ -449,22 +474,26 @@ class ViewHandler:
 
         return view_filter
 
-    def create_filter(self, user, view, field, type_name, value):
+    def create_filter(
+        self,
+        user: AbstractUser,
+        view: View,
+        field: Field,
+        type_name: str,
+        value: str,
+        primary_key: Optional[int] = None,
+    ) -> ViewFilter:
         """
         Creates a new view filter. The rows that are visible in a view should always
         be filtered by the related view filters.
 
         :param user: The user on whose behalf the view filter is created.
-        :type user: User
         :param view: The view for which the filter needs to be created.
-        :type: View
         :param field: The field that the filter should compare the value with.
-        :type field: Field
         :param type_name: The filter type, allowed values are the types in the
             view_filter_type_registry `equal`, `not_equal` etc.
-        :type type_name: str
         :param value: The value that the filter must apply to.
-        :type value: str
+        :param primary_key: An optional primary key to give to the new view filter.
         :raises ViewFilterNotSupported: When the provided view does not support
             filtering.
         :raises ViewFilterTypeNotAllowedForField: When the field does not support the
@@ -472,7 +501,6 @@ class ViewHandler:
         :raises FieldNotInTable:  When the provided field does not belong to the
             provided view's table.
         :return: The created view filter instance.
-        :rtype: ViewFilter
         """
 
         group = view.table.database.group
@@ -499,7 +527,11 @@ class ViewHandler:
             )
 
         view_filter = ViewFilter.objects.create(
-            view=view, field=field, type=view_filter_type.type, value=value
+            pk=primary_key,
+            view=view,
+            field=field,
+            type=view_filter_type.type,
+            value=value,
         )
 
         # Call view type hooks
@@ -509,31 +541,36 @@ class ViewHandler:
 
         return view_filter
 
-    def update_filter(self, user, view_filter, **kwargs):
+    def update_filter(
+        self,
+        user: AbstractUser,
+        view_filter: ViewFilter,
+        field: Field = None,
+        type_name: str = None,
+        value: str = None,
+    ) -> ViewFilter:
         """
         Updates the values of an existing view filter.
 
         :param user: The user on whose behalf the view filter is updated.
-        :type user: User
         :param view_filter: The view filter that needs to be updated.
-        :type view_filter: ViewFilter
-        :param kwargs: The values that need to be updated, allowed values are
-            `field`, `value` and `type_name`.
-        :type kwargs: dict
+        :param field: The model of the field to filter by.
+        :param type_name: Indicates how the field's value must be compared
+        to the filter's value.
+        :param value: The filter value that must be compared to the field's value.
         :raises ViewFilterTypeNotAllowedForField: When the field does not supports the
             filter type.
         :raises FieldNotInTable: When the provided field does not belong to the
             view's table.
         :return: The updated view filter instance.
-        :rtype: ViewFilter
         """
 
         group = view_filter.view.table.database.group
         group.has_user(user, raise_error=True)
 
-        type_name = kwargs.get("type_name", view_filter.type)
-        field = kwargs.get("field", view_filter.field)
-        value = kwargs.get("value", view_filter.value)
+        type_name = type_name if type_name is not None else view_filter.type
+        field = field if field is not None else view_filter.field
+        value = value if value is not None else view_filter.value
         view_filter_type = view_filter_type_registry.get(type_name)
         field_type = field_type_registry.get_by_model(field.specific_class)
 
@@ -555,10 +592,6 @@ class ViewHandler:
         view_filter.value = value
         view_filter.type = type_name
         view_filter.save()
-
-        # Call view type hooks
-        view_type = view_type_registry.get_by_model(view_filter.view.specific_class)
-        view_type.after_filter_update(view_filter.view)
 
         view_filter_updated.send(self, view_filter=view_filter, user=user)
 
@@ -709,24 +742,27 @@ class ViewHandler:
 
         return view_sort
 
-    def create_sort(self, user, view, field, order):
+    def create_sort(
+        self,
+        user: AbstractUser,
+        view: View,
+        field: Field,
+        order: str,
+        primary_key: Optional[int] = None,
+    ) -> ViewSort:
         """
         Creates a new view sort.
 
         :param user: The user on whose behalf the view sort is created.
-        :type user: User
         :param view: The view for which the sort needs to be created.
-        :type: View
         :param field: The field that needs to be sorted.
-        :type field: Field
         :param order: The desired order, can either be ascending (A to Z) or
             descending (Z to A).
-        :type order: str
+        :param primary_key: An optional primary key to give to the new view sort.
         :raises ViewSortNotSupported: When the provided view does not support sorting.
         :raises FieldNotInTable:  When the provided field does not belong to the
             provided view's table.
         :return: The created view sort instance.
-        :rtype: ViewSort
         """
 
         group = view.table.database.group
@@ -758,35 +794,39 @@ class ViewHandler:
                 f"A sort with the field {field.pk} already exists."
             )
 
-        view_sort = ViewSort.objects.create(view=view, field=field, order=order)
+        view_sort = ViewSort.objects.create(
+            pk=primary_key, view=view, field=field, order=order
+        )
 
         view_sort_created.send(self, view_sort=view_sort, user=user)
 
         return view_sort
 
-    def update_sort(self, user, view_sort, **kwargs):
+    def update_sort(
+        self,
+        user: AbstractUser,
+        view_sort: ViewSort,
+        field: Optional[Field] = None,
+        order: Optional[str] = None,
+    ) -> ViewSort:
         """
         Updates the values of an existing view sort.
 
         :param user: The user on whose behalf the view sort is updated.
-        :type user: User
         :param view_sort: The view sort that needs to be updated.
-        :type view_sort: ViewSort
-        :param kwargs: The values that need to be updated, allowed values are
-            `field` and `order`.
-        :type kwargs: dict
+        :param field: The field that must be sorted on.
+        :param order: Indicates the sort order direction.
         :raises ViewSortFieldNotSupported: When the field does not support sorting.
         :raises FieldNotInTable:  When the provided field does not belong to the
             provided view's table.
         :return: The updated view sort instance.
-        :rtype: ViewSort
         """
 
         group = view_sort.view.table.database.group
         group.has_user(user, raise_error=True)
 
-        field = kwargs.get("field", view_sort.field)
-        order = kwargs.get("order", view_sort.order)
+        field = field if field is not None else view_sort.field
+        order = order if order is not None else view_sort.order
 
         # If the field has changed we need to check if the field belongs to the table.
         if (
@@ -842,6 +882,150 @@ class ViewHandler:
 
         view_sort_deleted.send(
             self, view_sort_id=view_sort_id, view_sort=view_sort, user=user
+        )
+
+    def create_decoration(
+        self,
+        view: View,
+        type: str,
+        value_provider_type: str,
+        value_provider_conf: Dict[str, Any],
+        user: Union["AbstractUser", None] = None,
+    ) -> ViewDecoration:
+        """
+        Creates a new view decoration.
+
+        :param view: The view for which the filter needs to be created.
+        :param type: The type of the decorator.
+        :param value_provider_type: The value provider that provides the value to the
+            decorator.
+        :param value_provider_conf: The configuration used by the value provider to
+            compute the values for the decorator.
+        :param user: Optional user who have created the decoration.
+        :return: The created view decoration instance.
+        """
+
+        # Check if view supports decoration
+        view_type = view_type_registry.get_by_model(view.specific_class)
+        if not view_type.can_decorate:
+            raise ViewDecorationNotSupported(
+                f"Decoration is not supported for {view_type.type} views."
+            )
+
+        last_order = ViewDecoration.get_last_order(view)
+
+        view_decoration = ViewDecoration.objects.create(
+            view=view,
+            type=type,
+            value_provider_type=value_provider_type,
+            value_provider_conf=value_provider_conf,
+            order=last_order,
+        )
+
+        view_decoration_created.send(self, view_decoration=view_decoration, user=user)
+
+        return view_decoration
+
+    def get_decoration(
+        self,
+        view_decoration_id: int,
+        base_queryset: QuerySet = None,
+    ) -> ViewDecoration:
+        """
+        Returns an existing view decoration with the given id.
+
+        :param view_decoration_id: The id of the view decoration.
+        :param base_queryset: The base queryset from where to select the view decoration
+            object from. This can for example be used to do a `select_related`.
+        :raises ViewDecorationDoesNotExist: The requested view decoration does not
+            exists.
+        :return: The requested view decoration instance.
+        """
+
+        if base_queryset is None:
+            base_queryset = ViewDecoration.objects
+
+        try:
+            view_decoration = base_queryset.select_related(
+                "view__table__database__group"
+            ).get(pk=view_decoration_id)
+        except ViewDecoration.DoesNotExist:
+            raise ViewDecorationDoesNotExist(
+                f"The view decoration with id {view_decoration_id} does not exist."
+            )
+
+        if TrashHandler.item_has_a_trashed_parent(
+            view_decoration.view.table, check_item_also=True
+        ):
+            raise ViewDecorationDoesNotExist(
+                f"The view decoration with id {view_decoration_id} does not exist."
+            )
+
+        return view_decoration
+
+    def update_decoration(
+        self,
+        view_decoration: ViewDecoration,
+        user: Union["AbstractUser", None] = None,
+        **kwargs: Dict[str, Any],
+    ) -> ViewDecoration:
+        """
+        Updates the values of an existing view decoration.
+
+        :param view_decoration: The view decoration that needs to be updated.
+        :param kwargs: The values that need to be updated, allowed values are
+            `type`, `value_provider_type`, `value_provider_conf` and `order`.
+        :param user: Optional user who have updated the decoration.
+        :raises ViewDecorationDoesNotExist: The requested view decoration does not
+            exists.
+        :return: The updated view decoration instance.
+        """
+
+        decoration_type = kwargs.get("type", view_decoration.type)
+        value_provider_type = kwargs.get(
+            "value_provider_type", view_decoration.value_provider_type
+        )
+        value_provider_conf = kwargs.get(
+            "value_provider_conf", view_decoration.value_provider_conf
+        )
+        order = kwargs.get("order", view_decoration.order)
+
+        view_decoration.type = decoration_type
+        view_decoration.value_provider_type = value_provider_type
+        view_decoration.value_provider_conf = value_provider_conf
+        view_decoration.order = order
+        view_decoration.save()
+
+        view_decoration_updated.send(self, view_decoration=view_decoration, user=user)
+
+        return view_decoration
+
+    def delete_decoration(
+        self,
+        view_decoration: ViewDecoration,
+        user: Union["AbstractUser", None] = None,
+    ):
+        """
+        Deletes an existing view decoration.
+
+        :param view_decoration: The view decoration instance that needs to be deleted.
+        :param user: Optional user who have deleted the decoration.
+        :raises ViewDecorationDoesNotExist: The requested view decoration does not
+            exists.
+        """
+
+        group = view_decoration.view.table.database.group
+        group.has_user(user, raise_error=True)
+
+        view_decoration_id = view_decoration.id
+        view_decoration.delete()
+
+        view_decoration_deleted.send(
+            self,
+            view_decoration_id=view_decoration_id,
+            view_decoration=view_decoration,
+            view_filter=view_decoration,
+            user=user,
         )
 
     def get_queryset(
@@ -1252,7 +1436,7 @@ class ViewHandler:
 
         table = form.table
 
-        if not model:
+        if model is None:
             model = table.get_model()
 
         if not enabled_field_options:

@@ -31,7 +31,12 @@ from .serializers import (
     OrderApplicationsSerializer,
     get_application_serializer,
 )
-from baserow.core.actions import CreateApplicationActionType
+from baserow.core.actions import (
+    CreateApplicationActionType,
+    DeleteApplicationActionType,
+    UpdateApplicationActionType,
+    OrderApplicationsActionType,
+)
 from baserow.core.action.registries import action_type_registry
 
 application_type_serializers = {
@@ -239,7 +244,8 @@ class ApplicationView(APIView):
                 location=OpenApiParameter.PATH,
                 type=OpenApiTypes.INT,
                 description="Updates the application related to the provided value.",
-            )
+            ),
+            CLIENT_SESSION_ID_SCHEMA_PARAMETER,
         ],
         tags=["Applications"],
         operation_id="update_application",
@@ -274,9 +280,11 @@ class ApplicationView(APIView):
         application = CoreHandler().get_application(
             application_id, base_queryset=Application.objects.select_for_update()
         )
-        application = CoreHandler().update_application(
+
+        application = action_type_registry.get_by_type(UpdateApplicationActionType).do(
             request.user, application, name=data["name"]
         )
+
         return Response(get_application_serializer(application).data)
 
     @extend_schema(
@@ -286,7 +294,8 @@ class ApplicationView(APIView):
                 location=OpenApiParameter.PATH,
                 type=OpenApiTypes.INT,
                 description="Deletes the application related to the provided value.",
-            )
+            ),
+            CLIENT_SESSION_ID_SCHEMA_PARAMETER,
         ],
         tags=["Applications"],
         operation_id="delete_application",
@@ -318,7 +327,10 @@ class ApplicationView(APIView):
         application = CoreHandler().get_application(
             application_id, base_queryset=Application.objects.select_for_update()
         )
-        CoreHandler().delete_application(request.user, application)
+
+        action_type_registry.get_by_type(DeleteApplicationActionType).do(
+            request.user, application
+        )
 
         return Response(status=204)
 
@@ -335,6 +347,7 @@ class OrderApplicationsView(APIView):
                 description="Updates the order of the applications in the group "
                 "related to the provided value.",
             ),
+            CLIENT_SESSION_ID_SCHEMA_PARAMETER,
         ],
         tags=["Applications"],
         operation_id="order_applications",
@@ -366,5 +379,7 @@ class OrderApplicationsView(APIView):
         """Updates to order of the applications in a table."""
 
         group = CoreHandler().get_group(group_id)
-        CoreHandler().order_applications(request.user, group, data["application_ids"])
+        action_type_registry.get_by_type(OrderApplicationsActionType).do(
+            request.user, group, data["application_ids"]
+        )
         return Response(status=204)

@@ -5,6 +5,7 @@ import FilterService from '@baserow/modules/database/services/filter'
 import DecorationService from '@baserow/modules/database/services/decoration'
 import SortService from '@baserow/modules/database/services/sort'
 import { clone } from '@baserow/modules/core/utils/object'
+import { DATABASE_ACTION_SCOPES } from '@baserow/modules/database/utils/undoRedoConstants'
 
 export function populateFilter(filter) {
   filter._ = {
@@ -145,7 +146,7 @@ export const mutations = {
   ADD_DECORATION(state, { view, decoration }) {
     view.decorations.push({
       type: null,
-      value_provider: null,
+      value_provider_type: null,
       value_provider_conf: null,
       ...decoration,
     })
@@ -218,6 +219,7 @@ export const actions = {
     try {
       const { data } = await ViewService(this.$client).fetchAll(
         table.id,
+        true,
         true,
         true
       )
@@ -376,7 +378,27 @@ export const actions = {
    */
   select({ commit, dispatch }, view) {
     commit('SET_SELECTED', view)
+    dispatch(
+      'undoRedo/updateCurrentScopeSet',
+      DATABASE_ACTION_SCOPES.view(view.id),
+      {
+        root: true,
+      }
+    )
     return { view }
+  },
+  /**
+   * Unselect the currently selected view.
+   */
+  unselect({ commit, dispatch }) {
+    commit('UNSELECT', {})
+    dispatch(
+      'undoRedo/updateCurrentScopeSet',
+      DATABASE_ACTION_SCOPES.view(null),
+      {
+        root: true,
+      }
+    )
   },
   /**
    * Selects a view by a given view id. Note that only the views of the selected

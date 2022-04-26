@@ -346,7 +346,8 @@ def test_delete_group(send_mock, data_fixture):
 
 
 @pytest.mark.django_db
-def test_order_groups(data_fixture):
+@patch("baserow.core.signals.groups_reordered.send")
+def test_order_groups(send_mock, data_fixture):
     user = data_fixture.create_user()
     ug_1 = data_fixture.create_user_group(user=user, order=1)
     ug_2 = data_fixture.create_user_group(user=user, order=2)
@@ -356,6 +357,8 @@ def test_order_groups(data_fixture):
 
     handler = CoreHandler()
     handler.order_groups(user, [ug_3.group.id, ug_2.group.id, ug_1.group.id])
+
+    send_mock.assert_called_once()
 
     ug_1.refresh_from_db()
     ug_2.refresh_from_db()
@@ -370,6 +373,24 @@ def test_order_groups(data_fixture):
     ug_3.refresh_from_db()
 
     assert [1, 2, 3] == [ug_2.order, ug_1.order, ug_3.order]
+
+
+@pytest.mark.django_db
+def test_get_groups_order(data_fixture):
+    user = data_fixture.create_user()
+    ug_1 = data_fixture.create_user_group(user=user, order=1)
+    ug_2 = data_fixture.create_user_group(user=user, order=2)
+    ug_3 = data_fixture.create_user_group(user=user, order=3)
+
+    handler = CoreHandler()
+    assert [ug_1.group_id, ug_2.group_id, ug_3.group_id] == handler.get_groups_order(
+        user
+    )
+
+    handler.order_groups(user, [ug_3.group.id, ug_2.group.id, ug_1.group.id])
+    assert [ug_3.group_id, ug_2.group_id, ug_1.group_id] == handler.get_groups_order(
+        user
+    )
 
 
 @pytest.mark.django_db
@@ -793,10 +814,11 @@ def test_update_database_application(send_mock, data_fixture):
     handler = CoreHandler()
 
     with pytest.raises(UserNotInGroup):
-        handler.update_application(user=user_2, application=database, name="Test 1")
-
-    with pytest.raises(ValueError):
-        handler.update_application(user=user_2, application=object(), name="Test 1")
+        handler.update_application(
+            user=user_2,
+            application=database,
+            name="Test database",
+        )
 
     handler.update_application(user=user, application=database, name="Test 1")
 

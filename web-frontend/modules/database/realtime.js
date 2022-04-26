@@ -180,7 +180,10 @@ export const registerRealtimeEvents = (realtime) => {
       )
     }
 
-    store.dispatch('rowModal/updated', { values: data.row })
+    store.dispatch('rowModal/updated', {
+      tableId: data.table_id,
+      values: data.row,
+    })
   })
 
   realtime.registerEvent('rows_updated', async (context, data) => {
@@ -390,6 +393,43 @@ export const registerRealtimeEvents = (realtime) => {
             tableId: store.getters['table/getSelectedId'],
           })
         }
+      }
+    }
+  })
+
+  realtime.registerEvent('view_decoration_created', ({ store, app }, data) => {
+    const view = store.getters['view/get'](data.view_decoration.view)
+    if (view !== undefined) {
+      store.dispatch('view/forceCreateDecoration', {
+        view,
+        values: data.view_decoration,
+      })
+    }
+  })
+
+  realtime.registerEvent('view_decoration_updated', ({ store, app }, data) => {
+    const view = store.getters['view/get'](data.view_decoration.view)
+    if (view !== undefined) {
+      const decoration = view.decorations.find(
+        (deco) => deco.id === data.view_decoration_id
+      )
+      if (decoration !== undefined) {
+        store.dispatch('view/forceUpdateDecoration', {
+          decoration,
+          values: data.view_decoration,
+        })
+      }
+    }
+  })
+
+  realtime.registerEvent('view_decoration_deleted', ({ store, app }, data) => {
+    const view = store.getters['view/get'](data.view_id)
+    if (view !== undefined) {
+      const decoration = view.decorations.find(
+        (deco) => deco.id === data.view_decoration_id
+      )
+      if (decoration !== undefined) {
+        store.dispatch('view/forceDeleteDecoration', { view, decoration })
       }
     }
   })
