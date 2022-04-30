@@ -3,6 +3,8 @@
 ## Unreleased
 
 * Fixed invalid `first_name` validation in the account form modal.
+* Shared public forms now don't allow creating new options
+  for single and multiple select fields.
 * Fixed bug where the arrow keys of a selected cell didn't work when they were not
   rendered.
 * Select new view immediately after creation.
@@ -40,6 +42,8 @@
 * Added undo/redo.
 * Fixed bug where the link row field `link_row_relation_id` could when two simultaneous
   requests are made.
+* Added password protection for publicly shared grids and forms.
+* Made views trashable.
 
 ## Released (2022-03-03 1.9.1)
 

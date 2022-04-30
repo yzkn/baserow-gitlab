@@ -280,11 +280,28 @@ export const actions = {
       }
     })
 
-    dispatch('forceUpdate', { view, values: newValues })
+    function updatePublicViewHasPassword() {
+      // public_view_has_password needs to be updated after the api request
+      // is finished and the modal closes.
+      const viewHasPassword = Object.keys(values).includes(
+        'public_view_password'
+      )
+        ? values.public_view_password !== ''
+        : view.public_view_has_password
+      // update the password protection toggle state accordingly
+      dispatch('forceUpdate', {
+        view,
+        values: {
+          public_view_has_password: viewHasPassword,
+        },
+      })
+    }
 
+    dispatch('forceUpdate', { view, values: newValues })
     try {
       if (!readOnly) {
         await ViewService(this.$client).update(view.id, values)
+        updatePublicViewHasPassword()
       }
       commit('SET_ITEM_LOADING', { view, value: false })
     } catch (error) {
@@ -462,6 +479,10 @@ export const actions = {
 
     commit('ADD_FILTER', { view, filter })
 
+    if (emitEvent) {
+      this.$bus.$emit('view-filter-created', { view, filter })
+    }
+
     try {
       if (!readOnly) {
         const { data } = await FilterService(this.$client).create(
@@ -469,10 +490,6 @@ export const actions = {
           values
         )
         commit('FINALIZE_FILTER', { view, oldId: filter.id, id: data.id })
-      }
-
-      if (emitEvent) {
-        this.$bus.$emit('view-filter-created', { view, filter })
       }
     } catch (error) {
       commit('DELETE_FILTER', { view, id: filter.id })

@@ -233,12 +233,15 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "baserow.api.openapi.AutoSchema",
 }
 
+PUBLIC_VIEW_AUTHORIZATION_HEADER = "Baserow-View-Authorization"
+
 CORS_ORIGIN_ALLOW_ALL = True
 CLIENT_SESSION_ID_HEADER = "ClientSessionId"
 MAX_CLIENT_SESSION_ID_LENGTH = 256
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "WebSocketId",
+    PUBLIC_VIEW_AUTHORIZATION_HEADER,
     CLIENT_SESSION_ID_HEADER,
 ]
 
@@ -336,6 +339,7 @@ SPECTACULAR_SETTINGS = {
             "date_after",
             "date_not_equal",
             "date_equals_today",
+            "date_equals_days_ago",
             "date_equals_month",
             "date_equals_day_of_month",
             "date_equals_year",

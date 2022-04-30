@@ -78,11 +78,13 @@ class DatabaseConfig(AppConfig):
             CreateRowActionType,
             DeleteRowActionType,
             MoveRowActionType,
+            UpdateRowActionType,
         )
 
         action_type_registry.register(CreateRowActionType())
         action_type_registry.register(DeleteRowActionType())
         action_type_registry.register(MoveRowActionType())
+        action_type_registry.register(UpdateRowActionType())
 
         from .views.registries import (
             view_type_registry,
@@ -268,11 +270,13 @@ class DatabaseConfig(AppConfig):
             TableTrashableItemType,
             RowTrashableItemType,
             FieldTrashableItemType,
+            ViewTrashableItemType,
         )
 
         trash_item_type_registry.register(TableTrashableItemType())
         trash_item_type_registry.register(FieldTrashableItemType())
         trash_item_type_registry.register(RowTrashableItemType())
+        trash_item_type_registry.register(ViewTrashableItemType())
 
         from .formula.ast.function_defs import register_formula_functions
 

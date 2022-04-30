@@ -4,12 +4,16 @@ from django.db import transaction
 from drf_spectacular.openapi import OpenApiParameter, OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from baserow.api.decorators import map_exceptions, validate_query_parameters
 from baserow.api.errors import ERROR_USER_NOT_IN_GROUP
-from baserow.api.exceptions import RequestBodyValidationException
+from baserow.api.exceptions import (
+    RequestBodyValidationException,
+    QueryParameterValidationException,
+)
 from baserow.api.pagination import PageNumberPagination
 from baserow.api.schemas import get_error_schema, CLIENT_SESSION_ID_SCHEMA_PARAMETER
 from baserow.api.trash.errors import ERROR_CANNOT_DELETE_ALREADY_DELETED_ITEM
@@ -48,12 +52,14 @@ from baserow.contrib.database.rows.actions import (
     CreateRowActionType,
     DeleteRowActionType,
     MoveRowActionType,
+    UpdateRowActionType,
 )
 from baserow.core.action.registries import action_type_registry
 from baserow.contrib.database.rows.exceptions import RowDoesNotExist, RowIdsNotUnique
 from baserow.contrib.database.rows.handler import RowHandler
 from baserow.contrib.database.table.exceptions import TableDoesNotExist
 from baserow.contrib.database.table.handler import TableHandler
+from baserow.contrib.database.table.models import Table
 from baserow.contrib.database.tokens.exceptions import NoPermissionToTable
 from baserow.contrib.database.tokens.handler import TokenHandler
 from baserow.contrib.database.views.exceptions import (
@@ -78,6 +84,7 @@ from baserow.contrib.database.fields.field_filters import (
     FILTER_TYPE_AND,
     FILTER_TYPE_OR,
 )
+from .schemas import row_names_response_schema
 
 
 class RowsView(APIView):
@@ -426,6 +433,109 @@ class RowsView(APIView):
         return Response(serializer.data)
 
 
+class RowNamesView(APIView):
+    authentication_classes = APIView.authentication_classes + [TokenAuthentication]
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="table__{id}",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.STR,
+                description=(
+                    "A list of comma separated row ids to query from the table with "
+                    "id {id}. For example, if you "
+                    "want the name of row `42` and `43` from table `28` this parameter "
+                    "will be `table__28=42,43`. You can specify multiple rows for "
+                    "different tables but every tables must be in the same database. "
+                    "You need at least read permission on all specified tables."
+                ),
+            ),
+        ],
+        tags=["Database table rows"],
+        operation_id="list_database_table_row_names",
+        description=(
+            "Returns the names of the given row of the given tables. The name"
+            "of a row is the primary field value for this row. The result can be used"
+            "for example, when you want to display the name of a linked row from "
+            "another table."
+        ),
+        responses={
+            200: row_names_response_schema,
+            400: get_error_schema(
+                [
+                    "ERROR_USER_NOT_IN_GROUP",
+                ]
+            ),
+            401: get_error_schema(["ERROR_NO_PERMISSION_TO_TABLE"]),
+            404: get_error_schema(["ERROR_TABLE_DOES_NOT_EXIST"]),
+        },
+    )
+    @map_exceptions(
+        {
+            UserNotInGroup: ERROR_USER_NOT_IN_GROUP,
+            TableDoesNotExist: ERROR_TABLE_DOES_NOT_EXIST,
+            NoPermissionToTable: ERROR_NO_PERMISSION_TO_TABLE,
+        }
+    )
+    def get(self, request):
+        """
+        Returns the names (i.e. primary field value) of specified rows of given tables.
+        Can be used when you want to display a row name referenced from another table.
+        """
+
+        result = {}
+        database = None
+        table_handler = TableHandler()
+        token_handler = TokenHandler()
+        row_handler = RowHandler()
+
+        for name, value in request.GET.items():
+            if not name.startswith("table__"):
+                raise QueryParameterValidationException(
+                    detail='Only table Id prefixed by "table__" are allowed as parameter.',
+                    code="invalid_parameter",
+                )
+
+            try:
+                table_id = int(name[7:])
+            except ValueError:
+                raise QueryParameterValidationException(
+                    detail=(f'Failed to parse table id in "{name}".'),
+                    code="invalid_table_id",
+                )
+
+            try:
+                row_ids = [int(id) for id in value.split(",")]
+            except ValueError:
+                raise QueryParameterValidationException(
+                    detail=(
+                        f'Failed to parse row ids in "{value}" for '
+                        f'"table__{table_id}" parameter.'
+                    ),
+                    code="invalid_row_ids",
+                )
+
+            table_queryset = None
+            if database:
+                # Once we have the database, we want only tables from the same database
+                table_queryset = Table.objects.filter(database=database)
+
+            table = table_handler.get_table(table_id, base_queryset=table_queryset)
+
+            if not database:
+                # Check permission once
+                database = table.database
+                database.group.has_user(request.user, raise_error=True)
+
+            token_handler.check_table_permissions(request, "read", table, False)
+
+            result[table_id] = row_handler.get_row_names(table, row_ids)
+
+        return Response(result)
+
+
 class RowView(APIView):
     authentication_classes = APIView.authentication_classes + [TokenAuthentication]
     permission_classes = (IsAuthenticated,)
@@ -533,6 +643,7 @@ class RowView(APIView):
                     "internal Baserow field names (field_123 etc)."
                 ),
             ),
+            CLIENT_SESSION_ID_SCHEMA_PARAMETER,
         ],
         tags=["Database table rows"],
         operation_id="update_database_table_row",
@@ -583,17 +694,21 @@ class RowView(APIView):
             UserFileDoesNotExist: ERROR_USER_FILE_DOES_NOT_EXIST,
         }
     )
-    def patch(self, request, table_id, row_id):
+    def patch(self, request: Request, table_id: int, row_id: int) -> Response:
         """
         Updates the row with the given row_id for the table with the given
         table_id. Also the post data is validated according to the tables field types.
+
+        :param request: The request object
+        :param table_id: The id of the table to update the row in
+        :param row_id: The id of the row to update
+        :return: The updated row values serialized as a json object
         """
 
         table = TableHandler().get_table(table_id)
-
         TokenHandler().check_table_permissions(request, "update", table, False)
-        user_field_names = "user_field_names" in request.GET
 
+        user_field_names = "user_field_names" in request.GET
         field_ids, field_names = None, None
         if user_field_names:
             field_names = request.data.keys()
@@ -610,7 +725,7 @@ class RowView(APIView):
         data = validate_data(validation_serializer, request.data)
 
         try:
-            row = RowHandler().update_row_by_id(
+            row = action_type_registry.get_by_type(UpdateRowActionType).do(
                 request.user,
                 table,
                 row_id,
@@ -619,13 +734,12 @@ class RowView(APIView):
                 user_field_names=user_field_names,
             )
         except ValidationError as exc:
-            raise RequestBodyValidationException(detail=exc.message)
+            raise RequestBodyValidationException(detail=exc.message) from exc
 
         serializer_class = get_row_serializer_class(
             model, RowSerializer, is_response=True, user_field_names=user_field_names
         )
         serializer = serializer_class(row)
-
         return Response(serializer.data)
 
     @extend_schema(
@@ -787,6 +901,122 @@ class RowMoveView(APIView):
 class BatchRowsView(APIView):
     authentication_classes = APIView.authentication_classes + [TokenAuthentication]
     permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        exclude=True,
+        parameters=[
+            OpenApiParameter(
+                name="table_id",
+                location=OpenApiParameter.PATH,
+                type=OpenApiTypes.INT,
+                description="Creates the rows in the table.",
+            ),
+            OpenApiParameter(
+                name="before",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.INT,
+                description="If provided then the newly created rows will be "
+                "positioned before the row with the provided id.",
+            ),
+            OpenApiParameter(
+                name="user_field_names",
+                location=OpenApiParameter.QUERY,
+                type=OpenApiTypes.BOOL,
+                description=(
+                    "A flag query parameter which if provided this endpoint will "
+                    "expect and return the user specified field names instead of "
+                    "internal Baserow field names (field_123 etc)."
+                ),
+            ),
+        ],
+        tags=["Database table rows"],
+        operation_id="batch_create_database_table_rows",
+        description=(
+            "Creates new rows in the table if the user has access to the related "
+            "table's group. The accepted body fields are depending on the fields "
+            "that the table has. For a complete overview of fields use the "
+            "**list_database_table_fields** to list them all. None of the fields are "
+            "required, if they are not provided the value is going to be `null` or "
+            "`false` or some default value is that is set. If you want to add a value "
+            "for the field with for example id `10`, the key must be named `field_10`. "
+            "Or instead if the `user_field_names` GET param is provided the key must "
+            "be the name of the field. Of course multiple fields can be provided in "
+            "one request. In the examples below you will find all the different field "
+            "types, the numbers/ids in the example are just there for example "
+            "purposes, the field_ID must be replaced with the actual id of the field "
+            "or the name of the field if `user_field_names` is provided."
+        ),
+        request=get_example_batch_rows_serializer_class(
+            example_type="post", user_field_names=True
+        ),
+        responses={
+            200: get_example_batch_rows_serializer_class(
+                example_type="get", user_field_names=True
+            ),
+            400: get_error_schema(
+                [
+                    "ERROR_USER_NOT_IN_GROUP",
+                    "ERROR_REQUEST_BODY_VALIDATION",
+                    "ERROR_ROW_IDS_NOT_UNIQUE",
+                    "ERROR_INVALID_SELECT_OPTION_VALUES",
+                ]
+            ),
+            401: get_error_schema(["ERROR_NO_PERMISSION_TO_TABLE"]),
+            404: get_error_schema(
+                ["ERROR_TABLE_DOES_NOT_EXIST", "ERROR_ROW_DOES_NOT_EXIST"]
+            ),
+        },
+    )
+    @transaction.atomic
+    @map_exceptions(
+        {
+            UserNotInGroup: ERROR_USER_NOT_IN_GROUP,
+            TableDoesNotExist: ERROR_TABLE_DOES_NOT_EXIST,
+            RowDoesNotExist: ERROR_ROW_DOES_NOT_EXIST,
+            RowIdsNotUnique: ERROR_ROW_IDS_NOT_UNIQUE,
+            AllProvidedMultipleSelectValuesMustBeSelectOption: ERROR_INVALID_SELECT_OPTION_VALUES,
+            NoPermissionToTable: ERROR_NO_PERMISSION_TO_TABLE,
+            UserFileDoesNotExist: ERROR_USER_FILE_DOES_NOT_EXIST,
+        }
+    )
+    def post(self, request, table_id):
+        """
+        Creates new rows for the given table_id. Also the post data is validated
+        according to the tables field types.
+        """
+
+        table = TableHandler().get_table(table_id)
+        TokenHandler().check_table_permissions(request, "create", table, False)
+        model = table.get_model()
+
+        user_field_names = "user_field_names" in request.GET
+        before_row_id = request.query_params.get("before")
+
+        row_validation_serializer = get_row_serializer_class(
+            model, user_field_names=user_field_names
+        )
+        validation_serializer = get_batch_row_serializer_class(
+            row_validation_serializer
+        )
+        data = validate_data(
+            validation_serializer, request.data, partial=True, return_validated=True
+        )
+
+        try:
+            rows = RowHandler().create_rows(
+                request.user, table, data["items"], before_row_id, model
+            )
+        except ValidationError as e:
+            raise RequestBodyValidationException(detail=e.message)
+
+        response_row_serializer_class = get_row_serializer_class(
+            model, RowSerializer, is_response=True, user_field_names=user_field_names
+        )
+        response_serializer_class = get_batch_row_serializer_class(
+            response_row_serializer_class
+        )
+        response_serializer = response_serializer_class({"items": rows})
+        return Response(response_serializer.data)
 
     @extend_schema(
         exclude=True,

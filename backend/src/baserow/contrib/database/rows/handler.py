@@ -7,7 +7,7 @@ from typing import cast, Any, Dict, List, NewType, Optional, Type
 from django.contrib.auth.models import AbstractUser
 from django.db import transaction
 from django.db.models import Max, F, QuerySet
-from django.db.models.fields.related import ManyToManyField
+from django.db.models.fields.related import ManyToManyField, ForeignKey
 
 from baserow.contrib.database.table.models import Table, GeneratedTableModel
 from baserow.core.trash.handler import TrashHandler
@@ -16,6 +16,7 @@ from .signals import (
     before_row_update,
     before_row_delete,
     row_created,
+    rows_created,
     row_updated,
     rows_updated,
     row_deleted,
@@ -106,12 +107,12 @@ class RowHandler:
 
         return prepared_rows
 
-    def extract_field_ids_from_dict(self, values: Dict[str, Any]) -> List[int]:
+    def extract_field_ids_from_keys(self, keys: List[str]) -> List[int]:
         """
-        Extracts the field ids from a dict containing the values that need to be
-        updated. For example keys like 'field_2', '3', 4 will be seen ass field ids.
+        Extracts the field ids from a list of field names.
+        For example keys like 'field_2', '3', 4 will be seen ass field ids.
 
-        :param values: The values where to extract the fields ids from.
+        :param keys: The list of field names.
         :return: A list containing the field ids as integers.
         """
 
@@ -119,9 +120,44 @@ class RowHandler:
         # @TODO improve this function
         return [
             int(re.sub("[^0-9]", "", str(key)))
-            for key in values.keys()
+            for key in keys
             if str(key).isnumeric() or field_pattern.match(str(key))
         ]
+
+    def extract_field_ids_from_dict(self, values: Dict[str, Any]) -> List[int]:
+        """
+        Extracts the field ids from a dict containing the values that need to
+        updated. For example keys like 'field_2', '3', 4 will be seen ass field ids.
+
+        :param values: The values where to extract the fields ids from.
+        :return: A list containing the field ids as integers.
+        """
+
+        return self.extract_field_ids_from_keys(values.keys())
+
+    def get_internal_values_for_fields(
+        self,
+        row: GeneratedTableModel,
+        fields_keys: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Gets the current values of the row before the update.
+
+        :param row: The row instance.
+        :param fields_keys: The fields keys that need to be exported.
+        :return: The current values of the row before the update.
+        """
+
+        values = {}
+        for field_id in self.extract_field_ids_from_keys(fields_keys):
+            field = row._field_objects[field_id]
+            field_type = field["type"]
+            if field_type.read_only:
+                continue
+            field_name = f"field_{field_id}"
+            field_value = field_type.get_internal_value_from_db(row, field_name)
+            values[field_name] = field_value
+        return values
 
     def extract_manytomany_values(self, values, model):
         """
@@ -151,43 +187,49 @@ class RowHandler:
 
         return values, manytomany_values
 
-    def get_order_before_row(self, before, model):
+    def get_order_before_row(self, before, model, amount=1):
         """
-        Calculates a new unique order which will be before the provided before row
-        order. This order can be used by an existing or new row. Several other rows
+        Calculates a new unique order lower than the provided before row
+        order and a step representing the change needed between multiple rows if
+        multiple rows are being placed at once.
+        This order can be used by existing or new rows. Several other rows
         could be updated as their order might need to change.
 
         :param before: The row instance where the before order must be calculated for.
         :type before: Table
         :param model: The model of the related table
         :type model: Model
-        :return: The new order.
-        :rtype: Decimal
+        :param amount: The number of rows being placed.
+        :type amount: int
+        :return: The order for the last inserted row and the
+            step (change) that should be used between all new rows.
+        :rtype: tuple(Decimal, Decimal)
         """
 
         if before:
-            # Here we calculate the order value, which indicates the position of the
-            # row, by subtracting a fraction of the row that it must be placed
-            # before. The same fraction is also going to be subtracted from the other
+            # When the rows are being inserted before an existing row, the order
+            # of the last new row is calculated by subtracting a fraction of
+            # the "before" row order.
+            # The same fraction is also going to be subtracted from the other
             # rows that have been placed before. By using these fractions we don't
             # have to re-order every row in the table.
-            change = Decimal("0.00000000000000000001")
-            order = before.order - change
-            model.objects.filter(order__gt=floor(order), order__lte=order).update(
-                order=F("order") - change
-            )
+            step = Decimal("0.00000000000000000001")
+            order_last_row = before.order - step
+            model.objects.filter(
+                order__gt=floor(order_last_row), order__lte=order_last_row
+            ).update(order=F("order") - (step * amount))
         else:
-            # Because the row is by default added as last, we have to figure out what
-            # the highest order is and increase that by one. Because the order of new
-            # rows should always be a whole number we round it up.
-            order = (
-                ceil(
-                    model.objects.aggregate(max=Max("order")).get("max") or Decimal("0")
-                )
-                + 1
-            )
+            # Because the rows are by default added as last, we have to figure out
+            # what the highest order in the table is currently and increase that by
+            # the number of rows being inserted.
+            # The order of new rows should always be a whole number so the number is
+            # rounded up.
+            step = Decimal("1.00000000000000000000")
+            order_last_row = ceil(
+                model.objects.aggregate(max=Max("order")).get("max") or Decimal("0")
+            ) + (step * amount)
 
-        return order
+        return order_last_row, step
 
     def get_row(
         self,
@@ -231,7 +273,7 @@ class RowHandler:
         table: Table,
         row_id: int,
         enhance_by_fields: bool = False,
-        model: Type[GeneratedTableModel] = None,
+        model: Optional[Type[GeneratedTableModel]] = None,
     ) -> GeneratedTableModelForUpdate:
         """
         Fetches a single row from the provided table and lock it for update.
@@ -264,6 +306,31 @@ class RowHandler:
 
         return cast(GeneratedTableModelForUpdate, row)
 
+    def get_row_names(
+        self, table: "Table", row_ids: List[int], model: "GeneratedTableModel" = None
+    ) -> Dict[str, int]:
+        """
+        Returns the row names for all row ids specified in `row_ids` parameter from
+        the given table.
+
+        :param table: The table where the rows must be fetched from.
+        :param row_ids: The id of the rows that must be fetched.
+        :param model: If the correct model has already been generated it can be
+            provided so that it does not have to be generated for a second time.
+        :return: A dict of the requested rows names. The key are the row ids and the
+            values are the row names.
+        """
+
+        if not model:
+            primary_field = table.field_set.get(primary=True)
+            model = table.get_model(
+                field_ids=[], fields=[primary_field], add_dependencies=False
+            )
+
+        queryset = model.objects.filter(pk__in=row_ids)
+
+        return {row.id: str(row) for row in queryset}
+
     # noinspection PyMethodMayBeStatic
     def has_row(self, user, table, row_id, raise_error=False, model=None):
         """
@@ -271,7 +338,7 @@ class RowHandler:
 
         This method is preferred over using get_row when you do not actually need to
         access any values of the row as it will not construct a full model but instead
-        do a much more effecient query to check only if the row exists or not.
+        do a much more efficient query to check only if the row exists or not.
 
         :param user: The user of whose behalf the row is being checked.
         :type user: User
@@ -382,38 +449,45 @@ class RowHandler:
 
         values = self.prepare_values(model._field_objects, values)
         values, manytomany_values = self.extract_manytomany_values(values, model)
-        values["order"] = self.get_order_before_row(before, model)
+        values["order"] = self.get_order_before_row(before, model)[0]
         instance = model.objects.create(**values)
 
         for name, value in manytomany_values.items():
             getattr(instance, name).set(value)
 
+        fields = []
+        update_collector = CachingFieldUpdateCollector(
+            table, starting_row_id=instance.id, existing_model=model
+        )
+        for field_object in model._field_objects.values():
+            field_type = field_object["type"]
+            field = field_object["field"]
+            fields.append(field)
+
+            field_type.after_rows_created(
+                field,
+                [instance],
+                update_collector,
+            )
+
+            for (
+                dependant_field,
+                dependant_field_type,
+                path_to_starting_table,
+            ) in field.dependant_fields_with_types(update_collector):
+                dependant_field_type.row_of_dependency_created(
+                    dependant_field, instance, update_collector, path_to_starting_table
+                )
+        update_collector.apply_updates_and_get_updated_fields()
+
         if model.fields_requiring_refresh_after_insert():
-            instance.save()
             instance.refresh_from_db(
                 fields=model.fields_requiring_refresh_after_insert()
             )
 
-        update_collector = CachingFieldUpdateCollector(
-            table, starting_row_id=instance.id, existing_model=model
-        )
-        updated_field_ids = [field_id for field_id in model._field_objects.keys()]
-        for (
-            dependant_field,
-            dependant_field_type,
-            path_to_starting_table,
-        ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            updated_field_ids, update_collector
-        ):
-            dependant_field_type.row_of_dependency_created(
-                dependant_field, instance, update_collector, path_to_starting_table
-            )
-        update_collector.apply_updates_and_get_updated_fields()
-
         from baserow.contrib.database.views.handler import ViewHandler
 
-        updated_fields = [o["field"] for o in model._field_objects.values()]
-        ViewHandler().field_value_updated(updated_fields)
+        ViewHandler().field_value_updated(fields)
 
         return instance
 
@@ -477,9 +551,7 @@ class RowHandler:
             row = self.get_row_for_update(
                 user, table, row_id, enhance_by_fields=True, model=model
             )
-            return self.update_row(
-                user, table, row, values, model=model, user_field_names=user_field_names
-            )
+            return self.update_row(user, table, row, values, model=model)
 
     def update_row(
         self,
@@ -488,7 +560,6 @@ class RowHandler:
         row: GeneratedTableModelForUpdate,
         values: Dict[str, Any],
         model: Optional[Type[GeneratedTableModel]] = None,
-        user_field_names: bool = False,
     ) -> GeneratedTableModelForUpdate:
         """
         Updates one or more values of the provided row_id.
@@ -499,8 +570,6 @@ class RowHandler:
         :param values: The values that must be updated. The keys must be the field ids.
         :param model: If the correct model has already been generated it can be
             provided so that it does not have to be generated for a second time.
-        :param user_field_names: Whether or not the values are keyed by the internal
-            Baserow field name (field_1,field_2 etc) or by the user field names.
         :raises RowDoesNotExist: When the row with the provided id does not exist.
         :return: The updated row instance.
         """
@@ -526,10 +595,6 @@ class RowHandler:
             model=model,
             updated_field_ids=updated_field_ids,
         )
-        if user_field_names:
-            values = self.map_user_field_name_dict_to_internal(
-                model._field_objects, values
-            )
         values = self.prepare_values(model._field_objects, values)
         values, manytomany_values = self.extract_manytomany_values(values, model)
 
@@ -575,6 +640,140 @@ class RowHandler:
         )
 
         return row
+
+    def create_rows(self, user, table, rows, before_row_id=None, model=None):
+        """
+        Creates new rows for a given table if the user
+        belongs to the related group. It also calls the rows_created signal.
+
+        :param user: The user of whose behalf the rows are created.
+        :type user: User
+        :param table: The table for which the rows should be created.
+        :type table: Table
+        :param rows: List of rows to be created. Individual rows should be instances
+            of the table model.
+        :type rows: list[Model]
+        :param before_row_id: If provided the new rows will be placed right before
+            the row with this id.
+        :type before_row_id: int
+        :param model: If the correct model has already been generated it can be
+            provided so that it does not have to be generated for a second time.
+        :type model: Model
+        :return: The created row instances.
+        :rtype: list[Model]
+        """
+
+        group = table.database.group
+        group.has_user(user, raise_error=True)
+
+        if not model:
+            model = table.get_model()
+
+        before_row = (
+            RowHandler().get_row(user, table, before_row_id, model)
+            if before_row_id
+            else None
+        )
+        highest_order, step = self.get_order_before_row(
+            before_row, model, amount=len(rows)
+        )
+
+        rows = self.prepare_rows_in_bulk(model._field_objects, rows)
+
+        rows_relationships = []
+        for index, row in enumerate(rows, start=-len(rows)):
+            values, manytomany_values = self.extract_manytomany_values(row, model)
+            values["order"] = highest_order - (step * (abs(index + 1)))
+            instance = model(**values)
+            relations = {
+                field_name: value
+                for field_name, value in manytomany_values.items()
+                if value and len(value) > 0
+            }
+            rows_relationships.append((instance, relations))
+
+        inserted_rows = model.objects.bulk_create(
+            [row for (row, relations) in rows_relationships]
+        )
+
+        many_to_many = defaultdict(list)
+        for index, row in enumerate(inserted_rows):
+            manytomany_values = rows_relationships[index][1]
+            for field_name, value in manytomany_values.items():
+                through = getattr(model, field_name).through
+                through_fields = through._meta.get_fields()
+                value_column = None
+                row_column = None
+
+                # Figure out which field in the many to many through table holds the row
+                # value and which on contains the value.
+                for field in through_fields:
+                    if type(field) is not ForeignKey:
+                        continue
+
+                    if field.remote_field.model == model:
+                        row_column = field.get_attname_column()[1]
+                    else:
+                        value_column = field.get_attname_column()[1]
+
+                for i in value:
+                    many_to_many[field_name].append(
+                        getattr(model, field_name).through(
+                            **{
+                                row_column: row.id,
+                                value_column: i,
+                            }
+                        )
+                    )
+
+        for field_name, values in many_to_many.items():
+            through = getattr(model, field_name).through
+            through.objects.bulk_create(values)
+
+        update_collector = CachingFieldUpdateCollector(
+            table,
+            starting_row_id=[row.id for row in inserted_rows],
+            existing_model=model,
+        )
+        for field_object in model._field_objects.values():
+            field_type = field_object["type"]
+            field = field_object["field"]
+
+            field_type.after_rows_created(
+                field,
+                inserted_rows,
+                update_collector,
+            )
+
+            for (
+                dependant_field,
+                dependant_field_type,
+                path_to_starting_table,
+            ) in field.dependant_fields_with_types(update_collector):
+                dependant_field_type.row_of_dependency_created(
+                    dependant_field,
+                    inserted_rows,
+                    update_collector,
+                    path_to_starting_table,
+                )
+        update_collector.apply_updates_and_get_updated_fields()
+
+        rows_to_return = list(
+            model.objects.all()
+            .enhance_by_fields()
+            .filter(id__in=[row.id for row in inserted_rows])
+        )
+
+        rows_created.send(
+            self,
+            rows=rows_to_return,
+            before=before_row,
+            user=user,
+            table=table,
+            model=model,
+        )
+
+        return rows_to_return
 
     def update_rows(self, user, table, rows, model=None):
         """
@@ -679,7 +878,7 @@ class RowHandler:
             ) in field.dependant_fields_with_types(update_collector):
                 dependant_field_type.row_of_dependency_updated(
                     dependant_field,
-                    rows_to_update[0],
+                    rows_to_update,
                     update_collector,
                     path_to_starting_table,
                 )
@@ -762,7 +961,7 @@ class RowHandler:
             self, row=row, user=user, table=table, model=model, updated_field_ids=[]
         )
 
-        row.order = self.get_order_before_row(before, model)
+        row.order = self.get_order_before_row(before, model)[0]
         row.save()
 
         update_collector = CachingFieldUpdateCollector(
@@ -809,11 +1008,8 @@ class RowHandler:
         Deletes an existing row of the given table and with row_id.
 
         :param user: The user of whose behalf the change is made.
-        :type user: User
         :param table: The table for which the row must be deleted.
-        :type table: Table
         :param row_id: The id of the row that must be deleted.
-        :type row_id: int
         :param model: If the correct model has already been generated, it can be
             provided so that it does not have to be generated for a second time.
         :raises RowDoesNotExist: When the row with the provided id does not exist.

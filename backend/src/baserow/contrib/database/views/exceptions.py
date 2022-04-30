@@ -101,6 +101,17 @@ class AggregationTypeAlreadyRegistered(Exception):
     """Raised when trying to register an aggregation type that exists already."""
 
 
+class DecoratorValueProviderTypeDoesNotExist(Exception):
+    """Raised when trying to get a decorator value provider type that does not exist."""
+
+
+class DecoratorValueProviderTypeAlreadyRegistered(Exception):
+    """
+    Raised when trying to register a decorator value provider type that exists
+    already.
+    """
+
+
 class GridViewAggregationDoesNotSupportField(Exception):
     """
     Raised when someone tries to use an aggregation type that doesn't support the
@@ -137,3 +148,7 @@ class FormViewFieldTypeIsNotSupported(Exception):
             *args,
             **kwargs,
         )
+
+
+class NoAuthorizationToPubliclySharedView(Exception):
+    """Raised when someone tries to acess a view without a valid authorization token."""
