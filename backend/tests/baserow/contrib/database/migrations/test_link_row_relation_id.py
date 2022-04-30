@@ -8,8 +8,8 @@ from django.contrib.contenttypes.models import ContentType
 # noinspection PyPep8Naming
 @pytest.mark.django_db(transaction=True)
 def test_forwards_migration(data_fixture, reset_schema_after_module):
-    migrate_from = [("database", "0066_airtableimportjob")]
-    migrate_to = [("database", "0067_alter_linkrowfield_link_row_relation_id")]
+    migrate_from = [("database", "0069_view_trashed")]
+    migrate_to = [("database", "0070_alter_linkrowfield_link_row_relation_id")]
 
     old_state = migrate(migrate_from)
 
