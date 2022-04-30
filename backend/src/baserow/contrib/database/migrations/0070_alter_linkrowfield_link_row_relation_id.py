@@ -7,7 +7,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("database", "0066_airtableimportjob"),
+        ("database", "0069_view_trashed"),
     ]
 
     operations = [
