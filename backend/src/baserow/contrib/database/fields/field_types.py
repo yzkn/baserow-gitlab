@@ -80,6 +80,7 @@ from .fields import (
     SingleSelectForeignKey,
     BaserowExpressionField,
     MultipleSelectManyToManyField,
+    BaserowLastModifiedField,
 )
 from .handler import FieldHandler
 from .models import (
@@ -791,6 +792,7 @@ class CreatedOnLastModifiedBaseFieldType(ReadOnlyFieldType, DateFieldType):
         "timezone": serializers.ChoiceField(choices=pytz.all_timezones, required=True)
     }
     source_field_name = None
+    model_field_class = models.DateTimeField
     model_field_kwargs = {}
     populate_from_field = None
 
@@ -818,7 +820,7 @@ class CreatedOnLastModifiedBaseFieldType(ReadOnlyFieldType, DateFieldType):
         kwargs["null"] = True
         kwargs["blank"] = True
         kwargs.update(self.model_field_kwargs)
-        return models.DateTimeField(**kwargs)
+        return self.model_field_class(**kwargs)
 
     def contains_query(self, field_name, value, model_field, field):
         value = value.strip()
@@ -917,6 +919,7 @@ class LastModifiedFieldType(CreatedOnLastModifiedBaseFieldType):
     type = "last_modified"
     model_class = LastModifiedField
     source_field_name = "updated_on"
+    model_field_class = BaserowLastModifiedField
     model_field_kwargs = {"auto_now": True}
 
 
@@ -952,6 +955,7 @@ class LinkRowFieldType(FieldType):
     }
     _can_order_by = False
     can_be_primary_field = False
+    can_get_unique_values = False
 
     def enhance_queryset(self, queryset, field, name):
         """
@@ -1505,6 +1509,7 @@ class FileFieldType(FieldType):
     type = "file"
     model_class = FileField
     can_be_in_form_view = False
+    can_get_unique_values = False
 
     def _extract_file_names(self, value):
         # Validates the provided object and extract the names from it. We need the name
@@ -2037,6 +2042,7 @@ class SingleSelectFieldType(SelectOptionBaseFieldType):
 class MultipleSelectFieldType(SelectOptionBaseFieldType):
     type = "multiple_select"
     model_class = MultipleSelectField
+    can_get_unique_values = False
 
     def get_serializer_field(self, instance, **kwargs):
         required = kwargs.get("required", False)
@@ -2671,7 +2677,7 @@ class LookupFieldType(FormulaFieldType):
         InvalidLookupThroughField: ERROR_INVALID_LOOKUP_THROUGH_FIELD,
         InvalidLookupTargetField: ERROR_INVALID_LOOKUP_TARGET_FIELD,
     }
-
+    can_get_unique_values = False
     allowed_fields = BASEROW_FORMULA_TYPE_ALLOWED_FIELDS + [
         "through_field_id",
         "through_field_name",

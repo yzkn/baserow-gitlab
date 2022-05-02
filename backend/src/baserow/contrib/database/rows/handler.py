@@ -459,10 +459,12 @@ class RowHandler:
         update_collector = CachingFieldUpdateCollector(
             table, starting_row_id=instance.id, existing_model=model
         )
+        field_ids = []
         for field_object in model._field_objects.values():
             field_type = field_object["type"]
             field = field_object["field"]
             fields.append(field)
+            field_ids.append(field.id)
 
             field_type.after_rows_created(
                 field,
@@ -470,14 +472,16 @@ class RowHandler:
                 update_collector,
             )
 
-            for (
-                dependant_field,
-                dependant_field_type,
-                path_to_starting_table,
-            ) in field.dependant_fields_with_types(update_collector):
-                dependant_field_type.row_of_dependency_created(
-                    dependant_field, instance, update_collector, path_to_starting_table
-                )
+        for (
+            dependant_field,
+            dependant_field_type,
+            path_to_starting_table,
+        ) in FieldDependencyHandler.get_dependant_fields_with_type(
+            field_ids, update_collector
+        ):
+            dependant_field_type.row_of_dependency_created(
+                dependant_field, instance, update_collector, path_to_starting_table
+            )
         update_collector.apply_updates_and_get_updated_fields()
 
         if model.fields_requiring_refresh_after_insert():
@@ -735,9 +739,11 @@ class RowHandler:
             starting_row_id=[row.id for row in inserted_rows],
             existing_model=model,
         )
+        field_ids = []
         for field_object in model._field_objects.values():
             field_type = field_object["type"]
             field = field_object["field"]
+            field_ids.append(field.id)
 
             field_type.after_rows_created(
                 field,
@@ -745,17 +751,19 @@ class RowHandler:
                 update_collector,
             )
 
-            for (
+        for (
+            dependant_field,
+            dependant_field_type,
+            path_to_starting_table,
+        ) in FieldDependencyHandler.get_dependant_fields_with_type(
+            field_ids, update_collector
+        ):
+            dependant_field_type.row_of_dependency_created(
                 dependant_field,
-                dependant_field_type,
+                inserted_rows,
+                update_collector,
                 path_to_starting_table,
-            ) in field.dependant_fields_with_types(update_collector):
-                dependant_field_type.row_of_dependency_created(
-                    dependant_field,
-                    inserted_rows,
-                    update_collector,
-                    path_to_starting_table,
-                )
+            )
         update_collector.apply_updates_and_get_updated_fields()
 
         rows_to_return = list(
@@ -812,7 +820,9 @@ class RowHandler:
             row_id = row.pop("id")
             rows_by_id[row_id] = row
 
-        rows_to_update = model.objects.select_for_update().filter(id__in=row_ids)
+        rows_to_update = (
+            model.objects.select_for_update().enhance_by_fields().filter(id__in=row_ids)
+        )
 
         if len(rows_to_update) != len(rows):
             db_rows_ids = [db_row.id for db_row in rows_to_update]
@@ -834,7 +844,13 @@ class RowHandler:
             updated_field_ids=updated_field_ids,
         )
 
+        rows_relationships = []
         for obj in rows_to_update:
+            # The `updated_on` field is not updated with `bulk_update`,
+            # so we manually set the value here.
+            obj.updated_on = model._meta.get_field("updated_on").pre_save(
+                obj, add=False
+            )
             row_values = rows_by_id[obj.id]
             values, manytomany_values = self.extract_manytomany_values(
                 row_values, model
@@ -843,8 +859,12 @@ class RowHandler:
             for name, value in values.items():
                 setattr(obj, name, value)
 
-            for name, value in manytomany_values.items():
-                getattr(obj, name).set(value)
+            relations = {
+                field_name: value
+                for field_name, value in manytomany_values.items()
+                if value or isinstance(value, list)
+            }
+            rows_relationships.append(relations)
 
             fields_with_pre_save = model.fields_requiring_refresh_after_update()
             for field_name in fields_with_pre_save:
@@ -854,6 +874,56 @@ class RowHandler:
                     model._meta.get_field(field_name).pre_save(obj, add=False),
                 )
 
+        many_to_many = defaultdict(list)
+        row_column_name = None
+        row_ids_change_m2m_per_field = defaultdict(set)
+        for index, row in enumerate(rows_to_update):
+            manytomany_values = rows_relationships[index]
+            for field_name, value in manytomany_values.items():
+                through = getattr(model, field_name).through
+                through_fields = through._meta.get_fields()
+                value_column = None
+                row_column = None
+
+                # Figure out which field in the many to many through table holds the row
+                # value and which one contains the value.
+                for field in through_fields:
+                    if type(field) is not ForeignKey:
+                        continue
+
+                    row_ids_change_m2m_per_field[field_name].add(row.id)
+
+                    if field.remote_field.model == model:
+                        row_column = field.get_attname_column()[1]
+                        row_column_name = row_column
+                    else:
+                        value_column = field.get_attname_column()[1]
+
+                if len(value) == 0:
+                    many_to_many[field_name].append(None)
+                else:
+                    for i in value:
+                        many_to_many[field_name].append(
+                            getattr(model, field_name).through(
+                                **{
+                                    row_column: row.id,
+                                    value_column: i,
+                                }
+                            )
+                        )
+
+        # The many to many relations need to be updated first because they need to
+        # exist when the rows are updated in bulk. Otherwise, the formula and lookup
+        # fields can't see the relations.
+        for field_name, values in many_to_many.items():
+            through = getattr(model, field_name).through
+            filter = {
+                f"{row_column_name}__in": row_ids_change_m2m_per_field[field_name]
+            }
+            delete_qs = through.objects.all().filter(**filter)
+            delete_qs._raw_delete(delete_qs.db)
+            through.objects.bulk_create([v for v in values if v is not None])
+
         # For now all fields that don't represent a relationship will be used in
         # the bulk_update() call. This could be optimized in the future if we can
         # select just fields that need to be updated (fields that are passed in +
@@ -862,26 +932,26 @@ class RowHandler:
             field["name"]
             for field in model._field_objects.values()
             if not isinstance(model._meta.get_field(field["name"]), ManyToManyField)
-        ]
+        ] + ["updated_on"]
         if len(bulk_update_fields) > 0:
             model.objects.bulk_update(rows_to_update, bulk_update_fields)
 
-        updated_fields = [field["field"] for field in model._field_objects.values()]
         update_collector = CachingFieldUpdateCollector(
             table, starting_row_id=row_ids, existing_model=model
         )
-        for field in updated_fields:
-            for (
+        for (
+            dependant_field,
+            dependant_field_type,
+            path_to_starting_table,
+        ) in FieldDependencyHandler.get_dependant_fields_with_type(
+            updated_field_ids, update_collector
+        ):
+            dependant_field_type.row_of_dependency_updated(
                 dependant_field,
-                dependant_field_type,
+                rows_to_update,
+                update_collector,
                 path_to_starting_table,
-            ) in field.dependant_fields_with_types(update_collector):
-                dependant_field_type.row_of_dependency_updated(
-                    dependant_field,
-                    rows_to_update,
-                    update_collector,
-                    path_to_starting_table,
-                )
+            )
         update_collector.apply_updates_and_get_updated_fields()
 
         from baserow.contrib.database.views.handler import ViewHandler

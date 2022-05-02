@@ -1,6 +1,15 @@
 from collections import defaultdict
 from copy import deepcopy
-from typing import Dict, Any, List, Optional, Iterable, Tuple, Type, Union
+from typing import (
+    Dict,
+    Any,
+    List,
+    Optional,
+    Iterable,
+    Tuple,
+    Type,
+    Union,
+)
 
 import jwt
 
@@ -44,6 +53,7 @@ from .exceptions import (
     CannotShareViewTypeError,
     ViewDecorationNotSupported,
     ViewDecorationDoesNotExist,
+    DecoratorValueProviderTypeNotCompatible,
     NoAuthorizationToPubliclySharedView,
 )
 from .models import View, ViewDecoration, ViewFilter, ViewSort
@@ -51,6 +61,7 @@ from .registries import (
     view_type_registry,
     view_filter_type_registry,
     view_aggregation_type_registry,
+    decorator_type_registry,
     decorator_value_provider_type_registry,
 )
 from .signals import (
@@ -72,61 +83,93 @@ from .signals import (
 from .validators import EMPTY_VALUES
 
 
+FieldOptionsDict = Dict[int, Dict[str, Any]]
+
+
 class ViewHandler:
     PUBLIC_VIEW_TOKEN_ALGORITHM = "HS256"  # nosec
 
-    def get_view(self, view_id, view_model=None, base_queryset=None):
+    def get_view(
+        self,
+        view_id: int,
+        view_model: Optional[Type[View]] = None,
+        base_queryset: Optional[QuerySet] = None,
+    ) -> View:
         """
-        Selects a view and checks if the user has access to that view. If everything
-        is fine the view is returned.
+        Selects a view and checks if the user has access to that view.
+        If everything is fine the view is returned.
 
         :param view_id: The identifier of the view that must be returned.
-        :type view_id: int
         :param view_model: If provided that models objects are used to select the
             view. This can for example be useful when you want to select a GridView or
             other child of the View model.
-        :type view_model: Type[View]
         :param base_queryset: The base queryset from where to select the view
             object. This can for example be used to do a `select_related`. Note that
             if this is used the `view_model` parameter doesn't work anymore.
-        :type base_queryset: Queryset
         :raises ViewDoesNotExist: When the view with the provided id does not exist.
-        :type view_model: View
-        :return:
+        :return: the view instance.
         """
 
-        if not view_model:
+        if view_model is None:
             view_model = View
 
         if base_queryset is None:
-            base_queryset = view_model.objects
+            base_queryset = view_model.objects.all()
 
         try:
             view = base_queryset.select_related("table__database__group").get(
                 pk=view_id
             )
-        except View.DoesNotExist:
-            raise ViewDoesNotExist(f"The view with id {view_id} does not exist.")
+        except View.DoesNotExist as exc:
+            raise ViewDoesNotExist(
+                f"The view with id {view_id} does not exist."
+            ) from exc
 
         if TrashHandler.item_has_a_trashed_parent(view.table, check_item_also=True):
             raise ViewDoesNotExist(f"The view with id {view_id} does not exist.")
 
         return view
 
-    def create_view(self, user, table, type_name, **kwargs):
+    def get_view_for_update(
+        self,
+        view_id: int,
+        view_model: Optional[Type[View]] = None,
+        base_queryset: Optional[QuerySet] = None,
+    ) -> View:
+        """
+        Selects a view for update and checks if the user has access to that view.
+        If everything is fine the view is returned.
+
+        :param view_id: The identifier of the view that must be returned.
+        :param view_model: If provided that models objects are used to select the
+            view. This can for example be useful when you want to select a GridView or
+            other child of the View model.
+        :param base_queryset: The base queryset from where to select the view
+            object. This can for example be used to do a `select_related`. Note that
+            if this is used the `view_model` parameter doesn't work anymore.
+        :raises ViewDoesNotExist: When the view with the provided id does not exist.
+        :return: the view instance.
+        """
+
+        if view_model is None:
+            view_model = View
+
+        if base_queryset is None:
+            base_queryset = view_model.objects.select_for_update()
+
+        return self.get_view(view_id, view_model, base_queryset)
+
+    def create_view(
+        self, user: AbstractUser, table: Table, type_name: str, **kwargs
+    ) -> View:
         """
         Creates a new view based on the provided type.
 
         :param user: The user on whose behalf the view is created.
-        :type user: User
         :param table: The table that the view instance belongs to.
-        :type table: Table
         :param type_name: The type name of the view.
-        :type type_name: str
         :param kwargs: The fields that need to be set upon creation.
-        :type kwargs: object
         :return: The created view instance.
-        :rtype: View
         """
 
         group = table.database.group
@@ -153,19 +196,17 @@ class ViewHandler:
 
         return instance
 
-    def update_view(self, user, view, **kwargs):
+    def update_view(
+        self, user: AbstractUser, view: View, **data: Dict[str, Any]
+    ) -> View:
         """
         Updates an existing view instance.
 
         :param user: The user on whose behalf the view is updated.
-        :type user: User
         :param view: The view instance that needs to be updated.
-        :type view: View
-        :param kwargs: The fields that need to be updated.
-        :type kwargs: object
+        :param data: The fields that need to be updated.
         :raises ValueError: When the provided view not an instance of View.
         :return: The updated view instance.
-        :rtype: View
         """
 
         if not isinstance(view, View):
@@ -175,7 +216,7 @@ class ViewHandler:
         group.has_user(user, raise_error=True)
 
         view_type = view_type_registry.get_by_model(view)
-        view_values = view_type.prepare_values(kwargs, view.table, user)
+        view_values = view_type.prepare_values(data, view.table, user)
         allowed_fields = [
             "name",
             "filter_type",
@@ -237,14 +278,23 @@ class ViewHandler:
 
         return order
 
-    def delete_view(self, user, view):
+    def delete_view_by_id(self, user: AbstractUser, view_id: int):
         """
-        Deletes an existing view instance.
+        Trashes an existing view instance.
 
         :param user: The user on whose behalf the view is deleted.
-        :type user: User
+        :param view_id: The view instance id that needs to be deleted.
+        """
+
+        view = self.get_view_for_update(view_id)
+        self.delete_view(user, view)
+
+    def delete_view(self, user: AbstractUser, view: View):
+        """
+        Trashes an existing view instance.
+
+        :param user: The user on whose behalf the view is deleted.
         :param view: The view instance that needs to be deleted.
-        :type view: View
         :raises ViewDoesNotExist: When the view with the provided id does not exist.
         """
 
@@ -260,7 +310,13 @@ class ViewHandler:
 
         view_deleted.send(self, view_id=view_id, view=view, user=user)
 
-    def update_field_options(self, view, field_options, user=None, fields=None):
+    def update_field_options(
+        self,
+        view: View,
+        field_options: FieldOptionsDict,
+        user: Optional[AbstractUser] = None,
+        fields: Optional[QuerySet[Field]] = None,
+    ):
         """
         Updates the field options with the provided values if the field id exists in
         the table related to the view.
@@ -274,17 +330,13 @@ class ViewHandler:
         you might restore a view and the aggregation is invalid on that view.
 
         :param view: The view for which the field options need to be updated.
-        :type view: View
         :param field_options: A dict with the field ids as the key and a dict
             containing the values that need to be updated as value.
-        :type field_options: dict
         :param user: Optionally the user on whose behalf the request is made. If you
           give a user, the permissions are checked against this user otherwise there is
           no permission checking.
-        :type user: User
         :param fields: Optionally a list of fields can be provided so that they don't
             have to be fetched again.
-        :type fields: None or list
         :raises UnrelatedFieldError: When the provided field id is not related to the
             provided view.
         """
@@ -300,10 +352,10 @@ class ViewHandler:
 
         try:
             model = view._meta.get_field("field_options").remote_field.through
-        except FieldDoesNotExist:
+        except FieldDoesNotExist as exc:
             raise ViewDoesNotSupportFieldOptions(
                 "This view does not support field options."
-            )
+            ) from exc
 
         field_name = get_model_reference_field_name(model, View)
 
@@ -339,7 +391,6 @@ class ViewHandler:
         are also called to react on this change.
 
         :param field: The new field object.
-        :type field: Field
         """
 
         field_type = field_type_registry.get_by_model(field.specific_class)
@@ -434,18 +485,15 @@ class ViewHandler:
 
         return filter_builder
 
-    def apply_filters(self, view, queryset):
+    def apply_filters(self, view: View, queryset: QuerySet) -> QuerySet:
         """
         Applies the view's filter to the given queryset.
 
         :param view: The view where to fetch the fields from.
-        :type view: View
         :param queryset: The queryset where the filters need to be applied to.
-        :type queryset: QuerySet
         :raises ValueError: When the queryset's model is not a table model or if the
             table model does not contain the one of the fields.
         :return: The queryset where the filters have been applied to.
-        :type: QuerySet
         """
 
         model = queryset.model
@@ -456,20 +504,21 @@ class ViewHandler:
         filter_builder = self._get_filter_builder(view, model)
         return filter_builder.apply_to_queryset(queryset)
 
-    def get_filter(self, user, view_filter_id, base_queryset=None):
+    def get_filter(
+        self,
+        user: AbstractUser,
+        view_filter_id: int,
+        base_queryset: Optional[QuerySet] = None,
+    ) -> ViewFilter:
         """
         Returns an existing view filter by the given id.
 
         :param user: The user on whose behalf the view filter is requested.
-        :type user: User
         :param view_filter_id: The id of the view filter.
-        :type view_filter_id: int
         :param base_queryset: The base queryset from where to select the view filter
             object. This can for example be used to do a `select_related`.
-        :type base_queryset: Queryset
         :raises ViewFilterDoesNotExist: The requested view does not exists.
         :return: The requested view filter instance.
-        :type: ViewFilter
         """
 
         if base_queryset is None:
@@ -619,14 +668,12 @@ class ViewHandler:
 
         return view_filter
 
-    def delete_filter(self, user, view_filter):
+    def delete_filter(self, user: AbstractUser, view_filter: ViewFilter):
         """
         Deletes an existing view filter.
 
         :param user: The user on whose behalf the view filter is deleted.
-        :type user: User
         :param view_filter: The view filter instance that needs to be deleted.
-        :type view_filter: ViewFilter
         """
 
         group = view_filter.view.table.database.group
@@ -643,7 +690,12 @@ class ViewHandler:
             self, view_filter_id=view_filter_id, view_filter=view_filter, user=user
         )
 
-    def apply_sorting(self, view, queryset, restrict_to_field_ids=None):
+    def apply_sorting(
+        self,
+        view: View,
+        queryset: QuerySet,
+        restrict_to_field_ids: Optional[Iterable[int]] = None,
+    ) -> QuerySet:
         """
         Applies the view's sorting to the given queryset. The first sort, which for now
         is the first created, will always be applied first. Secondary sortings are
@@ -660,17 +712,13 @@ class ViewHandler:
         going to be 2, 1 and 3 in that order.
 
         :param view: The view where to fetch the sorting from.
-        :type view: View
         :param queryset: The queryset where the sorting need to be applied to.
-        :type queryset: QuerySet
         :raises ValueError: When the queryset's model is not a table model or if the
             table model does not contain the one of the fields.
         :raises ViewSortDoesNotExist: When the view is trashed
         :param restrict_to_field_ids: Only field ids in this iterable will have their
             view sorts applied in the resulting queryset.
-        :type restrict_to_field_ids: Optional[Iterable[int]]
         :return: The queryset where the sorting has been applied to.
-        :type: QuerySet
         """
 
         model = queryset.model
@@ -915,8 +963,8 @@ class ViewHandler:
     def create_decoration(
         self,
         view: View,
-        type: str,
-        value_provider_type: str,
+        decorator_type_name: str,
+        value_provider_type_name: str,
         value_provider_conf: Dict[str, Any],
         user: Union["AbstractUser", None] = None,
     ) -> ViewDecoration:
@@ -924,9 +972,9 @@ class ViewHandler:
         Creates a new view decoration.
 
         :param view: The view for which the filter needs to be created.
-        :param type: The type of the decorator.
-        :param value_provider_type: The value provider that provides the value to the
-            decorator.
+        :param decorator_type_name: The type of the decorator.
+        :param value_provider_type_name: The value provider that provides the value
+            to the decorator.
         :param value_provider_conf: The configuration used by the value provider to
             compute the values for the decorator.
         :param user: Optional user who have created the decoration.
@@ -940,12 +988,27 @@ class ViewHandler:
                 f"Decoration is not supported for {view_type.type} views."
             )
 
+        decorator_type = decorator_type_registry.get(decorator_type_name)
+        decorator_type.before_create_decoration(view, user)
+
+        if value_provider_type_name:
+            value_provider_type = decorator_value_provider_type_registry.get(
+                value_provider_type_name
+            )
+            value_provider_type.before_create_decoration(view, user)
+
+            if not value_provider_type.decorator_is_compatible(decorator_type):
+                raise DecoratorValueProviderTypeNotCompatible(
+                    f"Value provider {value_provider_type_name} is not compatible with"
+                    f"the decorator type {decorator_type_name}."
+                )
+
         last_order = ViewDecoration.get_last_order(view)
 
         view_decoration = ViewDecoration.objects.create(
             view=view,
-            type=type,
-            value_provider_type=value_provider_type,
+            type=decorator_type_name,
+            value_provider_type=value_provider_type_name,
             value_provider_conf=value_provider_conf,
             order=last_order,
         )
@@ -1006,11 +1069,13 @@ class ViewHandler:
         :param user: Optional user who have updated the decoration.
         :raises ViewDecorationDoesNotExist: The requested view decoration does not
             exists.
+        :raises DecoratorValueProviderTypeNotCompatible: When the decorator value
+            provided is not compatible with the decorator type.
         :return: The updated view decoration instance.
         """
 
-        decoration_type = kwargs.get("type", view_decoration.type)
-        value_provider_type = kwargs.get(
+        decorator_type_name = kwargs.get("type", view_decoration.type)
+        value_provider_type_name = kwargs.get(
             "value_provider_type", view_decoration.value_provider_type
         )
         value_provider_conf = kwargs.get(
@@ -1018,8 +1083,23 @@ class ViewHandler:
         )
         order = kwargs.get("order", view_decoration.order)
 
-        view_decoration.type = decoration_type
-        view_decoration.value_provider_type = value_provider_type
+        decorator_type = decorator_type_registry.get(decorator_type_name)
+        decorator_type.before_update_decoration(view_decoration, user)
+
+        if value_provider_type_name:
+            value_provider_type = decorator_value_provider_type_registry.get(
+                value_provider_type_name
+            )
+            value_provider_type.before_update_decoration(view_decoration, user)
+
+            if not value_provider_type.decorator_is_compatible(decorator_type):
+                raise DecoratorValueProviderTypeNotCompatible(
+                    f"Value provider {value_provider_type_name} is not compatible with"
+                    f"the decorator type {decorator_type_name}."
+                )
+
+        view_decoration.type = decorator_type_name
+        view_decoration.value_provider_type = value_provider_type_name
         view_decoration.value_provider_conf = value_provider_conf
         view_decoration.order = order
         view_decoration.save()
@@ -1229,7 +1309,7 @@ class ViewHandler:
             defined, we don't use the cache so we recompute aggregation on the fly.
         :raises FieldAggregationNotSupported: When the view type doesn't support
             field aggregation.
-        :returns: A dict of aggregation value
+        :return: A dict of aggregation value
         """
 
         view_type = view_type_registry.get_by_model(view.specific_class)
@@ -1329,7 +1409,7 @@ class ViewHandler:
             field aggregation.
         :raises FieldNotInTable: When one of the field doesn't belong to the specified
             view.
-        :returns: A dict of aggregation values
+        :return: A dict of aggregation values
         """
 
         if model is None:
@@ -1378,16 +1458,26 @@ class ViewHandler:
 
         return queryset.aggregate(**aggregation_dict)
 
-    def rotate_view_slug(self, user, view):
+    def rotate_view_slug(self, user: AbstractUser, view: View) -> View:
         """
         Rotates the slug of the provided view.
 
         :param user: The user on whose behalf the view is updated.
-        :type user: User
         :param view: The form view instance that needs to be updated.
-        :type view: View
         :return: The updated view instance.
-        :rtype: View
+        """
+
+        new_slug = View.create_new_slug()
+        return self.update_view_slug(user, view, new_slug)
+
+    def update_view_slug(self, user: AbstractUser, view: View, slug: str) -> View:
+        """
+        Updates the slug of the provided view.
+
+        :param user: The user on whose behalf the view is updated.
+        :param view: The form view instance that needs to be updated.
+        :param slug: The new slug to use to address this view.
+        :return: The updated view instance.
         :raises CannotShareViewTypeError: Raised if called for a view which does not
             support sharing.
         """
@@ -1399,7 +1489,7 @@ class ViewHandler:
         group = view.table.database.group
         group.has_user(user, raise_error=True)
 
-        view.rotate_slug()
+        view.slug = slug
         view.save()
 
         view_updated.send(self, view=view, user=user)
