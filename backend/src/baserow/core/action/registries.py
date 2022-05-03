@@ -176,7 +176,7 @@ class ActionType(Instance, abc.ABC):
         """
 
         session = get_untrusted_client_session_id(user)
-        Action.objects.create(
+        return Action.objects.create(
             user=user,
             type=cls.type,
             params=params,

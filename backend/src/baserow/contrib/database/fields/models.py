@@ -1,3 +1,5 @@
+from typing import NewType
+
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils.functional import cached_property
@@ -471,3 +473,6 @@ class LookupField(FormulaField):
             + f"error={self.error},\n"
             + ")"
         )
+
+
+SpecificFieldForUpdate = NewType("SpecificFieldForUpdate", Field)

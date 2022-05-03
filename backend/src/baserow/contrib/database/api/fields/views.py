@@ -45,10 +45,12 @@ from baserow.contrib.database.fields.exceptions import (
 from baserow.contrib.database.fields.handler import FieldHandler
 from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.fields.registries import field_type_registry
+from baserow.contrib.database.fields.actions import UpdateFieldActionType
 from baserow.contrib.database.table.exceptions import TableDoesNotExist
 from baserow.contrib.database.table.handler import TableHandler
 from baserow.contrib.database.tokens.exceptions import NoPermissionToTable
 from baserow.contrib.database.tokens.handler import TokenHandler
+from baserow.core.action.registries import action_type_registry
 from baserow.core.exceptions import UserNotInGroup
 from baserow.core.trash.exceptions import CannotDeleteAlreadyDeletedItem
 from .serializers import (
@@ -326,11 +328,7 @@ class FieldView(APIView):
     def patch(self, request, field_id):
         """Updates the field if the user belongs to the group."""
 
-        field = (
-            FieldHandler()
-            .get_field(field_id, base_queryset=Field.objects.select_for_update())
-            .specific
-        )
+        field = FieldHandler().get_specific_field_for_update(field_id).specific
         type_name = type_from_data_or_registry(request.data, field_type_registry, field)
         field_type = field_type_registry.get(type_name)
         data = validate_data_custom_fields(
@@ -344,9 +342,13 @@ class FieldView(APIView):
         # field we need to be able to map those to the correct API exceptions which are
         # defined in the type.
         with field_type.map_api_exceptions():
-            field, related_fields = FieldHandler().update_field(
-                request.user, field, type_name, return_updated_fields=True, **data
-            )
+            field, related_fields = action_type_registry.get_by_type(
+                UpdateFieldActionType
+            ).do(request.user, field, type_name, **data)
+            #
+            # field, related_fields = FieldHandler().update_field(
+            #     request.user, field, type_name, return_updated_fields=True, **data
+            # )
 
         serializer = field_type_registry.get_serializer(
             field, FieldSerializerWithRelatedFields, related_fields=related_fields

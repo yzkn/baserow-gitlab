@@ -86,6 +86,10 @@ class DatabaseConfig(AppConfig):
         action_type_registry.register(MoveRowActionType())
         action_type_registry.register(UpdateRowActionType())
 
+        from .fields.actions import UpdateFieldActionType
+
+        action_type_registry.register(UpdateFieldActionType())
+
         from baserow.contrib.database.views.actions import (
             CreateViewActionType,
             DeleteViewActionType,

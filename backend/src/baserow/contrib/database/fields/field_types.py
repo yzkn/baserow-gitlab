@@ -1373,6 +1373,13 @@ class LinkRowFieldType(FieldType):
         serialized["link_row_related_field_id"] = field.link_row_related_field_id
         return serialized
 
+    def export_prepared_values(self, field):
+        values = super().export_prepared_values(field)
+        values["link_row_table"] = field.link_row_table_id
+        del values["link_row_related_field"]
+        del values["link_row_relation_id"]
+        return values
+
     def import_serialized(self, table, serialized_values, id_mapping):
         serialized_copy = serialized_values.copy()
         serialized_copy["link_row_table_id"] = id_mapping["database_tables"][

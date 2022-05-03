@@ -1191,6 +1191,28 @@ class FieldType(
         tables models which would be affected by this tables cache being invalidated.
         """
 
+    def export_prepared_values(self, field: "Field") -> Dict[str, Any]:
+        """
+        @TODO docs
+        """
+
+        values = {"name": field.name}
+
+        values.update({key: getattr(field, key) for key in self.allowed_fields})
+
+        if self.can_have_select_options:
+            values["select_options"] = [
+                {
+                    "id": select_option.id,
+                    "value": select_option.value,
+                    "color": select_option.color,
+                    "order": select_option.order,
+                }
+                for select_option in field.select_options.all()
+            ]
+
+        return values
+
 
 class ReadOnlyFieldHasNoInternalDbValueError(Exception):
     """

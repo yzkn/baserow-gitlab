@@ -1,6 +1,6 @@
 import logging
 from copy import deepcopy
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, TypeVar, List, Type, cast
 from psycopg2 import sql
 
 from django.conf import settings
@@ -41,7 +41,7 @@ from .exceptions import (
     MaxFieldNameLengthExceeded,
     IncompatibleFieldTypeForUniqueValues,
 )
-from .models import Field, SelectOption
+from .models import Field, SelectOption, SpecificFieldForUpdate
 from .registries import field_type_registry, field_converter_registry
 from .signals import (
     field_created,
@@ -52,6 +52,7 @@ from .signals import (
 )
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T", bound="Field")
 
 
 def _validate_field_name(
@@ -140,6 +141,17 @@ class FieldHandler:
             raise FieldDoesNotExist(f"The field with id {field_id} does not exist.")
 
         return field
+
+    def get_specific_field_for_update(
+        self, field_id: int, field_model: Optional[Type[T]] = None
+    ) -> SpecificFieldForUpdate:
+        return cast(
+            SpecificFieldForUpdate,
+            self.get_field(
+                field_id, field_model, base_queryset=Field.objects.select_for_update()
+            ).specific,
+        )
+
 
     def create_field(
         self,
@@ -260,7 +272,8 @@ class FieldHandler:
             return instance
 
     def update_field(
-        self, user, field, new_type_name=None, return_updated_fields=False, **kwargs
+        self, user, field, new_type_name=None, return_updated_fields=False,
+        migrate_data=True, **kwargs
     ):
         """
         Updates the values of the given field, if provided it is also possible to change
@@ -275,6 +288,8 @@ class FieldHandler:
         :param return_updated_fields: When True any other fields who changed as a
             result of this field update are returned with their new field instances.
         :type return_updated_fields: bool
+        :param migrate_data:
+        :type migrate_data:
         :param kwargs: The field values that need to be updated
         :type kwargs: object
         :raises ValueError: When the provided field is not an instance of Field.
@@ -355,6 +370,13 @@ class FieldHandler:
         converter = field_converter_registry.find_applicable_converter(
             from_model, old_field, field
         )
+
+        # @TODO docs
+        if not migrate_data:
+            from .field_converters import RecreateFieldConverter
+            class Tmp(RecreateFieldConverter):
+                type = "tmp_recreate"
+            converter = Tmp()
 
         if converter:
             # If a field data converter is found we are going to use that one to alter
