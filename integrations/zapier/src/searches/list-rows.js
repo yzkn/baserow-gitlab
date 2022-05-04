@@ -19,7 +19,7 @@ const listRows = async (z, bundle) => {
 
         // get rows in a given condition
         const rowGetRequest = await z.request({
-            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}`,
+            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/`,
             method: 'GET',
             headers: {
                 'Accept': 'application/json',

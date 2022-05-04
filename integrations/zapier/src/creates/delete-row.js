@@ -3,7 +3,7 @@ const { rowSample } = require("../samples/row");
 
 const DeleteRow = async (z, bundle) => {
     const rowDeleteRequest = await z.request({
-        url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}`,
+        url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}/`,
         method: 'DELETE',
         headers: {
             'Accept': 'application/json',

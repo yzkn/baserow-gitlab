@@ -20,7 +20,7 @@ const updateRow = async (z, bundle) => {
         });
 
         const rowPatchRequest = await z.request({
-            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}`,
+            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}/`,
             method: 'PATCH',
             headers: {
                 'Accept': 'application/json',
@@ -46,7 +46,7 @@ const inputValues = async (z, bundle) => {
         })
 
         const rowGetRequest = await z.request({
-            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}`,
+            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}/`,
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -57,7 +57,7 @@ const inputValues = async (z, bundle) => {
         let values = [];
 
         values = fieldsGetRequest.json.map(v => {
-            let defaultValue = rowGetRequest.json[`field_${v.id}`];
+            let defaultValue = rowGetRequest.json[`field_${v.id}`] || '';
             zapType = ''
             switch (v.type) {
                 case 'boolean':
@@ -77,7 +77,7 @@ const inputValues = async (z, bundle) => {
                         label: v.name,
                         type: 'string',
                         choices: singleSelect,
-                        default: defaultValue.id
+                        default: defaultValue ? defaultValue.id : ''
                     }
                 case 'multiple_select':
                     let multiSelect = {}

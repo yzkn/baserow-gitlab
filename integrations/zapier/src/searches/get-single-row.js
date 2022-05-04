@@ -4,7 +4,7 @@ const { rowSample } = require("../samples/row");
 const getSingleRow = async (z, bundle) => {
     if (bundle.inputData.tableID && bundle.inputData.rowID) {
         const rowGetRequest = await z.request({
-            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}${bundle.inputData.userFieldNames === true ? '?user_field_names=true' : ''}`,
+            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}/${bundle.inputData.userFieldNames === true ? '?user_field_names=true' : ''}`,
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
