@@ -8,7 +8,7 @@ const getSingleRow = async (z, bundle) => {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
         });
 

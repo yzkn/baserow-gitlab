@@ -7,7 +7,7 @@ const DeleteRow = async (z, bundle) => {
         method: 'DELETE',
         headers: {
             'Accept': 'application/json',
-            'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+            'Authorization': `Token ${bundle.authData.apiKey}`,
         },
     });
 

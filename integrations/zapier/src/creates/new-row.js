@@ -8,7 +8,7 @@ const createRow = async (z, bundle) => {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
         });
 
@@ -24,7 +24,8 @@ const createRow = async (z, bundle) => {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Content-Type': 'application/json',
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
             body: rowData
         });
@@ -40,13 +41,13 @@ const inputValues = async (z, bundle) => {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
         })
 
         let values = [];
-        values =fieldsGetRequest.json.map(v => {
-            zapType = ''
+        values = fieldsGetRequest.json.map(v => {
+            let zapType = ''
             switch (v.type) {
                 case 'boolean':
                     zapType = 'boolean'

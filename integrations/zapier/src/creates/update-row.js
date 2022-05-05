@@ -8,7 +8,7 @@ const updateRow = async (z, bundle) => {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
         });
 
@@ -25,7 +25,7 @@ const updateRow = async (z, bundle) => {
             headers: {
                 'Accept': 'application/json',
                 "Content-Type": "application/json",
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
             body: rowData
         });
@@ -41,24 +41,13 @@ const inputValues = async (z, bundle) => {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
+                'Authorization': `Token ${bundle.authData.apiKey}`,
             },
         })
 
-        const rowGetRequest = await z.request({
-            url: `${bundle.authData.apiURL}/api/database/rows/table/${bundle.inputData.tableID}/${bundle.inputData.rowID}/`,
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Authorization': `TOKEN ${bundle.authData.apiKey}`,
-            },
-        });
-
         let values = [];
-
         values = fieldsGetRequest.json.map(v => {
-            let defaultValue = rowGetRequest.json[`field_${v.id}`] || '';
-            zapType = ''
+            let zapType = ''
             switch (v.type) {
                 case 'boolean':
                     zapType = 'boolean'
@@ -76,8 +65,7 @@ const inputValues = async (z, bundle) => {
                         key: `field_${v.id}`,
                         label: v.name,
                         type: 'string',
-                        choices: singleSelect,
-                        default: defaultValue ? defaultValue.id : ''
+                        choices: singleSelect
                     }
                 case 'multiple_select':
                     let multiSelect = {}
@@ -126,9 +114,8 @@ const inputValues = async (z, bundle) => {
             }
             return {
                 key: `field_${v.id}`,
-                type: zapType,
-                default: defaultValue,
-                label: v.name
+                label: v.name,
+                type: zapType
             }
         })
         return values;
