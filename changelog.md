@@ -40,6 +40,9 @@
 * Added new environment variable BASEROW_FILE_UPLOAD_SIZE_LIMIT_MB
 
 ## Released (2022-05-10 1.10.0)
+* Added possibility to delete own user account
+
+## Released (2022-10-05 1.10.0)
 
 * Added batch create/update/delete rows endpoints. These endpoints make it possible to
   modify multiple rows at once. Currently, row created, row updated, and row deleted 
