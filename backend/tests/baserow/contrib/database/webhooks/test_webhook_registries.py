@@ -21,7 +21,7 @@ def test_signal_listener(mock_call_webhook, data_fixture):
     )
 
     RowHandler().create_row(user=user, table=table, values={})
-    
+
     mock_call_webhook.delay.assert_called_once()
     args, kwargs = mock_call_webhook.delay.call_args
     assert kwargs["webhook_id"] == webhook.id

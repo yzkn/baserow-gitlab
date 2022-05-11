@@ -475,7 +475,7 @@ def test_trash_and_restore_rows_in_batch(send_mock, data_fixture):
     customers_primary_field = field_handler.create_field(
         user=user, table=customers_table, type_name="text", name="Name", primary=True
     )
-    
+
     with patch("baserow.contrib.database.rows.signals.rows_created.send"):
         row1 = row_handler.create_row(
             user=user,

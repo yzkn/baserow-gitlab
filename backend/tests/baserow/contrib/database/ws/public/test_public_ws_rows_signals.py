@@ -47,12 +47,14 @@ def test_when_row_created_public_views_receive_restricted_row_created_ws_event(
                 {
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -63,14 +65,16 @@ def test_when_row_created_public_views_receive_restricted_row_created_ws_event(
                 {
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        f"field_{visible_field.id}": "Visible",
-                        # This field is not hidden for this public view and so should be
-                        # included
-                        f"field_{hidden_field.id}": "Hidden",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            f"field_{visible_field.id}": "Visible",
+                            # This field is not hidden for this public view and so
+                            # should be included
+                            f"field_{hidden_field.id}": "Hidden",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -139,12 +143,14 @@ def test_when_row_created_public_views_receive_row_created_only_when_filters_mat
                 {
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -363,12 +369,14 @@ def test_when_row_deleted_public_views_receive_restricted_row_deleted_ws_event(
                     "type": "rows_deleted",
                     "row_ids": [row.id],
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                 },
                 None,
             ),
@@ -378,14 +386,16 @@ def test_when_row_deleted_public_views_receive_restricted_row_deleted_ws_event(
                     "type": "rows_deleted",
                     "row_ids": [row.id],
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        f"field_{visible_field.id}": "Visible",
-                        # This field is not hidden for this public view
-                        # and so should be included
-                        f"field_{hidden_field.id}": "Hidden",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            f"field_{visible_field.id}": "Visible",
+                            # This field is not hidden for this public view
+                            # and so should be included
+                            f"field_{hidden_field.id}": "Hidden",
+                        }
+                    ],
                 },
                 None,
             ),
@@ -453,12 +463,14 @@ def test_when_row_deleted_public_views_receive_row_deleted_only_when_filters_mat
                     "type": "rows_deleted",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
                     "row_ids": [row.id],
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                 },
                 None,
             ),
@@ -708,12 +720,14 @@ def test_given_row_not_visible_in_public_view_when_updated_to_be_visible_event_s
                     # it effectively has been created as it didn't exist before.
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": initially_hidden_row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": initially_hidden_row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -1157,13 +1171,15 @@ def test_given_row_visible_in_public_view_when_updated_to_be_not_visible_event_s
                     "type": "rows_deleted",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
                     "row_ids": [initially_visible_row.id],
-                    "rows": [{
-                        "id": initially_visible_row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent in its state before it
-                        # was updated
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": initially_visible_row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent in its state before
+                            # it was updated
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                 },
                 None,
             ),
@@ -1355,18 +1371,22 @@ def test_given_row_visible_in_public_view_when_updated_to_still_be_visible_event
                 {
                     "type": "rows_updated",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows_before_update": [{
-                        "id": initially_visible_row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
-                    "rows": [{
-                        "id": initially_visible_row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "StillVisibleButUpdated",
-                    }],
+                    "rows_before_update": [
+                        {
+                            "id": initially_visible_row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
+                    "rows": [
+                        {
+                            "id": initially_visible_row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "StillVisibleButUpdated",
+                        }
+                    ],
                     "metadata": {},
                 },
                 None,
@@ -1622,12 +1642,14 @@ def test_when_row_restored_public_views_receive_restricted_row_created_ws_event(
                 {
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -1638,14 +1660,16 @@ def test_when_row_restored_public_views_receive_restricted_row_created_ws_event(
                 {
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        f"field_{visible_field.id}": "Visible",
-                        # This field is not hidden for this public view and so should be
-                        # included
-                        f"field_{hidden_field.id}": "Hidden",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            f"field_{visible_field.id}": "Visible",
+                            # This field is not hidden for this public view and so
+                            # should be included
+                            f"field_{hidden_field.id}": "Hidden",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -1717,12 +1741,14 @@ def test_when_row_restored_public_views_receive_row_created_only_when_filters_ma
                 {
                     "type": "rows_created",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows": [{
-                        "id": row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows": [
+                        {
+                            "id": row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                     "metadata": {},
                     "before_row_id": None,
                 },
@@ -1902,18 +1928,22 @@ def test_given_row_visible_in_public_view_when_moved_row_updated_sent(
                     # it effectively has been.
                     "type": "rows_updated",
                     "table_id": PUBLIC_PLACEHOLDER_ENTITY_ID,
-                    "rows_before_update": [{
-                        "id": visible_moving_row.id,
-                        "order": "1.00000000000000000000",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
-                    "rows": [{
-                        "id": visible_moving_row.id,
-                        "order": "0.99999999999999999999",
-                        # Only the visible field should be sent
-                        f"field_{visible_field.id}": "Visible",
-                    }],
+                    "rows_before_update": [
+                        {
+                            "id": visible_moving_row.id,
+                            "order": "1.00000000000000000000",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
+                    "rows": [
+                        {
+                            "id": visible_moving_row.id,
+                            "order": "0.99999999999999999999",
+                            # Only the visible field should be sent
+                            f"field_{visible_field.id}": "Visible",
+                        }
+                    ],
                     "metadata": {},
                 },
                 None,
