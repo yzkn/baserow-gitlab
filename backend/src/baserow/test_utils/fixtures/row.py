@@ -1,8 +1,8 @@
-from typing import List, Any
+from typing import List, Any, Optional
 
 from baserow.contrib.database.fields.models import Field
 from baserow.contrib.database.rows.handler import RowHandler
-from baserow.contrib.database.table.models import GeneratedTableModel
+from baserow.contrib.database.table.models import GeneratedTableModel, Table
 
 
 class RowFixture:
@@ -61,14 +61,23 @@ class RowFixture:
     def create_rows(
         self, fields: List[Field], rows: List[List[Any]]
     ) -> List[GeneratedTableModel]:
-        model = fields[0].table.get_model()
+        return self.create_rows_in_table(
+            table=fields[0].table, rows=rows, fields=fields
+        )
+
+    def create_rows_in_table(
+        self, table: Table, rows: List[List[Any]], fields: Optional[List[Field]] = None
+    ) -> List[GeneratedTableModel]:
+        if fields is None:
+            fields = []
+        model = table.get_model()
         created_rows = []
         for row in rows:
-            created_rows.append(
-                model.objects.create(
-                    **{field.db_column: value for field, value in zip(fields, row)}
-                )
-            )
+            values = {}
+            for idx, field in enumerate(fields):
+                values[field.db_column] = row[idx]
+
+            created_rows.append(model.objects.create(**values))
         return created_rows
 
     def get_rows(self, fields: List[Field]) -> List[List[Any]]:
