@@ -59,11 +59,8 @@ import {
   JSONImporterType,
 } from '@baserow/modules/database/importerTypes'
 import {
-  RowCreatedWebhookEventType,
   RowsCreatedWebhookEventType,
-  RowUpdatedWebhookEventType,
   RowsUpdatedWebhookEventType,
-  RowDeletedWebhookEventType,
   RowsDeletedWebhookEventType,
 } from '@baserow/modules/database/webhookEventTypes'
 import {
@@ -300,23 +297,11 @@ export default (context) => {
   app.$registry.register('exporter', new CSVTableExporterType(context))
   app.$registry.register(
     'webhookEvent',
-    new RowCreatedWebhookEventType(context)
-  )
-  app.$registry.register(
-    'webhookEvent',
     new RowsCreatedWebhookEventType(context)
   )
   app.$registry.register(
     'webhookEvent',
-    new RowUpdatedWebhookEventType(context)
-  )
-  app.$registry.register(
-    'webhookEvent',
     new RowsUpdatedWebhookEventType(context)
-  )
-  app.$registry.register(
-    'webhookEvent',
-    new RowDeletedWebhookEventType(context)
   )
   app.$registry.register(
     'webhookEvent',
