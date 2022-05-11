@@ -6,6 +6,7 @@
 * Fix formula bugs caused by unsupported generation of BC dates.
 * Fix formula bug caused when looking up date intervals.
 * Add debugging commands/options for inspecting tables and updating formulas.
+* Fix rare formula bug with multiple different formulas and view filters in one table.
 
 ## Released (2022-10-05 1.10.0)
 

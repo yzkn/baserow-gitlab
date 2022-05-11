@@ -2496,7 +2496,17 @@ class FormulaFieldType(ReadOnlyFieldType):
         ) = self._get_field_instance_and_type_from_formula_field(instance)
         expression_field_type = field_type.get_model_field(field_instance, **kwargs)
 
-        return BaserowExpressionField(
+        # Depending on the `expression_field_type` class level state is changed when
+        # the field is __init__'ed. This means to prevent different sub types polluting
+        # this class level state of other runtime instances we need a unique class
+        # per subtype.
+        # noinspection PyPep8Naming
+        SpecializedBaserowExpressionField = type(
+            expression_field_type.__class__.__name__ + "BaserowExpressionField",
+            (BaserowExpressionField,),
+            {},
+        )
+        return SpecializedBaserowExpressionField(
             null=True,
             blank=True,
             expression=expression,

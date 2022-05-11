@@ -1126,3 +1126,40 @@ def test_inserting_a_row_with_lookup_field_immediately_populates_it_with_empty_l
     default_empty_value_for_lookup = getattr(inserted_row, f"field_{lookup.id}")
     assert default_empty_value_for_lookup is not None
     assert default_empty_value_for_lookup == "[]"
+
+
+@pytest.mark.django_db
+def test_multiple_formula_fields_with_different_django_lookups_being_used_to_filter(
+    data_fixture, api_client, django_assert_num_queries
+):
+    user, token = data_fixture.create_user_and_token()
+
+    table = data_fixture.create_database_table(user=user)
+
+    grid_view = data_fixture.create_grid_view(user=user, table=table)
+    option_field = data_fixture.create_single_select_field(user=user, table=table)
+
+    formula_field_ref_link_field = FieldHandler().create_field(
+        user=user, table=table, name="a", type_name="formula", formula=f"1"
+    )
+    formula_referencing_single_select = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="formula",
+        formula=f"field('{option_field.name}')",
+        name="single_select_formula",
+    )
+
+    data_fixture.create_view_filter(
+        user=user,
+        view=grid_view,
+        field=formula_field_ref_link_field,
+        type="empty",
+    )
+
+    response = api_client.get(
+        reverse("api:database:views:grid:list", kwargs={"view_id": grid_view.id}),
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    assert response.status_code == HTTP_200_OK
