@@ -1145,8 +1145,6 @@ class RowHandler:
             self, rows=[row], user=user, table=table, model=model
         )
 
-        row_id = row.id
-
         TrashHandler.trash(user, group, table.database, row, parent_id=table.id)
 
         update_collector = CachingFieldUpdateCollector(

@@ -154,7 +154,7 @@ def public_rows_updated(
     }
 
     # When a row is updated from the point of view of a public view it might not always
-    # result in a `rows_updated` event. For example if the row was previously not visible
+    # result in a `rows_updated` event. For example if a row was previously not visible
     # in the public view due to its filters, but the row update makes it now match
     # the filters we want to send a `rows_created` event to that views page as the
     # clients won't know anything about the row and hence a `rows_updated` event makes
