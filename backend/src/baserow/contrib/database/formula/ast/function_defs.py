@@ -135,6 +135,7 @@ def register_formula_functions(registry):
     registry.register(BaserowSecond())
     registry.register(BaserowToDate())
     registry.register(BaserowDateDiff())
+    registry.register(BaserowBcToNull())
     # Date interval functions
     registry.register(BaserowDateInterval())
     # Special functions
@@ -1487,4 +1488,30 @@ class BaserowSecond(OneArgumentBaserowFunction):
     def to_django_expression(self, arg: Expression) -> Expression:
         return Extract(
             arg, "second", output_field=fields.DecimalField(decimal_places=0)
+        )
+
+
+class BaserowBcToNull(OneArgumentBaserowFunction):
+    type = "bc_to_null"
+    arg_type = [BaserowFormulaDateType]
+
+    def type_function(
+        self,
+        func_call: BaserowFunctionCall[UnTyped],
+        arg: BaserowExpression[BaserowFormulaValidType],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        return func_call.with_valid_type(arg.expression_type)
+
+    def to_django_expression(self, arg: Expression) -> Expression:
+        expr_to_get_year = Extract(
+            arg, "year", output_field=fields.DecimalField(decimal_places=0)
+        )
+        return Case(
+            When(
+                condition=LessThanExpr(
+                    expr_to_get_year, 0, output_field=fields.BooleanField()
+                ),
+                then=Value(None, output_field=arg.output_field),
+            ),
+            default=arg,
         )

@@ -1,12 +1,15 @@
+import datetime
 import sys
 from datetime import timedelta
+from decimal import Decimal
+from typing import List, Any
 
 import pytest
 from django.conf import settings
 from django.urls import reverse
 from django.utils.duration import duration_string
 
-from baserow.contrib.database.fields.models import FormulaField
+from baserow.contrib.database.fields.models import FormulaField, Field
 
 VALID_FORMULA_TESTS = [
     ("'test'", "test"),
@@ -144,7 +147,7 @@ VALID_FORMULA_TESTS = [
 ]
 
 
-def a_test_case(name, starting_table_setup, formula_info, expectation):
+def a_test_case(name: str, starting_table_setup, formula_info, expectation):
     return name, starting_table_setup, formula_info, expectation
 
 
@@ -164,128 +167,157 @@ def then_expect_the_rows_to_be(rows):
     return rows
 
 
-COMPLEX_VALID_TESTS = [
-    a_test_case(
-        "Can reference and add to a integer column",
-        given_a_table(columns=[("number", "number")], rows=[[1], [2], [None]]),
-        when_a_formula_field_is_added("field('number')+1"),
-        then_expect_the_rows_to_be([["1", "2"], ["2", "3"], [None, None]]),
-    ),
-    a_test_case(
-        "Can reference and add to a integer column",
-        given_a_table(columns=[("number", "number")], rows=[[1], [2], [None]]),
-        when_multiple_formula_fields_are_added(
-            [("formula_1", "field('number')+1"), "field('formula_1')+1"]
+def assert_formula_results_are_case(
+    data_fixture,
+    given_field_in_table: Field,
+    given_field_has_rows: List[Any],
+    when_created_formula_is: str,
+    then_formula_values_are: List[Any],
+):
+    assert_formula_results_with_multiple_fields_case(
+        data_fixture,
+        [given_field_in_table],
+        [[v] for v in given_field_has_rows],
+        when_created_formula_is,
+        then_formula_values_are,
+    )
+
+
+def assert_formula_results_with_multiple_fields_case(
+    data_fixture,
+    given_fields_in_table: List[Field],
+    given_fields_have_rows: List[List[Any]],
+    when_created_formula_is: str,
+    then_formula_values_are: List[Any],
+):
+    data_fixture.create_rows(given_fields_in_table, given_fields_have_rows)
+    formula_field = data_fixture.create_formula_field(
+        table=given_fields_in_table[0].table, formula=when_created_formula_is
+    )
+    assert formula_field.cached_formula_type.is_valid
+    rows = data_fixture.get_rows(fields=[formula_field])
+    assert [item for sublist in rows for item in sublist] == then_formula_values_are
+
+
+@pytest.mark.django_db
+def test_formula_can_reference_and_add_to_an_integer_column(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_number_field(name="number"),
+        given_field_has_rows=[1, 2, None],
+        when_created_formula_is="field('number') + 1",
+        then_formula_values_are=[2, 3, None],
+    )
+
+
+@pytest.mark.django_db
+def test_can_reference_and_if_a_text_column(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_text_field(name="text"),
+        given_field_has_rows=["a", "b", None],
+        when_created_formula_is="if(field('text')='a', field('text'), 'no')",
+        then_formula_values_are=["a", "no", "no"],
+    )
+
+
+@pytest.mark.django_db
+def test_can_reference_and_if_a_phone_number_column(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_phone_number_field(name="pn"),
+        given_field_has_rows=["01772", "+2002", None],
+        when_created_formula_is="if(field('pn')='01772', field('pn'), 'no')",
+        then_formula_values_are=["01772", "no", "no"],
+    )
+
+
+@pytest.mark.django_db
+def test_can_compare_a_date_field_and_text_with_formatting(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_date_field(
+            date_format="US", name="date"
         ),
-        then_expect_the_rows_to_be(
-            [["1", "2", "3"], ["2", "3", "4"], [None, None, None]]
+        given_field_has_rows=["2020-02-01", "2020-03-01", None],
+        when_created_formula_is="field('date')='02/01/2020'",
+        then_formula_values_are=[True, False, False],
+    )
+
+
+@pytest.mark.django_db
+def test_can_compare_a_datetime_field_and_text_with_eu_formatting(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_date_field(
+            date_format="EU", date_include_time="True", name="date"
         ),
-    ),
-    a_test_case(
-        "Can reference and if a text column",
-        given_a_table(columns=[("text", "text")], rows=[["a"], ["b"], [None]]),
-        when_a_formula_field_is_added("if(field('text')='a', field('text'), 'no')"),
-        then_expect_the_rows_to_be([["a", "a"], ["b", "no"], [None, "no"]]),
-    ),
-    a_test_case(
-        "Can reference and if a phone number column",
-        given_a_table(
-            columns=[("pn", "phone_number")], rows=[["01772"], ["+2002"], [None]]
-        ),
-        when_a_formula_field_is_added("if(field('pn')='01772', field('pn'), 'no')"),
-        then_expect_the_rows_to_be([["01772", "01772"], ["+2002", "no"], [None, "no"]]),
-    ),
-    a_test_case(
-        "Can compare a phone number and number column",
-        given_a_table(
-            columns=[("pn", "phone_number"), ("num", "number")],
-            rows=[["123", "123"], ["+2002", "2002"], [None, None]],
-        ),
-        when_a_formula_field_is_added("field('pn')=field('num')"),
-        then_expect_the_rows_to_be(
-            [["123", "123", True], ["+2002", "2002", False], [None, None, None]]
-        ),
-    ),
-    a_test_case(
-        "Can compare a date field and text with formatting",
-        given_a_table(
-            columns=[("date", {"type": "date", "date_format": "US"})],
-            rows=[["2020-02-01"], ["2020-03-01"], [None]],
-        ),
-        when_a_formula_field_is_added("field('date')='02/01/2020'"),
-        then_expect_the_rows_to_be(
-            [
-                ["2020-02-01", True],
-                ["2020-03-01", False],
-                [None, False],
-            ]
-        ),
-    ),
-    a_test_case(
-        "Can compare a datetime field and text with eu formatting",
-        given_a_table(
-            columns=[
-                (
-                    "date",
-                    {"type": "date", "date_format": "EU", "date_include_time": True},
-                )
-            ],
-            rows=[["2020-02-01T00:10:00Z"], ["2020-02-01T02:00:00Z"], [None]],
-        ),
-        when_a_formula_field_is_added("field('date')='01/02/2020 00:10'"),
-        then_expect_the_rows_to_be(
-            [
-                ["2020-02-01T00:10:00Z", True],
-                ["2020-02-01T02:00:00Z", False],
-                [None, False],
-            ]
-        ),
-    ),
-    a_test_case(
-        "Can use datediff on fields",
-        given_a_table(
-            columns=[
-                (
-                    "date1",
-                    {"type": "date", "date_format": "EU", "date_include_time": True},
-                ),
-                (
-                    "date2",
-                    {"type": "date", "date_format": "EU", "date_include_time": True},
-                ),
-            ],
-            rows=[
-                ["2020-02-01T00:10:00Z", "2020-03-02T00:10:00Z"],
-                ["2020-02-01T02:00:00Z", "2020-10-01T04:00:00Z"],
-                [None, None],
-            ],
-        ),
-        when_a_formula_field_is_added(
-            "date_diff('dd', field('date1'), " "field('date2'))"
-        ),
-        then_expect_the_rows_to_be(
-            [
-                ["2020-02-01T00:10:00Z", "2020-03-02T00:10:00Z", "30"],
-                ["2020-02-01T02:00:00Z", "2020-10-01T04:00:00Z", "243"],
-                [None, None, None],
-            ]
-        ),
-    ),
-    a_test_case(
-        "Can use a boolean field in an if",
-        given_a_table(
-            columns=[("boolean", "boolean")],
-            rows=[[True], [False]],
-        ),
-        when_a_formula_field_is_added("if(field('boolean'), 'true', 'false')"),
-        then_expect_the_rows_to_be(
-            [
-                [True, "true"],
-                [False, "false"],
-            ]
-        ),
-    ),
-]
+        given_field_has_rows=["2020-02-01T00:10:00Z", "2020-02-01T02:00:00Z", None],
+        when_created_formula_is="field('date')='01/02/2020 00:10'",
+        then_formula_values_are=[True, False, False],
+    )
+
+
+@pytest.mark.django_db
+def test_todate_handles_empty_values(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_text_field(name="date_text"),
+        given_field_has_rows=[
+            "20200201T00:10:00Z",
+            "2021-01-22 | Some stuff",
+            "",
+            "20200201T02:00:00Z",
+            None,
+        ],
+        when_created_formula_is="todate(left(field('date_text'),11),'YYYY-MM-DD')",
+        then_formula_values_are=[None, datetime.date(2021, 1, 22), None, None, None],
+    )
+
+
+@pytest.mark.django_db
+def test_can_use_a_boolean_field_in_an_if(data_fixture):
+    assert_formula_results_are_case(
+        data_fixture,
+        given_field_in_table=data_fixture.create_boolean_field(name="boolean"),
+        given_field_has_rows=[True, False],
+        when_created_formula_is="if(field('boolean'), 'true', 'false')",
+        then_formula_values_are=["true", "false"],
+    )
+
+
+@pytest.mark.django_db
+def test_can_use_datediff_on_fields(data_fixture):
+    table = data_fixture.create_database_table()
+    assert_formula_results_with_multiple_fields_case(
+        data_fixture,
+        given_fields_in_table=[
+            data_fixture.create_date_field(
+                table=table,
+                name="date1",
+                date_format="EU",
+                date_include_time=True,
+            ),
+            data_fixture.create_date_field(
+                table=table,
+                name="date2",
+                date_format="EU",
+                date_include_time=True,
+            ),
+        ],
+        given_fields_have_rows=[
+            ["2020-02-01T00:10:00Z", "2020-03-02T00:10:00Z"],
+            ["2020-02-01T02:00:00Z", "2020-10-01T04:00:00Z"],
+            [None, None],
+        ],
+        when_created_formula_is="date_diff('dd', field('date1'), field('date2'))",
+        then_formula_values_are=[
+            Decimal(30),
+            Decimal(243),
+            None,
+        ],
+    )
+
 
 INVALID_FORMULA_TESTS = [
     (
@@ -410,95 +442,6 @@ INVALID_FORMULA_TESTS = [
         "decimal places.",
     ),
 ]
-
-
-@pytest.mark.parametrize("test_input,expected", VALID_FORMULA_TESTS)
-@pytest.mark.django_db
-def test_valid_formulas(test_input, expected, data_fixture, api_client):
-    user, token = data_fixture.create_user_and_token()
-    table = data_fixture.create_database_table(user=user)
-    response = api_client.post(
-        reverse("api:database:fields:list", kwargs={"table_id": table.id}),
-        {"name": "Formula2", "type": "formula", "formula": test_input},
-        format="json",
-        HTTP_AUTHORIZATION=f"JWT {token}",
-    )
-    assert response.status_code == 200, response.json()
-    field_id = response.json()["id"]
-    response = api_client.post(
-        reverse("api:database:rows:list", kwargs={"table_id": table.id}),
-        {},
-        format="json",
-        HTTP_AUTHORIZATION=f"JWT {token}",
-    )
-    assert response.status_code == 200
-    response = api_client.get(
-        reverse("api:database:rows:list", kwargs={"table_id": table.id}),
-        {},
-        format="json",
-        HTTP_AUTHORIZATION=f"JWT {token}",
-    )
-    response_json = response.json()
-    assert response_json["count"] == 1
-    assert response_json["results"][0][f"field_{field_id}"] == expected
-
-
-@pytest.mark.parametrize("name,table_setup,formula,expected", COMPLEX_VALID_TESTS)
-@pytest.mark.django_db
-def test_valid_complex_formulas(
-    name,
-    table_setup,
-    formula,
-    expected,
-    data_fixture,
-    api_client,
-    django_assert_num_queries,
-):
-    user, token = data_fixture.create_user_and_token()
-    table, fields, rows = data_fixture.build_table(
-        columns=table_setup[0], rows=table_setup[1], user=user
-    )
-    if not isinstance(formula, list):
-        formula = [formula]
-    formula_field_ids = []
-    j = 0
-    for f in formula:
-        if not isinstance(f, tuple):
-            f = f"baserow_formula_{j}", f
-            j += 1
-        response = api_client.post(
-            reverse("api:database:fields:list", kwargs={"table_id": table.id}),
-            {"name": f[0], "type": "formula", "formula": f[1]},
-            format="json",
-            HTTP_AUTHORIZATION=f"JWT {token}",
-        )
-        assert response.status_code == 200, response.json()
-        formula_field_ids.append(response.json()["id"])
-    response = api_client.post(
-        reverse("api:database:rows:list", kwargs={"table_id": table.id}),
-        {},
-        format="json",
-        HTTP_AUTHORIZATION=f"JWT {token}",
-    )
-    assert response.status_code == 200
-    response = api_client.get(
-        reverse("api:database:rows:list", kwargs={"table_id": table.id}),
-        {},
-        format="json",
-        HTTP_AUTHORIZATION=f"JWT {token}",
-    )
-    response_json = response.json()
-    assert response_json["count"] == len(table_setup[1]) + 1
-    i = 0
-    for row in expected:
-        k = 0
-        for field in fields:
-            assert response_json["results"][i][f"field_{field.id}"] == row[k]
-            k += 1
-        for f_id in formula_field_ids:
-            assert response_json["results"][i][f"field_{f_id}"] == row[k], response_json
-            k += 1
-        i += 1
 
 
 @pytest.mark.parametrize("test_input,error,detail", INVALID_FORMULA_TESTS)
