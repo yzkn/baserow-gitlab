@@ -356,11 +356,13 @@ def test_trigger_test_call(data_fixture):
     request_body = json.loads(request.body)
     assert request_body["table_id"] == table.id
     assert request_body["event_type"] == "rows.created"
-    assert request_body["items"] == [{
-        "id": 0,
-        f"field_{field.id}": None,
-        "order": "0.00000000000000000000",
-    }]
+    assert request_body["items"] == [
+        {
+            "id": 0,
+            f"field_{field.id}": None,
+            "order": "0.00000000000000000000",
+        }
+    ]
 
 
 @pytest.mark.django_db

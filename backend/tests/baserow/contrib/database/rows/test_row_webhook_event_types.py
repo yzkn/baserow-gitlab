@@ -27,11 +27,13 @@ def test_rows_created_event_type(data_fixture):
         "table_id": table.id,
         "event_id": "1",
         "event_type": "rows.created",
-        "items": [{
-            "id": 1,
-            "order": "1.00000000000000000000",
-            f"field_{field.id}": None,
-        }],
+        "items": [
+            {
+                "id": 1,
+                "order": "1.00000000000000000000",
+                f"field_{field.id}": None,
+            }
+        ],
     }
 
     webhook.use_user_field_names = True
@@ -43,11 +45,13 @@ def test_rows_created_event_type(data_fixture):
         "table_id": table.id,
         "event_id": "1",
         "event_type": "rows.created",
-        "items": [{
-            "id": 1,
-            "order": "1.00000000000000000000",
-            "Test 1": None,
-        }],
+        "items": [
+            {
+                "id": 1,
+                "order": "1.00000000000000000000",
+                "Test 1": None,
+            }
+        ],
     }
 
 
@@ -121,18 +125,22 @@ def test_rows_updated_event_type(data_fixture):
         "table_id": table.id,
         "event_id": "1",
         "event_type": "rows.updated",
-        "items": [{
-            "id": 1,
-            "order": "1.00000000000000000000",
-            f"field_{text_field.id}": "New Test value",
-            f"field_{link_row_field.id}": [{"id": 1, "value": "Lookup 1"}],
-        }],
-        "old_items": [{
-            "id": 1,
-            "order": "1.00000000000000000000",
-            f"field_{text_field.id}": "Old Test value",
-            f"field_{link_row_field.id}": [{"id": 1, "value": "Lookup 1"}],
-        }],
+        "items": [
+            {
+                "id": 1,
+                "order": "1.00000000000000000000",
+                f"field_{text_field.id}": "New Test value",
+                f"field_{link_row_field.id}": [{"id": 1, "value": "Lookup 1"}],
+            }
+        ],
+        "old_items": [
+            {
+                "id": 1,
+                "order": "1.00000000000000000000",
+                f"field_{text_field.id}": "Old Test value",
+                f"field_{link_row_field.id}": [{"id": 1, "value": "Lookup 1"}],
+            }
+        ],
     }
 
     webhook.use_user_field_names = True
@@ -149,18 +157,22 @@ def test_rows_updated_event_type(data_fixture):
         "table_id": table.id,
         "event_id": "1",
         "event_type": "rows.updated",
-        "items": [{
-            "id": 1,
-            "order": "1.00000000000000000000",
-            f"{text_field.name}": "New Test value",
-            f"{link_row_field.name}": [{"id": 1, "value": "Lookup 1"}],
-        }],
-        "old_items": [{
-            "id": 1,
-            "order": "1.00000000000000000000",
-            f"{text_field.name}": "Old Test value",
-            f"{link_row_field.name}": [{"id": 1, "value": "Lookup 1"}],
-        }],
+        "items": [
+            {
+                "id": 1,
+                "order": "1.00000000000000000000",
+                f"{text_field.name}": "New Test value",
+                f"{link_row_field.name}": [{"id": 1, "value": "Lookup 1"}],
+            }
+        ],
+        "old_items": [
+            {
+                "id": 1,
+                "order": "1.00000000000000000000",
+                f"{text_field.name}": "Old Test value",
+                f"{link_row_field.name}": [{"id": 1, "value": "Lookup 1"}],
+            }
+        ],
     }
 
 
