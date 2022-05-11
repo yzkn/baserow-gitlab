@@ -32,24 +32,6 @@ export class WebhookEventType extends Registerable {
   }
 }
 
-export class RowCreatedWebhookEventType extends WebhookEventType {
-  getType() {
-    return 'row.created'
-  }
-
-  getName() {
-    const { i18n } = this.app
-    return i18n.t('webhook.eventType.rowCreated')
-  }
-
-  getExamplePayload(table, rowExample) {
-    const payload = super.getExamplePayload(table, rowExample)
-    payload.row_id = rowExample.id
-    payload.values = rowExample
-    return payload
-  }
-}
-
 export class RowsCreatedWebhookEventType extends WebhookEventType {
   getType() {
     return 'rows.created'
@@ -63,25 +45,6 @@ export class RowsCreatedWebhookEventType extends WebhookEventType {
   getExamplePayload(table, rowExample) {
     const payload = super.getExamplePayload(table, rowExample)
     payload.items = [rowExample]
-    return payload
-  }
-}
-
-export class RowUpdatedWebhookEventType extends WebhookEventType {
-  getType() {
-    return 'row.updated'
-  }
-
-  getName() {
-    const { i18n } = this.app
-    return i18n.t('webhook.eventType.rowUpdated')
-  }
-
-  getExamplePayload(table, rowExample) {
-    const payload = super.getExamplePayload(table, rowExample)
-    payload.row_id = rowExample.id
-    payload.values = rowExample
-    payload.old_values = rowExample
     return payload
   }
 }
@@ -100,23 +63,6 @@ export class RowsUpdatedWebhookEventType extends WebhookEventType {
     const payload = super.getExamplePayload(table, rowExample)
     payload.items = [rowExample]
     payload.old_items = [rowExample]
-    return payload
-  }
-}
-
-export class RowDeletedWebhookEventType extends WebhookEventType {
-  getType() {
-    return 'row.deleted'
-  }
-
-  getName() {
-    const { i18n } = this.app
-    return i18n.t('webhook.eventType.rowDeleted')
-  }
-
-  getExamplePayload(table, rowExample) {
-    const payload = super.getExamplePayload(table, rowExample)
-    payload.row_id = rowExample.id
     return payload
   }
 }
