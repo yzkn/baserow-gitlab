@@ -14,15 +14,10 @@ from baserow.core.trash.handler import TrashHandler
 from baserow.contrib.database.trash.models import TrashedRows
 from .exceptions import RowDoesNotExist, RowIdsNotUnique
 from .signals import (
-    before_row_update,
-    before_row_delete,
     before_rows_update,
     before_rows_delete,
-    row_created,
     rows_created,
-    row_updated,
     rows_updated,
-    row_deleted,
     rows_deleted,
 )
 from baserow.contrib.database.fields.dependencies.update_collector import (
@@ -389,7 +384,7 @@ class RowHandler:
     ) -> GeneratedTableModel:
         """
         Creates a new row for a given table with the provided values if the user
-        belongs to the related group. It also calls the row_created signal.
+        belongs to the related group. It also calls the rows_created signal.
 
         :param user: The user of whose behalf the row is created.
         :param table: The table for which to create a row for.
@@ -1058,8 +1053,8 @@ class RowHandler:
         if model is None:
             model = table.get_model()
 
-        before_return = before_row_update.send(
-            self, row=row, user=user, table=table, model=model, updated_field_ids=[]
+        before_return = before_rows_update.send(
+            self, rows=[row], user=user, table=table, model=model, updated_field_ids=[]
         )
 
         row.order = self.get_order_before_row(before_row, model)[0]
@@ -1086,9 +1081,9 @@ class RowHandler:
         updated_fields = [o["field"] for o in model._field_objects.values()]
         ViewHandler().field_value_updated(updated_fields)
 
-        row_updated.send(
+        rows_updated.send(
             self,
-            row=row,
+            rows=[row],
             user=user,
             table=table,
             model=model,
