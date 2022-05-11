@@ -60,9 +60,11 @@ import {
 } from '@baserow/modules/database/importerTypes'
 import {
   RowCreatedWebhookEventType,
+  RowsCreatedWebhookEventType,
   RowUpdatedWebhookEventType,
   RowsUpdatedWebhookEventType,
   RowDeletedWebhookEventType,
+  RowsDeletedWebhookEventType,
 } from '@baserow/modules/database/webhookEventTypes'
 import {
   ImageFilePreview,
@@ -302,7 +304,15 @@ export default (context) => {
   )
   app.$registry.register(
     'webhookEvent',
+    new RowsCreatedWebhookEventType(context)
+  )
+  app.$registry.register(
+    'webhookEvent',
     new RowUpdatedWebhookEventType(context)
+  )
+  app.$registry.register(
+    'webhookEvent',
+    new RowsUpdatedWebhookEventType(context)
   )
   app.$registry.register(
     'webhookEvent',
@@ -310,7 +320,7 @@ export default (context) => {
   )
   app.$registry.register(
     'webhookEvent',
-    new RowsUpdatedWebhookEventType(context)
+    new RowsDeletedWebhookEventType(context)
   )
 
   // Text functions

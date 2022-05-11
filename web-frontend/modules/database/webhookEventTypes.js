@@ -50,6 +50,23 @@ export class RowCreatedWebhookEventType extends WebhookEventType {
   }
 }
 
+export class RowsCreatedWebhookEventType extends WebhookEventType {
+  getType() {
+    return 'rows.created'
+  }
+
+  getName() {
+    const { i18n } = this.app
+    return i18n.t('webhook.eventType.rowsCreated')
+  }
+
+  getExamplePayload(table, rowExample) {
+    const payload = super.getExamplePayload(table, rowExample)
+    payload.items = [rowExample]
+    return payload
+  }
+}
+
 export class RowUpdatedWebhookEventType extends WebhookEventType {
   getType() {
     return 'row.updated'
@@ -100,6 +117,23 @@ export class RowDeletedWebhookEventType extends WebhookEventType {
   getExamplePayload(table, rowExample) {
     const payload = super.getExamplePayload(table, rowExample)
     payload.row_id = rowExample.id
+    return payload
+  }
+}
+
+export class RowsDeletedWebhookEventType extends WebhookEventType {
+  getType() {
+    return 'rows.deleted'
+  }
+
+  getName() {
+    const { i18n } = this.app
+    return i18n.t('webhook.eventType.rowsDeleted')
+  }
+
+  getExamplePayload(table, rowExample) {
+    const payload = super.getExamplePayload(table, rowExample)
+    payload.row_ids = [rowExample.id]
     return payload
   }
 }
