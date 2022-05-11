@@ -414,8 +414,13 @@ class RowHandler:
             table, values, model, before_row, user_field_names
         )
 
-        row_created.send(
-            self, row=instance, before=before_row, user=user, table=table, model=model
+        rows_created.send(
+            self,
+            rows=[instance],
+            before=before_row,
+            user=user,
+            table=table,
+            model=model,
         )
 
         return instance
@@ -599,14 +604,15 @@ class RowHandler:
                 updated_field_ids.add(field_id)
                 updated_fields.append(field["field"])
 
-        before_return = before_row_update.send(
+        before_return = before_rows_update.send(
             self,
-            row=row,
+            rows=[row],
             user=user,
             table=table,
             model=model,
             updated_field_ids=updated_field_ids,
         )
+
         values = self.prepare_values(model._field_objects, values)
         values, manytomany_values = self.extract_manytomany_values(values, model)
 
@@ -641,9 +647,9 @@ class RowHandler:
 
         ViewHandler().field_value_updated(updated_fields)
 
-        row_updated.send(
+        rows_updated.send(
             self,
-            row=row,
+            rows=[row],
             user=user,
             table=table,
             model=model,
@@ -1140,8 +1146,8 @@ class RowHandler:
         if model is None:
             model = table.get_model()
 
-        before_return = before_row_delete.send(
-            self, row=row, user=user, table=table, model=model
+        before_return = before_rows_delete.send(
+            self, rows=[row], user=user, table=table, model=model
         )
 
         row_id = row.id
@@ -1169,10 +1175,9 @@ class RowHandler:
         updated_fields = [o["field"] for o in model._field_objects.values()]
         ViewHandler().field_value_updated(updated_fields)
 
-        row_deleted.send(
+        rows_deleted.send(
             self,
-            row_id=row_id,
-            row=row,
+            rows=[row],
             user=user,
             table=table,
             model=model,
