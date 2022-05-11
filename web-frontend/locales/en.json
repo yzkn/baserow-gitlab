@@ -171,9 +171,11 @@
         },
         "eventType": {
             "rowCreated": "When a row is created",
+            "rowsCreated": "When rows are created",
             "rowUpdated": "When a row is updated",
             "rowsUpdated": "When rows are updated",
-            "rowDeleted": "When a row is deleted"
+            "rowDeleted": "When a row is deleted",
+            "rowsDeleted": "When rows are deleted"
         }
     },
     "clientHandler": {

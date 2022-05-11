@@ -5,8 +5,8 @@ from baserow.contrib.database.api.rows.serializers import (
     RowSerializer,
 )
 from baserow.contrib.database.webhooks.registries import WebhookEventType
-from baserow.contrib.database.ws.rows.signals import before_row_update
-from .signals import row_created, row_updated, row_deleted, rows_updated
+from baserow.contrib.database.ws.rows.signals import before_row_update, before_rows_update
+from .signals import row_created, row_updated, row_deleted, rows_created, rows_updated, rows_deleted
 
 
 class RowEventType(WebhookEventType):
@@ -42,6 +42,24 @@ class RowCreatedEventType(RowEventType):
     type = "row.created"
     signal = row_created
 
+
+class RowsCreatedEventType(RowsEventType):
+    type = "rows.created"
+    signal = rows_created
+
+
+    def get_test_call_payload(self, table, model, event_id, webhook):
+        rows = [
+            model(id=0, order=0)
+        ]
+        payload = self.get_payload(
+            event_id=event_id,
+            webhook=webhook,
+            model=model,
+            table=table,
+            rows=rows,
+        )
+        return payload
 
 class RowUpdatedEventType(RowEventType):
     type = "row.updated"
@@ -92,7 +110,7 @@ class RowsUpdatedEventType(RowsEventType):
     ):
         payload = super().get_payload(event_id, webhook, model, table, rows, **kwargs)
         
-        old_items = dict(before_return)[before_row_update]
+        old_items = dict(before_return)[before_rows_update]
 
         if webhook.use_user_field_names:
             old_items = remap_serialized_rows_to_user_field_names(old_items, model)
@@ -106,8 +124,8 @@ class RowsUpdatedEventType(RowsEventType):
             model(id=0, order=0)
         ]
         before_return = {
-            before_row_update: before_row_update(
-                row=rows,
+            before_rows_update: before_rows_update(
+                rows=rows,
                 model=model,
                 sender=None,
                 user=None,
@@ -132,4 +150,28 @@ class RowDeletedEventType(WebhookEventType):
     def get_payload(self, event_id, webhook, row, **kwargs):
         payload = super().get_payload(event_id, webhook, **kwargs)
         payload["row_id"] = row.id
+        return payload
+
+
+class RowsDeletedEventType(WebhookEventType):
+    type = "rows.deleted"
+    signal = rows_deleted
+
+    def get_payload(self, event_id, webhook, rows, **kwargs):
+        payload = super().get_payload(event_id, webhook, **kwargs)
+        payload["row_ids"] = [row.id for row in rows]
+        return payload
+
+    def get_test_call_payload(self, table, model, event_id, webhook):
+        rows = [
+            model(id=0, order=0)
+        ]
+        
+        payload = self.get_payload(
+            event_id=event_id,
+            webhook=webhook,
+            model=model,
+            table=table,
+            rows=rows,
+        )
         return payload
