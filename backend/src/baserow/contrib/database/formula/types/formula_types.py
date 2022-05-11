@@ -334,6 +334,14 @@ class BaserowFormulaDateType(BaserowFormulaValidType):
         else:
             return True
 
+    def wrap_at_field_level(self, expr: "BaserowExpression[BaserowFormulaType]"):
+        wrapped = formula_function_registry.get("bc_to_null").call_and_type_with(expr)
+        return super().wrap_at_field_level(wrapped)
+
+    def unwrap_at_field_level(self, expr: "BaserowFunctionCall[BaserowFormulaType]"):
+        unwrapped = super().unwrap_at_field_level(expr)
+        return expr.args[0].with_valid_type(unwrapped)
+
     def cast_to_text(
         self,
         to_text_func_call: BaserowFunctionCall[UnTyped],

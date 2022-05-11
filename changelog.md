@@ -22,6 +22,7 @@
   do the sync_templates task in the background after migration to massively speedup 
   first time Baserow startup speed.
 * Fix deadlocks and performance problems caused by un-needed accidental row locks.
+* Fix formula bugs caused by unsupported generation of BC dates.
 
 ## Released (2022-10-05 1.10.0)
 

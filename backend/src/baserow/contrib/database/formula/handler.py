@@ -96,7 +96,7 @@ class FormulaHandler:
     Baserow.
     """
 
-    BASEROW_FORMULA_VERSION = 2
+    BASEROW_FORMULA_VERSION = 3
 
     @classmethod
     def baserow_expression_to_update_django_expression(

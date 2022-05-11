@@ -5,14 +5,9 @@ from django.db.models import TextField
 from django.urls import reverse
 from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 
-from baserow.contrib.database.table.cache import (
-    generated_models_cache,
-)
-from baserow.contrib.database.fields.dependencies.handler import FieldDependencyHandler
 from baserow.contrib.database.fields.dependencies.update_collector import (
     CachingFieldUpdateCollector,
 )
-from baserow.contrib.database.fields.field_cache import FieldCache
 from baserow.contrib.database.fields.field_types import FormulaFieldType
 from baserow.contrib.database.fields.fields import BaserowExpressionField
 from baserow.contrib.database.fields.handler import FieldHandler
@@ -27,6 +22,9 @@ from baserow.contrib.database.formula import (
 from baserow.contrib.database.formula.ast.tree import BaserowFunctionDefinition
 from baserow.contrib.database.formula.registries import formula_function_registry
 from baserow.contrib.database.rows.handler import RowHandler
+from baserow.contrib.database.table.cache import (
+    generated_models_cache,
+)
 from baserow.contrib.database.views.exceptions import (
     ViewFilterTypeNotAllowedForField,
     ViewSortFieldNotSupported,
@@ -374,9 +372,6 @@ def test_recalculate_formulas_according_to_version(
     )
     assert dependant_formula.version == 1
 
-    field_cache = FieldCache()
-    for formula_field in FormulaField.objects.all():
-        FieldDependencyHandler().rebuild_dependencies(formula_field, field_cache)
     FormulaHandler().recalculate_formulas_according_to_version()
 
     formula_with_default_internal_field.refresh_from_db()
