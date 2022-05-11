@@ -17,13 +17,14 @@ def test_formula_fields_will_be_rebuilt_to_depend_on_each_other(
     api_client, data_fixture, django_assert_num_queries
 ):
     first_formula_field = data_fixture.create_formula_field(
-        name="first", formula_type="text", formula='"a"'
+        name="first", formula_type="text", formula='"a"', setup_dependencies=False
     )
     dependant_formula = data_fixture.create_formula_field(
         name="second",
         table=first_formula_field.table,
         formula_type="text",
         formula="field('first')",
+        setup_dependencies=False,
     )
 
     cache = FieldCache()
@@ -58,13 +59,17 @@ def test_rebuilding_with_a_circular_ref_will_raise(
     api_client, data_fixture, django_assert_num_queries
 ):
     first_formula_field = data_fixture.create_formula_field(
-        name="first", formula_type="text", formula='field("second")'
+        name="first",
+        formula_type="text",
+        formula='field("second")',
+        setup_dependencies=False,
     )
     second_formula_field = data_fixture.create_formula_field(
         name="second",
         table=first_formula_field.table,
         formula_type="text",
         formula="field('first')",
+        setup_dependencies=False,
     )
 
     cache = FieldCache()
@@ -175,6 +180,7 @@ def trashing_a_lookup_target_still_has_the_dep_depend_on_the_through_field(
         table=table,
         through_field_id=link_row_field.id,
         target_field=target_field.id,
+        setup_dependencies=False,
     )
 
     cache = FieldCache()
