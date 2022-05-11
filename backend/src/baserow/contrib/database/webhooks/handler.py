@@ -365,9 +365,9 @@ class WebhookHandler:
 
         event_id = str(uuid.uuid4())
         model = table.get_model()
-        
+
         event = webhook_event_type_registry.get(event_type)
-        
+
         payload = event.get_test_call_payload(table, model, event_id, webhook)
         headers.update(self.get_headers(event_type, event_id))
 
