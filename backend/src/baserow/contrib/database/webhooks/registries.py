@@ -39,7 +39,7 @@ class WebhookEventType(Instance):
         super().__init__()
         self.signal.connect(self.listener)
 
-    # TODO:
+    # TODO: docs
     def get_test_call_payload(self, table, model, event_id, webhook):
         row = model(id=0, order=0)
         payload = self.get_payload(
