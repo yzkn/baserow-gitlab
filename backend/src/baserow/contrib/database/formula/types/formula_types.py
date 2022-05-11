@@ -236,9 +236,14 @@ class BaserowFormulaDateIntervalType(BaserowFormulaValidType):
         return self, self
 
     def get_model_field(self, instance, **kwargs) -> models.Field:
+        from baserow.contrib.database.fields.fields import (
+            DurationFieldUsingPostgresFormatting,
+        )
+
         kwargs["null"] = True
         kwargs["blank"] = True
-        return models.DurationField()
+
+        return DurationFieldUsingPostgresFormatting(**kwargs)
 
     def get_response_serializer_field(self, instance, **kwargs) -> Optional[Field]:
         return self.get_serializer_field(instance, **kwargs)
@@ -246,7 +251,7 @@ class BaserowFormulaDateIntervalType(BaserowFormulaValidType):
     def get_serializer_field(self, instance, **kwargs) -> Optional[Field]:
         required = kwargs.get("required", False)
 
-        return serializers.DurationField(
+        return serializers.CharField(
             **{"required": required, "allow_null": not required, **kwargs}
         )
 

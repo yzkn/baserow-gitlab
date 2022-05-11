@@ -2,12 +2,13 @@ import datetime
 import sys
 from datetime import timedelta
 from decimal import Decimal
-from typing import List, Any
+from typing import List, Any, Optional
 
 import pytest
 from django.conf import settings
 from django.urls import reverse
 from django.utils.duration import duration_string
+from rest_framework.status import HTTP_200_OK
 
 from baserow.contrib.database.fields.models import FormulaField, Field
 
@@ -176,20 +177,25 @@ def assert_formula_results_are_case(
 ):
     assert_formula_results_with_multiple_fields_case(
         data_fixture,
-        [given_field_in_table],
-        [[v] for v in given_field_has_rows],
-        when_created_formula_is,
-        then_formula_values_are,
+        given_fields_in_table=[given_field_in_table],
+        given_fields_have_rows=[[v] for v in given_field_has_rows],
+        when_created_formula_is=when_created_formula_is,
+        then_formula_values_are=then_formula_values_are,
     )
 
 
 def assert_formula_results_with_multiple_fields_case(
     data_fixture,
-    given_fields_in_table: List[Field],
-    given_fields_have_rows: List[List[Any]],
     when_created_formula_is: str,
     then_formula_values_are: List[Any],
+    given_fields_in_table: Optional[List[Field]] = None,
+    given_fields_have_rows: Optional[List[List[Any]]] = None,
 ):
+    if given_fields_in_table is None:
+        given_fields_in_table = []
+    if given_fields_have_rows is None:
+        given_fields_have_rows = []
+
     data_fixture.create_rows(given_fields_in_table, given_fields_have_rows)
     formula_field = data_fixture.create_formula_field(
         table=given_fields_in_table[0].table, formula=when_created_formula_is
@@ -284,6 +290,37 @@ def test_can_use_a_boolean_field_in_an_if(data_fixture):
         when_created_formula_is="if(field('boolean'), 'true', 'false')",
         then_formula_values_are=["true", "false"],
     )
+
+
+@pytest.mark.django_db
+def test_can_lookup_date_intervals(data_fixture, api_client):
+    user, token = data_fixture.create_user_and_token()
+    table_a, table_b, link_field = data_fixture.create_two_linked_tables(user=user)
+
+    data_fixture.create_formula_field(
+        user, table=table_b, formula="date_interval('2 days')", name="date_interval"
+    )
+
+    table_b_rows = data_fixture.create_rows_in_table(table=table_b, rows=[[], []])
+    row_1 = data_fixture.create_row_for_many_to_many_field(
+        table=table_a, field=link_field, values=[table_b_rows[0].id], user=user
+    )
+
+    lookup_formula = data_fixture.create_formula_field(
+        user=user,
+        table=table_a,
+        formula=f"lookup('{link_field.name}', 'date_interval')",
+    )
+
+    response = api_client.get(
+        reverse("api:database:rows:list", kwargs={"table_id": table_a.id}),
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    assert response.status_code == HTTP_200_OK
+    assert [o[lookup_formula.db_column] for o in response.json()["results"]] == [
+        [{"id": row_1.id, "value": "2 days"}]
+    ]
 
 
 @pytest.mark.django_db
