@@ -276,7 +276,9 @@ class FieldHandler:
             dependant_field,
             dependant_field_type,
             via_path_to_starting_table,
-        ) in instance.dependant_fields_with_types(field_cache=field_cache):
+        ) in instance.dependant_fields_with_types(
+            field_cache=field_cache, associated_relation_changed=True
+        ):
             dependant_field_type.field_dependency_created(
                 dependant_field,
                 instance,
@@ -502,7 +504,9 @@ class FieldHandler:
             dependant_field,
             dependant_field_type,
             via_path_to_starting_table,
-        ) in field.dependant_fields_with_types(field_cache=field_cache):
+        ) in field.dependant_fields_with_types(
+            field_cache=field_cache, associated_relation_changed=True
+        ):
             dependant_field_type.field_dependency_updated(
                 dependant_field,
                 field,
@@ -581,7 +585,9 @@ class FieldHandler:
         if field_cache is None:
             field_cache = FieldCache()
 
-        dependant_fields = field.dependant_fields_with_types(field_cache=field_cache)
+        dependant_fields = field.dependant_fields_with_types(
+            field_cache=field_cache, associated_relation_changed=True
+        )
 
         before_return = before_field_deleted.send(
             self,
@@ -597,6 +603,7 @@ class FieldHandler:
             field,
             create_trash_entry=create_separate_trash_entry,
         )
+        field_cache.reset_cache()
 
         FieldDependencyHandler.break_dependencies_delete_dependants(field)
 
@@ -852,7 +859,9 @@ class FieldHandler:
                 dependant_field,
                 dependant_field_type,
                 via_path_to_starting_table,
-            ) in field.dependant_fields_with_types(field_cache):
+            ) in field.dependant_fields_with_types(
+                field_cache, associated_relation_changed=True
+            ):
                 dependant_field_type.field_dependency_created(
                     dependant_field,
                     field,

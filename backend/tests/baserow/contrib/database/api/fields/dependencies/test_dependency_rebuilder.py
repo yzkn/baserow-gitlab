@@ -151,11 +151,8 @@ def test_trashing_a_link_row_field_breaks_vias(
     assert not link_row_field.vias.exists()
     assert not link_row_field.dependants.exists()
 
-    # The dep that went via the trashed field has been broken
-    via_dep.refresh_from_db()
-    assert via_dep.dependency is None
-    assert via_dep.broken_reference_field_name == "link"
-    assert via_dep.via is None
+    # The dep that went via the trashed field has been deleted
+    assert not FieldDependency.objects.filter(id=via_dep.id).exists()
 
     direct_dep.refresh_from_db()
     assert direct_dep.dependency is None

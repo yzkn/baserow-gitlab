@@ -138,14 +138,20 @@ class Field(
         )
 
     def dependant_fields_with_types(
-        self, field_cache, starting_via_path_to_starting_table=None
+        self,
+        field_cache=None,
+        starting_via_path_to_starting_table=None,
+        associated_relation_changed=False,
     ) -> "FieldDependants":
         from baserow.contrib.database.fields.dependencies.handler import (
             FieldDependencyHandler,
         )
 
         return FieldDependencyHandler.get_dependant_fields_with_type(
-            [self.id], field_cache, starting_via_path_to_starting_table
+            [self.id],
+            associated_relation_changed,
+            field_cache,
+            starting_via_path_to_starting_table,
         )
 
     def save(self, *args, **kwargs):

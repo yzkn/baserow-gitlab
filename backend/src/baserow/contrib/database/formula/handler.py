@@ -41,7 +41,7 @@ from baserow.contrib.database.formula.types.typer import (
 )
 from baserow.contrib.database.formula.types.visitors import (
     FunctionsUsedVisitor,
-    FieldReferenceExtractingVisitor,
+    FieldDependencyExtractingVisitor,
 )
 
 if typing.TYPE_CHECKING:
@@ -208,17 +208,20 @@ class FormulaHandler:
 
     @classmethod
     def get_field_dependencies_from_expression(
-        cls, expression, table, field_cache
+        cls, source_field, expression: BaserowExpression, table, field_cache
     ) -> FieldDependencies:
         """
         Helper method that returns a the field dependencies of a given expression.
 
+        :param source_field: The field whose dependencies we are getting.
         :param field_cache: A cache that can be used to lookup fields.
         :param table: The table that the field is in.
         :param expression: The expression to calculate field dependencies for.
         """
 
-        return expression.accept(FieldReferenceExtractingVisitor(table, field_cache))
+        return expression.accept(
+            FieldDependencyExtractingVisitor(source_field, table, field_cache)
+        )
 
     @classmethod
     def get_field_dependencies(cls, formula_field, field_cache):
@@ -234,6 +237,7 @@ class FormulaHandler:
         # field(..) references. After typing these will have been replaced and so we
         # can't get dependencies out of the internal formula.
         return cls.get_field_dependencies_from_expression(
+            formula_field,
             formula_field.cached_untyped_expression,
             formula_field.table,
             field_cache,

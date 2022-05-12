@@ -64,7 +64,8 @@ from .dependencies.exceptions import (
     CircularFieldDependencyError,
 )
 from .dependencies.handler import FieldDependencyHandler
-from .dependencies.types import OptionalFieldDependencies
+from .dependencies.models import FieldDependency
+from .dependencies.types import FieldDependencies
 from .exceptions import (
     LinkRowTableNotInSameDatabase,
     LinkRowTableNotProvided,
@@ -1524,13 +1525,14 @@ class LinkRowFieldType(FieldType):
 
     def get_field_dependencies(
         self, field_instance: LinkRowField, field_cache: "FieldCache"
-    ):
+    ) -> FieldDependencies:
         primary_related_field = field_instance.get_related_primary_field()
         if primary_related_field is not None:
             return [
-                (
-                    field_instance.name,
-                    primary_related_field.name,
+                FieldDependency(
+                    dependency=primary_related_field,
+                    dependant=field_instance,
+                    via=field_instance,
                 )
             ]
         else:
@@ -2583,7 +2585,7 @@ class FormulaFieldType(ReadOnlyFieldType):
 
     def get_field_dependencies(
         self, field_instance: FormulaField, field_cache: "FieldCache"
-    ) -> OptionalFieldDependencies:
+    ) -> FieldDependencies:
         return FormulaHandler.get_field_dependencies(field_instance, field_cache)
 
     def get_human_readable_value(self, value: Any, field_object) -> str:

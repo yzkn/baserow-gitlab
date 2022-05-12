@@ -22,7 +22,7 @@ from baserow.core.models import TrashEntry
 from baserow.core.trash.exceptions import RelatedTableTrashedException
 from baserow.core.trash.registries import TrashableItemType
 from .models import TrashedRows
-from ..fields.field_cache import FieldCache
+from baserow.contrib.database.fields.field_cache import FieldCache
 
 User = get_user_model()
 
@@ -242,7 +242,9 @@ class RowTrashableItemType(TrashableItemType):
                 dependant_field,
                 dependant_field_type,
                 path_to_starting_table,
-            ) in field.dependant_fields_with_types(field_cache):
+            ) in field.dependant_fields_with_types(
+                field_cache, associated_relation_changed=True
+            ):
                 dependant_field_type.row_of_dependency_created(
                     dependant_field,
                     trashed_item,
@@ -364,7 +366,9 @@ class RowsTrashableItemType(TrashableItemType):
                 dependant_field,
                 dependant_field_type,
                 path_to_starting_table,
-            ) in field.dependant_fields_with_types(field_cache):
+            ) in field.dependant_fields_with_types(
+                field_cache, associated_relation_changed=True
+            ):
                 dependant_field_type.row_of_dependency_created(
                     dependant_field,
                     rows_to_restore,

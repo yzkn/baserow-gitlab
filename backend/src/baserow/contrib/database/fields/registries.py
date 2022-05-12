@@ -37,7 +37,7 @@ if TYPE_CHECKING:
         FieldObject,
     )
     from baserow.contrib.database.fields.dependencies.types import (
-        OptionalFieldDependencies,
+        FieldDependencies,
     )
     from baserow.contrib.database.fields.dependencies.update_collector import (
         FieldUpdateCollector,
@@ -936,21 +936,15 @@ class FieldType(
 
     def get_field_dependencies(
         self, field_instance: Field, field_cache: "FieldCache"
-    ) -> "OptionalFieldDependencies":
+    ) -> "FieldDependencies":
         """
-        Should return a list of field dependencies that field_instance has. A field
-        dependency can either be the name of a field in the same table as
-        field_instance, or a tuple where the first value is the name of a link row field
-        in the same table and the second is the name of a field in the linked table.
-
-        If instead None is returned this field_type will be treated as if it cannot have
-        dependencies on other fields.
+        Should return a list of field dependencies that field_instance has.
 
         :param field_instance: The field_instance to get field dependencies for.
         :param field_cache: A cache that can be used to lookup fields.
         """
 
-        return None
+        return []
 
     def restore_failed(self, field_instance, restore_exception):
         """

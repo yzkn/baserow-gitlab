@@ -1,16 +1,17 @@
 from typing import Optional, List, Tuple, Iterable
 
+from django.db.models import Q
+
 from baserow.contrib.database.fields.dependencies.depedency_rebuilder import (
     rebuild_field_dependencies,
     update_fields_with_broken_references,
     break_dependencies_for_field,
 )
-from baserow.contrib.database.fields.registries import field_type_registry, FieldType
 from baserow.contrib.database.fields.field_cache import FieldCache
 from baserow.contrib.database.fields.models import Field, LinkRowField
-
+from baserow.contrib.database.fields.registries import field_type_registry, FieldType
+from baserow.contrib.database.table.models import Table
 from .models import FieldDependency
-
 
 FieldDependants = List[Tuple[Field, FieldType, List[LinkRowField]]]
 
@@ -29,6 +30,9 @@ class FieldDependencyHandler:
         return [
             dep.specific
             for dep in field.field_dependencies.filter(table=field.table).all()
+        ] + [
+            dep.via.specific
+            for dep in field.dependencies.filter(via__table=field.table)
         ]
 
     @classmethod
@@ -58,6 +62,7 @@ class FieldDependencyHandler:
     def get_dependant_fields_with_type(
         cls,
         field_ids: Iterable[int],
+        associated_relations_changed: bool,
         field_cache: FieldCache,
         starting_via_path_to_starting_table: Optional[str] = None,
     ) -> FieldDependants:
@@ -66,6 +71,9 @@ class FieldDependencyHandler:
         least amount of queries.
 
         :param field_ids: The field ids for which we need to find the dependent fields.
+        :param associated_relations_changed: If true any relations associated
+            with any provided field ids will be treated as having changed also and
+            dependants on the relations themselves will be additionally returned.
         :param field_cache: A field cache used to find and store the specific object
             of the dependant.
         :param starting_via_path_to_starting_table: The starting of the dependant
@@ -74,9 +82,23 @@ class FieldDependencyHandler:
             path to starting table.
         """
 
+        if not field_cache:
+            field_cache = FieldCache()
+
+        if not field_ids:
+            return []
+
+        table = Table.objects_and_trash.filter(field__id__in=field_ids).distinct().get()
+
+        dependant_filter = Q(dependency_id__in=field_ids)
+        if associated_relations_changed:
+            dependant_filter |= (
+                Q(via_id__in=field_ids)
+                | Q(via__link_row_related_field_id__in=field_ids)
+            ) & ~Q(dependant_id__in=field_ids)
         queryset = (
-            FieldDependency.objects.filter(dependency_id__in=field_ids)
-            .select_related("dependant")
+            FieldDependency.objects.filter(dependant_filter)
+            .select_related("dependant", "via")
             .order_by("id")
         )
 
@@ -88,7 +110,7 @@ class FieldDependencyHandler:
                 # trigger any updates for it so ignore it.
                 continue
             dependant_field_type = field_type_registry.get_by_model(dependant_field)
-            if field_dependency.via is not None:
+            if field_dependency.via is not None and field_dependency.via.table != table:
                 via_path_to_starting_table = (
                     starting_via_path_to_starting_table or []
                 ) + [field_dependency.via]

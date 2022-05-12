@@ -2,7 +2,7 @@ import re
 from collections import defaultdict
 from decimal import Decimal
 from math import floor, ceil
-from typing import cast, Any, Dict, List, NewType, Optional, Type, Tuple
+from typing import cast, Any, Dict, List, NewType, Optional, Type, Tuple, Set
 
 from django.contrib.auth.models import AbstractUser
 from django.db import transaction
@@ -30,8 +30,9 @@ from .signals import (
     row_deleted,
     rows_deleted,
 )
-from ..fields.field_cache import FieldCache
-from ..fields.registries import FieldType
+from baserow.contrib.database.fields.field_cache import FieldCache
+from baserow.contrib.database.fields.registries import FieldType
+from ..fields.models import LinkRowField
 
 GeneratedTableModelForUpdate = NewType(
     "GeneratedTableModelForUpdate", GeneratedTableModel
@@ -485,7 +486,7 @@ class RowHandler:
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            field_ids, field_cache
+            field_ids, associated_relations_changed=True, field_cache=field_cache
         ):
             dependant_field_type.row_of_dependency_created(
                 dependant_field,
@@ -593,11 +594,13 @@ class RowHandler:
         if model is None:
             model = table.get_model()
 
+        updated_fields_by_name = {}
         updated_fields = []
         updated_field_ids = set()
         for field_id, field in model._field_objects.items():
             if field_id in values or field["name"] in values:
                 updated_field_ids.add(field_id)
+                updated_fields_by_name[field["name"]] = field["field"]
                 updated_fields.append(field["field"])
 
         before_return = before_row_update.send(
@@ -614,19 +617,33 @@ class RowHandler:
         for name, value in values.items():
             setattr(row, name, value)
 
+        deleted_m2m_rels_per_link_field: Dict[int, Set[int]] = defaultdict(set)
         for name, value in manytomany_values.items():
+            field = updated_fields_by_name[name]
+            new_ids = set(value)
+            # Uses the existing prefetch cache and so doesn't run queries.
+            if isinstance(field, LinkRowField):
+                for existing in getattr(row, name).all():
+                    if existing.id not in new_ids:
+                        deleted_m2m_rels_per_link_field[field.id].add(existing.id)
             getattr(row, name).set(value)
 
         row.save()
 
-        update_collector = FieldUpdateCollector(table, starting_row_id=row.id)
+        update_collector = FieldUpdateCollector(
+            table,
+            starting_row_id=row.id,
+            deleted_m2m_rels_per_link_field=deleted_m2m_rels_per_link_field,
+        )
         field_cache = FieldCache()
         for (
             dependant_field,
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            updated_field_ids, field_cache
+            updated_field_ids,
+            associated_relations_changed=True,
+            field_cache=field_cache,
         ):
             dependant_field_type.row_of_dependency_updated(
                 dependant_field,
@@ -760,7 +777,7 @@ class RowHandler:
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            field_ids, field_cache
+            field_ids, associated_relations_changed=True, field_cache=field_cache
         ):
             dependant_field_type.row_of_dependency_created(
                 dependant_field,
@@ -843,9 +860,11 @@ class RowHandler:
             raise RowDoesNotExist(sorted(list(set(row_ids) - set(db_rows_ids))))
 
         updated_field_ids = set()
+        field_name_to_field = dict()
         for obj in rows_to_update:
             row_values = rows_by_id[obj.id]
             for field_id, field in model._field_objects.items():
+                field_name_to_field[field["name"]] = field["field"]
                 if field_id in row_values or field["name"] in row_values:
                     updated_field_ids.add(field_id)
 
@@ -891,6 +910,7 @@ class RowHandler:
         many_to_many = defaultdict(list)
         row_column_name = None
         row_ids_change_m2m_per_field = defaultdict(set)
+        deleted_m2m_rels_per_link_field: Dict[int, Set[int]] = defaultdict(set)
         for index, row in enumerate(rows_to_update):
             manytomany_values = rows_relationships[index]
             for field_name, value in manytomany_values.items():
@@ -913,10 +933,27 @@ class RowHandler:
                     else:
                         value_column = field.get_attname_column()[1]
 
+                # If this m2m field is a link row we need to find out all connections
+                # which will be removed by this update. This is so we can update
+                # rows which previously were connected to an updated row, but no
+                # longer are.
+                field = field_name_to_field[field_name]
+                if isinstance(field, LinkRowField):
+                    # Uses the existing prefetch cache and so doesn't run queries.
+                    m2m_rels_before_update = {
+                        r.id for r in getattr(row, field_name).all()
+                    }
+                    deleted_m2m_rels_per_link_field[field.id].update(
+                        m2m_rels_before_update
+                    )
+
                 if len(value) == 0:
                     many_to_many[field_name].append(None)
                 else:
                     for i in value:
+                        # After we have discarded all connections the user has provided
+                        # we will be left with only the deleted connections as desired.
+                        deleted_m2m_rels_per_link_field[field.id].discard(i)
                         many_to_many[field_name].append(
                             getattr(model, field_name).through(
                                 **{
@@ -950,14 +987,20 @@ class RowHandler:
         if len(bulk_update_fields) > 0:
             model.objects.bulk_update(rows_to_update, bulk_update_fields)
 
-        update_collector = FieldUpdateCollector(table, starting_row_id=row_ids)
+        update_collector = FieldUpdateCollector(
+            table,
+            starting_row_id=row_ids,
+            deleted_m2m_rels_per_link_field=deleted_m2m_rels_per_link_field,
+        )
         field_cache = FieldCache()
         for (
             dependant_field,
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            updated_field_ids, field_cache
+            updated_field_ids,
+            associated_relations_changed=True,
+            field_cache=field_cache,
         ):
             dependant_field_type.row_of_dependency_updated(
                 dependant_field,
@@ -1064,13 +1107,21 @@ class RowHandler:
 
         update_collector = FieldUpdateCollector(table, starting_row_id=row.id)
         field_cache = FieldCache()
-        updated_field_ids = [field_id for field_id in model._field_objects.keys()]
+        updated_field_ids = []
+        updated_fields = []
+        for field_id, field_object in model._field_objects.items():
+            updated_field_ids.append(field_id)
+            field = field_object["field"]
+            updated_fields.append(field)
+
         for (
             dependant_field,
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            updated_field_ids, field_cache
+            updated_field_ids,
+            associated_relations_changed=True,
+            field_cache=field_cache,
         ):
             dependant_field_type.row_of_dependency_moved(
                 dependant_field,
@@ -1083,7 +1134,6 @@ class RowHandler:
 
         from baserow.contrib.database.views.handler import ViewHandler
 
-        updated_fields = [o["field"] for o in model._field_objects.values()]
         ViewHandler().field_value_updated(updated_fields)
 
         row_updated.send(
@@ -1156,13 +1206,22 @@ class RowHandler:
 
         update_collector = FieldUpdateCollector(table, starting_row_id=row.id)
         field_cache = FieldCache()
-        updated_field_ids = [field_id for field_id in model._field_objects.keys()]
+        updated_field_ids = []
+        updated_fields = []
+
+        for field_id, field_object in model._field_objects.items():
+            updated_field_ids.append(field_id)
+            field = field_object["field"]
+            updated_fields.append(field)
+
         for (
             dependant_field,
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            updated_field_ids, field_cache
+            updated_field_ids,
+            associated_relations_changed=True,
+            field_cache=field_cache,
         ):
             dependant_field_type.row_of_dependency_deleted(
                 dependant_field,
@@ -1175,7 +1234,6 @@ class RowHandler:
 
         from baserow.contrib.database.views.handler import ViewHandler
 
-        updated_fields = [o["field"] for o in model._field_objects.values()]
         ViewHandler().field_value_updated(updated_fields)
 
         row_deleted.send(
@@ -1239,7 +1297,13 @@ class RowHandler:
             user, group, table.database, trashed_rows, parent_id=table.id
         )
 
-        updated_field_ids = [field_id for field_id in model._field_objects.keys()]
+        updated_field_ids = []
+        updated_fields = []
+        for field_id, field_object in model._field_objects.items():
+            updated_field_ids.append(field_id)
+            field = field_object["field"]
+            updated_fields.append(field)
+
         update_collector = FieldUpdateCollector(table, starting_row_id=row_ids)
         field_cache = FieldCache()
         for (
@@ -1247,7 +1311,9 @@ class RowHandler:
             dependant_field_type,
             path_to_starting_table,
         ) in FieldDependencyHandler.get_dependant_fields_with_type(
-            updated_field_ids, field_cache
+            updated_field_ids,
+            associated_relations_changed=True,
+            field_cache=field_cache,
         ):
             dependant_field_type.row_of_dependency_deleted(
                 dependant_field,
@@ -1260,7 +1326,6 @@ class RowHandler:
 
         from baserow.contrib.database.views.handler import ViewHandler
 
-        updated_fields = [o["field"] for o in model._field_objects.values()]
         ViewHandler().field_value_updated(updated_fields)
 
         rows_deleted.send(

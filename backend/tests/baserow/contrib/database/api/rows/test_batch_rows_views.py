@@ -1735,11 +1735,13 @@ def test_batch_update_rows_num_of_queries(api_client, data_fixture):
 
     url = reverse("api:database:rows:batch", kwargs={"table_id": table_b.id})
 
+    related_link_field = link_field.link_row_related_field
     with CaptureQueriesContext(connection) as update_one_row_ctx:
         request_body = {
             "items": [
                 {
                     f"id": row_b_1.id,
+                    f"field_{related_link_field.id}": [row_1.id],
                     f"field_{number_field.id}": 120,
                     f"field_{text_field.id}": "Text",
                     f"field_{boolean_field.id}": True,
@@ -1763,6 +1765,7 @@ def test_batch_update_rows_num_of_queries(api_client, data_fixture):
             "items": [
                 {
                     f"id": row_b_2.id,
+                    f"field_{related_link_field.id}": [row_1.id],
                     f"field_{number_field.id}": 240,
                     f"field_{text_field.id}": "Text 2",
                     f"field_{boolean_field.id}": False,
@@ -1774,6 +1777,7 @@ def test_batch_update_rows_num_of_queries(api_client, data_fixture):
                 },
                 {
                     f"id": row_b_3.id,
+                    f"field_{related_link_field.id}": [row_2.id],
                     f"field_{number_field.id}": 240,
                     f"field_{text_field.id}": "Text 3",
                     f"field_{boolean_field.id}": False,
@@ -1785,6 +1789,7 @@ def test_batch_update_rows_num_of_queries(api_client, data_fixture):
                 },
                 {
                     f"id": row_b_4.id,
+                    f"field_{related_link_field.id}": [row_1.id, row_2.id],
                     f"field_{number_field.id}": 500,
                     f"field_{text_field.id}": "Text 4",
                     f"field_{boolean_field.id}": False,
