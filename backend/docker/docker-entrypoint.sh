@@ -262,8 +262,8 @@ case "$1" in
     setup)
       echo "python3 /baserow/backend/src/baserow/manage.py migrate"
       DONT_UPDATE_FORMULAS_AFTER_MIGRATION=yes python3 /baserow/backend/src/baserow/manage.py migrate
-      echo "python3 /baserow/backend/src/baserow/manage.py update_formulas"
-      python3 /baserow/backend/src/baserow/manage.py update_formulas
+      echo "python3 /baserow/backend/src/baserow/manage.py migrate_formulas"
+      python3 /baserow/backend/src/baserow/manage.py migrate_formulas
       echo "python3 /baserow/backend/src/baserow/manage.py sync_templates"
       python3 /baserow/backend/src/baserow/manage.py sync_templates
     ;;

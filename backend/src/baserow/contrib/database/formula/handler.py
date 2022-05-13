@@ -1,6 +1,7 @@
-from typing import Type, Dict, Set, Optional
+import logging
+from typing import Type, Dict, Set, Optional, TYPE_CHECKING
 
-from django.db.models import Model, Expression, Q
+from django.db.models import Model, Expression
 
 from baserow.contrib.database.fields.dependencies.types import FieldDependencies
 from baserow.contrib.database.fields.field_cache import FieldCache
@@ -16,6 +17,9 @@ from baserow.contrib.database.formula.expression_generator.generator import (
     baserow_expression_to_update_django_expression,
     baserow_expression_to_single_row_update_django_expression,
     baserow_expression_to_insert_django_expression,
+)
+from baserow.contrib.database.formula.migrations.migrations import (
+    BASEROW_FORMULA_VERSION,
 )
 from baserow.contrib.database.formula.parser.ast_mapper import (
     raw_formula_to_untyped_expression,
@@ -39,29 +43,11 @@ from baserow.contrib.database.formula.types.visitors import (
     FunctionsUsedVisitor,
     FieldReferenceExtractingVisitor,
 )
-from baserow.core.db import LockedAtomicTransaction
 
+if TYPE_CHECKING:
+    pass
 
-def _recalculate_depth_first(f, already_recalculated, field_lookup_cache):
-    from baserow.contrib.database.fields.models import FormulaField
-
-    recalculated_dependant = False
-    if f.id in already_recalculated:
-        return True
-    for dep in f.field_dependencies.all():
-        recalculated_dependant = recalculated_dependant or _recalculate_depth_first(
-            dep, already_recalculated, field_lookup_cache
-        )
-
-    f = field_lookup_cache.lookup_specific(f)
-
-    if isinstance(f, FormulaField) and (
-        f.version != FormulaHandler.BASEROW_FORMULA_VERSION or recalculated_dependant
-    ):
-        f.save(field_lookup_cache=field_lookup_cache, raise_if_invalid=False)
-        recalculated_dependant = True
-        already_recalculated.add(f.id)
-    return recalculated_dependant
+logger = logging.getLogger(__name__)
 
 
 def _expression_requires_refresh_after_insert(expression: BaserowExpression):
@@ -95,8 +81,6 @@ class FormulaHandler:
     Contains all the methods used to interact with formulas and formula fields in
     Baserow.
     """
-
-    BASEROW_FORMULA_VERSION = 3
 
     @classmethod
     def baserow_expression_to_update_django_expression(
@@ -354,7 +338,7 @@ class FormulaHandler:
         refresh_after_insert = _expression_requires_refresh_after_insert(expression)
 
         formula_field.internal_formula = internal_formula
-        formula_field.version = cls.BASEROW_FORMULA_VERSION
+        formula_field.version = BASEROW_FORMULA_VERSION
         expression_type.persist_onto_formula_field(formula_field)
         formula_field.requires_refresh_after_insert = refresh_after_insert
         return expression
@@ -373,47 +357,6 @@ class FormulaHandler:
         """
 
         return get_parse_tree_for_formula(formula)
-
-    @classmethod
-    def recalculate_formulas_according_to_version(cls):
-        """
-        Ensures all formulas are updated to the latest formula version being used by
-        the code. Essentially recalculates the internal formula attributes in dependency
-        order if the version of the formula in the database does not match this classes
-        BASEROW_FORMULA_VERSION attribute.
-        """
-
-        from baserow.contrib.database.fields.models import FormulaField
-
-        field_lookup_cache = FieldCache()
-        already_recalculated = set()
-
-        def formulas_need_update():
-            return FormulaField.objects.filter(
-                ~Q(version=cls.BASEROW_FORMULA_VERSION)
-            ).exists()
-
-        if formulas_need_update():
-            with LockedAtomicTransaction(FormulaField):
-                # Another process might have gotten the lock first and already done
-                # the update so we recheck once we have the lock.
-                if formulas_need_update():
-                    for field in FormulaField.objects.all():
-                        _recalculate_depth_first(
-                            field, already_recalculated, field_lookup_cache
-                        )
-
-                    num_updated = FormulaField.objects.update(
-                        version=cls.BASEROW_FORMULA_VERSION,
-                    )
-                    print(f"Updated {num_updated} formulas which were out of date.")
-                else:
-                    print(
-                        "Some other process updated the formulas before this one "
-                        "could... "
-                    )
-        else:
-            print("All formulas were already upto date, no update required!")
 
     @classmethod
     def recalculate_formula_and_get_update_expression(

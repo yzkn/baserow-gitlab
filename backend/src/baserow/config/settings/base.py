@@ -596,3 +596,7 @@ LOGGING = {
         "level": BASEROW_BACKEND_LOG_LEVEL,
     },
 }
+
+# Indicates whether we are running the tests or not. Set to True in the test.py settings
+# file used by pytest.ini
+TESTS = False
