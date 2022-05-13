@@ -1,9 +1,13 @@
 from unittest.mock import patch, call
 
 import pytest
+from django.conf import settings
+from django.core.cache import caches
 from baserow.contrib.database.table.cache import (
     invalidate_table_in_model_cache,
     get_latest_cached_model_field_attrs,
+    set_cached_model_field_attrs,
+    table_model_cache_version_key,
 )
 
 
@@ -97,3 +101,25 @@ def test_deleting_tables_group_removes_generated_model_cache_entry(data_fixture)
     table.database.group.delete()
 
     assert get_latest_cached_model_field_attrs(table.id) is None
+
+
+@pytest.mark.django_db
+def test_set_cached_model_field_attrs_default_version(data_fixture):
+    table = data_fixture.create_database_table()
+
+    generated_models_cache = caches[settings.GENERATED_MODEL_CACHE_NAME]
+    generated_models_cache.delete(table_model_cache_version_key(table.id))
+
+    # Should not raise ValueError
+    set_cached_model_field_attrs(table.id, {})
+
+
+@pytest.mark.django_db
+def test_invalidate_table_in_model_cache_default_version(data_fixture):
+    table = data_fixture.create_database_table()
+
+    generated_models_cache = caches[settings.GENERATED_MODEL_CACHE_NAME]
+    generated_models_cache.delete(table_model_cache_version_key(table.id))
+
+    # Should not raise ValueError
+    invalidate_table_in_model_cache(table.id, {})

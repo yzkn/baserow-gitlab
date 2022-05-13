@@ -78,7 +78,12 @@ def set_cached_model_field_attrs(table_id: int, field_attrs: Dict[str, Any]):
     # If we did not do this two different processes could get the same
     # `next_model_version` and then race to set field_attrs. Both processes could have
     # queried the database at different times and constructed different field_attrs.
-    next_model_version = generated_models_cache.incr(model_version_key)
+    try:
+        next_model_version = generated_models_cache.incr(model_version_key)
+    except ValueError:
+        next_model_version = 2
+        generated_models_cache.set(model_version_key, next_model_version)
+
     cache_key = table_model_cache_entry_key(table_id, next_model_version)
     generated_models_cache.set(cache_key, field_attrs, timeout=None)
 
@@ -125,7 +130,11 @@ def invalidate_table_in_model_cache(
             table_model_cache_entry_key(table_id, model_version)
         )
 
-    generated_models_cache.incr(model_version_key)
+    try:
+        generated_models_cache.incr(model_version_key)
+    except ValueError:
+        next_model_version = 2
+        generated_models_cache.set(model_version_key, next_model_version)
 
     return model_version
 
