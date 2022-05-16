@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Type, Dict, Set, Optional
+from typing import Type, Dict, Set, Optional, TYPE_CHECKING
 
 from django.db.models import Model, Expression, Q
 
@@ -43,52 +43,70 @@ from baserow.contrib.database.formula.types.visitors import (
 )
 from baserow.core.db import LockedAtomicTransaction
 
+if TYPE_CHECKING:
+    from baserow.contrib.database.fields.models import Field
+
 logger = logging.getLogger(__name__)
 
 
-def _recalculate_depth_first(f, already_recalculated, field_lookup_cache):
+def _recalculate_formula_metadata_dependencies_first_order(
+    field: "Field",
+    field_lookup_cache: FieldCache,
+    recalculate_cell_values: bool,
+    already_recalculated: Set[int],
+) -> bool:
+    """
+    Initially follows the field dependency tree recursively from the provided field
+    and recalculates all the fields dependencies first before recalculating the provided
+    field.
+
+    :param field: The field to recalculate its metadata and/or cell values for.
+    :param field_lookup_cache: A cache using to stored queried fields.
+    :param recalculate_cell_values: Whether to recalculate the cell values of the
+        fields also and not just their metadata.
+    :param already_recalculated: A set of field ids which have already been recalculated
+        which will used to skip recalculating them again if encountered again.
+    :return: True if the field was recalculated, False otherwise.
+    """
+
     from baserow.contrib.database.fields.models import FormulaField
+
+    if already_recalculated is None:
+        already_recalculated = set()
 
     recalculated_dependant = False
-    if f.id in already_recalculated:
+    if field.id in already_recalculated:
         return True
-    for dep in f.field_dependencies.all():
-        recalculated_dependant = recalculated_dependant or _recalculate_depth_first(
-            dep, already_recalculated, field_lookup_cache
+
+    for dep in field.field_dependencies.all():
+        recalculated_dependant = (
+            recalculated_dependant
+            or _recalculate_formula_metadata_dependencies_first_order(
+                dep, field_lookup_cache, recalculate_cell_values, already_recalculated
+            )
         )
 
-    f = field_lookup_cache.lookup_specific(f)
+    field = field_lookup_cache.lookup_specific(field)
 
-    if isinstance(f, FormulaField) and (
-        f.version != FormulaHandler.BASEROW_FORMULA_VERSION or recalculated_dependant
+    if isinstance(field, FormulaField) and (
+        field.version != FormulaHandler.BASEROW_FORMULA_VERSION
+        or recalculated_dependant
     ):
-        f.save(field_lookup_cache=field_lookup_cache, raise_if_invalid=False)
+        field.save(field_lookup_cache=field_lookup_cache, raise_if_invalid=False)
+        if recalculate_cell_values:
+            try:
+                model = field.table.get_model()
+                expr = FormulaHandler.baserow_expression_to_update_django_expression(
+                    field.cached_typed_internal_expression, model
+                )
+                model.objects_and_trash.all().update(**{f"{field.db_column}": expr})
+            except Exception:
+                # TODO -> Should we do something else here? Break the formula perhaps?
+                logger.warning(f"Failed to recalculate field {field.id} because:")
+                logger.warning(traceback.format_exc())
         recalculated_dependant = True
-        already_recalculated.add(f.id)
+        already_recalculated.add(field.id)
     return recalculated_dependant
-
-
-def _recalculate_depth_first2(f, already_recalculated, field_lookup_cache):
-    from baserow.contrib.database.fields.models import FormulaField
-
-    for dep in f.field_dependencies.all():
-        _recalculate_depth_first2(dep, already_recalculated, field_lookup_cache)
-
-    f = field_lookup_cache.lookup_specific(f)
-
-    if isinstance(f, FormulaField):
-        field = f
-        f.save(field_lookup_cache=field_lookup_cache, raise_if_invalid=False)
-        # noinspection PyBroadException
-        try:
-            model = field.table.get_model()
-            expr = FormulaHandler.baserow_expression_to_update_django_expression(
-                field.cached_typed_internal_expression, model
-            )
-            model.objects_and_trash.all().update(**{f"{field.db_column}": expr})
-        except Exception:
-            logger.warning(f"Failed to recalculate field {field.id} because:")
-            logger.warning(traceback.format_exc())
 
 
 def _expression_requires_refresh_after_insert(expression: BaserowExpression):
@@ -406,9 +424,9 @@ class FormulaHandler:
     def recalculate_formulas_according_to_version(cls):
         """
         Ensures all formulas are updated to the latest formulas version being used by
-        the code. Essentially recalculates the internal formulas attributes in dependency
-        order if the version of the formulas in the database does not match this classes
-        BASEROW_FORMULA_VERSION attribute.
+        the code. Essentially recalculates the internal formulas attributes in
+        dependency order if the version of the formulas in the database does not
+        match this classes BASEROW_FORMULA_VERSION attribute.
         """
 
         from baserow.contrib.database.fields.models import FormulaField
@@ -430,29 +448,32 @@ class FormulaHandler:
                 # the update so we recheck once we have the lock.
                 if formulas_need_update():
                     formulas = FormulaField.objects.all()
-                    current_versions = set(
-                        FormulaField.objects.values_list(
-                            "version", flat=True
-                        ).distinct()
-                    )
-                    if any(
-                        current_version < v <= cls.BASEROW_FORMULA_VERSION
-                        for v in cls.BASEROW_FORMULA_VERSIONS_NEEDING_FULL_REFRESH
-                        for current_version in current_versions
-                    ):
+                    if cls._needs_full_formula_refresh():
+                        # First recalculate all formula dependencies to ensure they
+                        # are correct and upto date. This is needed because the new
+                        # version might calculate dependencies differently than the
+                        # old version.
                         for field in formulas:
-
                             FieldDependencyHandler.rebuild_dependencies(
                                 field, field_lookup_cache
                             )
+                        # Now the dependency graph is correct for the current version
+                        # we can starting from the dependencies recalculate the formula
+                        # metadata and cell values across the entire dependency tree.
                         for field in formulas:
-                            _recalculate_depth_first2(
-                                field, already_recalculated, field_lookup_cache
+                            _recalculate_formula_metadata_dependencies_first_order(
+                                field,
+                                field_lookup_cache,
+                                recalculate_cell_values=True,
+                                already_recalculated=already_recalculated,
                             )
                     else:
                         for field in formulas:
-                            _recalculate_depth_first(
-                                field, already_recalculated, field_lookup_cache
+                            _recalculate_formula_metadata_dependencies_first_order(
+                                field,
+                                field_lookup_cache,
+                                recalculate_cell_values=False,
+                                already_recalculated=already_recalculated,
                             )
 
                     num_updated = FormulaField.objects.update(
@@ -466,6 +487,29 @@ class FormulaHandler:
                     )
         else:
             print("All formulas were already upto date, no update required!")
+
+    @classmethod
+    def _needs_full_formula_refresh(cls):
+        """
+        If there are any formulas in the database which have a version that requires
+        a full refresh to upgrade to the current version, this method will return True.
+
+        An old formula version requires a full refresh to upgrade if there is a version
+        numerically between the old version and the current version which is marked
+        as a version that requires a full refresh by being present in
+        cls.BASEROW_FORMULA_VERSION_REQUIRING_FULL_REFRESH.
+        """
+
+        from baserow.contrib.database.fields.models import FormulaField
+
+        current_versions = set(
+            FormulaField.objects.values_list("version", flat=True).distinct()
+        )
+        return any(
+            current_version < v <= cls.BASEROW_FORMULA_VERSION
+            for v in cls.BASEROW_FORMULA_VERSIONS_NEEDING_FULL_REFRESH
+            for current_version in current_versions
+        )
 
     @classmethod
     def recalculate_formula_and_get_update_expression(

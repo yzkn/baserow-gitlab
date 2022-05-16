@@ -1,4 +1,6 @@
 import inspect
+from decimal import Decimal
+from unittest.mock import patch, PropertyMock
 
 import pytest
 from django.db.models import TextField
@@ -306,15 +308,25 @@ def test_can_rename_field_preserving_whitespace(
 
 
 @pytest.mark.django_db
+@patch(
+    "baserow.contrib.database.formula.handler.FormulaHandler.BASEROW_FORMULA_VERSION",
+    new_callable=PropertyMock,
+)
 def test_recalculate_formulas_according_to_version(
+    mock_formula_version,
     data_fixture,
 ):
+    old_version = 0
+    version_to_update_to = 1
+
+    mock_formula_version.return_value = old_version
+
     formula_with_default_internal_field = data_fixture.create_formula_field(
         formula="1",
         internal_formula="",
         requires_refresh_after_insert=False,
         name="a",
-        version=1,
+        version=old_version,
         recalculate=False,
         create_field=False,
     )
@@ -324,7 +336,7 @@ def test_recalculate_formulas_according_to_version(
         formula_type="number",
         requires_refresh_after_insert=False,
         name="b",
-        version=1,
+        version=old_version,
         recalculate=False,
         create_field=False,
     )
@@ -333,7 +345,7 @@ def test_recalculate_formulas_according_to_version(
         internal_formula="",
         requires_refresh_after_insert=False,
         name="c",
-        version=1,
+        version=old_version,
         recalculate=False,
         create_field=False,
     )
@@ -343,7 +355,7 @@ def test_recalculate_formulas_according_to_version(
         internal_formula="",
         requires_refresh_after_insert=False,
         name="d",
-        version=1,
+        version=old_version,
         recalculate=False,
         create_field=False,
     )
@@ -352,7 +364,7 @@ def test_recalculate_formulas_according_to_version(
         internal_formula="",
         requires_refresh_after_insert=False,
         name="e",
-        version=FormulaHandler.BASEROW_FORMULA_VERSION,
+        version=version_to_update_to,
         recalculate=False,
         create_field=False,
     )
@@ -362,17 +374,16 @@ def test_recalculate_formulas_according_to_version(
         internal_formula="",
         requires_refresh_after_insert=False,
         name="f",
-        version=FormulaHandler.BASEROW_FORMULA_VERSION,
+        version=version_to_update_to,
         recalculate=False,
         create_field=False,
     )
-    assert (
-        formula_already_at_correct_version.version
-        == FormulaHandler.BASEROW_FORMULA_VERSION
-    )
-    assert dependant_formula.version == 1
+    assert formula_already_at_correct_version.version == version_to_update_to
+    assert dependant_formula.version == old_version
 
-    FormulaHandler().recalculate_formulas_according_to_version()
+    mock_formula_version.return_value = version_to_update_to
+
+    FormulaHandler.recalculate_formulas_according_to_version()
 
     formula_with_default_internal_field.refresh_from_db()
     assert formula_with_default_internal_field.internal_formula == "error_to_nan(1)"
@@ -1230,3 +1241,46 @@ def test_inserting_a_row_with_lookup_field_immediately_populates_it_with_empty_l
     default_empty_value_for_lookup = getattr(inserted_row, f"field_{lookup.id}")
     assert default_empty_value_for_lookup is not None
     assert default_empty_value_for_lookup == "[]"
+
+
+@pytest.mark.django_db
+@patch(
+    "baserow.contrib.database.formula.handler.FormulaHandler.BASEROW_FORMULA_VERSION",
+    new_callable=PropertyMock,
+)
+def test_recalculate_formulas_according_to_version_needing_full_refresh(
+    mock_formula_version,
+    data_fixture,
+):
+    mock_formula_version.return_value = 0
+    formula_that_needs_refresh = data_fixture.create_formula_field(
+        formula="row_id()",
+        formula_type="number",
+        requires_refresh_after_insert=True,
+        name="needs_refresh",
+    )
+    dependant_formula = data_fixture.create_formula_field(
+        table=formula_that_needs_refresh.table,
+        formula=f"field('{formula_that_needs_refresh.name}')",
+        name="dependant_formula",
+    )
+    FormulaField.objects.update(version=0)
+
+    data_fixture.create_rows_in_table(formula_that_needs_refresh.table, [[], []])
+
+    assert data_fixture.get_rows([formula_that_needs_refresh, dependant_formula]) == [
+        [None, None],
+        [None, None],
+    ]
+
+    version_that_needs_refresh = list(
+        FormulaHandler.BASEROW_FORMULA_VERSIONS_NEEDING_FULL_REFRESH
+    )[0]
+    mock_formula_version.return_value = version_that_needs_refresh
+
+    FormulaHandler.recalculate_formulas_according_to_version()
+
+    assert data_fixture.get_rows([formula_that_needs_refresh, dependant_formula]) == [
+        [Decimal("1"), Decimal("1")],
+        [Decimal("2"), Decimal("2")],
+    ]
