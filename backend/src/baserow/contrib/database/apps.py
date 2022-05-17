@@ -2,7 +2,7 @@ from django.apps import AppConfig
 from django.conf import settings
 from django.core.exceptions import FieldDoesNotExist
 from django.db import ProgrammingError
-from django.db.models.signals import post_migrate
+from django.db.models.signals import post_migrate, pre_migrate
 
 from baserow.contrib.database.table.cache import clear_generated_model_cache
 from baserow.core.registries import (
@@ -379,7 +379,7 @@ class DatabaseConfig(AppConfig):
         import baserow.contrib.database.ws.signals  # noqa: F403, F401
 
         post_migrate.connect(safely_update_formula_versions, sender=self)
-        post_migrate.connect(clear_generated_model_cache_receiver, sender=self)
+        pre_migrate.connect(clear_generated_model_cache_receiver, sender=self)
 
 
 # noinspection PyPep8Naming

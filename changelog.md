@@ -3,6 +3,8 @@
 ## Unreleased
 
 * Fix formula bugs caused by unsupported generation of BC dates.
+* Added row coloring for Kanban and Gallery views
+* Prevent unpickle errors when downgrading Baserow due to model cache not being cleaned.
 
 ## Released (2022-10-05 1.10.0)
 
