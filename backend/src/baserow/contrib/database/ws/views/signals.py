@@ -35,12 +35,13 @@ def view_created(sender, view, user, **kwargs):
 
 
 @receiver(view_signals.view_updated)
-def view_updated(sender, view, user, **kwargs):
+def view_updated(sender, view, user, force_table_refresh=False, **kwargs):
     table_page_type = page_registry.get("table")
     transaction.on_commit(
         lambda: table_page_type.broadcast(
             {
                 "type": "view_updated",
+                "force_table_refresh": force_table_refresh,
                 "view_id": view.id,
                 "view": view_type_registry.get_serializer(
                     view,

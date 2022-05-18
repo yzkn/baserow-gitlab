@@ -374,6 +374,13 @@ class DatabaseConfig(AppConfig):
         airtable_column_type_registry.register(MultipleAttachmentAirtableColumnType())
         airtable_column_type_registry.register(RichTextTextAirtableColumnType())
 
+        from baserow.core.jobs.registries import job_type_registry
+        from .airtable.job_type import AirtableImportJobType
+        from .file_import.job_type import FileImportJobType
+
+        job_type_registry.register(AirtableImportJobType())
+        job_type_registry.register(FileImportJobType())
+
         # The signals must always be imported last because they use the registries
         # which need to be filled first.
         import baserow.contrib.database.ws.signals  # noqa: F403, F401

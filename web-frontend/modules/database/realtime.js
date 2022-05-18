@@ -279,7 +279,8 @@ export const registerRealtimeEvents = (realtime) => {
         if (
           refresh ||
           view.filter_type !== oldView.filter_type ||
-          view.filters_disabled !== oldView.filters_disabled
+          view.filters_disabled !== oldView.filters_disabled ||
+          data.force_table_refresh
         ) {
           app.$bus.$emit('table-refresh', {
             tableId: store.getters['table/getSelectedId'],
