@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { routes } from './routes'
+import {routes} from './routes'
 
 export default function () {
   this.options.alias['@{{ cookiecutter.project_slug }}'] = path.resolve(__dirname, './')

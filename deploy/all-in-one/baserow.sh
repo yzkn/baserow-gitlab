@@ -27,6 +27,9 @@ backend-cmd-with-db  : Starts the embedded postgres database and then runs any s
                        backend command normally. Useful for running one off commands
                        that require the database like backups and restores.
 web-frontend-cmd CMD : Runs the specified web-frontend command, use help to show all
+install-plugin   CMD : Installs a plugin (append --help for more info).
+uninstall-plugin CMD : Un-installs a plugin (append --help for more info).
+list-plugins     CMD : Lists currently installed plugins.
 help                 : Show this message.
 """
 }
@@ -148,9 +151,11 @@ if [[ "$DATABASE_HOST" == "embed" && -z "${DATABASE_URL:-}" ]]; then
   fi
   startup_echo "No DATABASE_HOST or DATABASE_URL provided, using embedded postgres."
   export DATABASE_HOST=localhost
+  export BASEROW_EMBEDDED_PSQL=true
 else
   startup_echo "Using provided external postgres at ${DATABASE_HOST:-} or the " \
                "DATABASE_URL"
+  export BASEROW_EMBEDDED_PSQL=false
 fi
 
 # ========================
@@ -264,28 +269,32 @@ o be standalone. Please"\
     fi
 }
 
+run_cmd_with_db(){
+    check_can_start_embedded_services
+
+    export SUPERVISOR_CONF=/baserow/supervisor/supervisor_include_only.conf
+    /baserow/supervisor/start.sh "${@:2}" &
+    SUPERVISORD_PID=$!
+
+    function finish {
+      echo "======== Cleaning up after Command =========="
+      (sleep 1; kill $SUPERVISORD_PID) &
+      wait $SUPERVISORD_PID
+    }
+    trap finish EXIT
+    ./baserow/backend/docker/docker-entrypoint.sh wait_for_db
+    echo "======== RUNNING COMMAND ========="
+    "$*"
+    echo "=================================="
+    finish
+}
+
 case "$1" in
     start)
       exec /baserow/supervisor/start.sh "${@:2}"
     ;;
     backend-cmd-with-db)
-      check_can_start_embedded_services
-
-      export SUPERVISOR_CONF=/baserow/supervisor/supervisor_include_only.conf
-      /baserow/supervisor/start.sh "${@:2}" &
-      SUPERVISORD_PID=$!
-
-      function finish {
-        echo "======== Cleaning up after Command =========="
-        (sleep 1; kill $SUPERVISORD_PID) &
-        wait $SUPERVISORD_PID
-      }
-      trap finish EXIT
-      ./baserow/backend/docker/docker-entrypoint.sh wait_for_db
-      echo "======== RUNNING COMMAND ========="
-      gosu "$DOCKER_USER" ./baserow/backend/docker/docker-entrypoint.sh "${@:2}"
-      echo "=================================="
-      finish
+      run_cmd_with_db gosu "$DOCKER_USER" ./baserow/backend/docker/docker-entrypoint.sh "${@:2}"
     ;;
     start-only-db)
       check_can_start_embedded_services
@@ -310,6 +319,18 @@ case "$1" in
     ;;
     web-frontend-cmd)
       docker_safe_run /baserow/web-frontend/docker/docker-entrypoint.sh "${@:2}"
+    ;;
+    install-plugin)
+      exec /baserow/plugins/install_plugin.sh --runtime "${@:2}"
+    ;;
+    uninstall-plugin)
+      # We need the database to uninstall as the plugin might need to unapply migrations
+      # Whereas when installing any database changes can just be normal migrations which
+      # will then be run on startup.
+      run_cmd_with_db exec /baserow/plugins/uninstall_plugin.sh "${@:2}"
+    ;;
+    list-plugins)
+      exec /baserow/plugins/list_plugins.sh "${@:2}"
     ;;
     *)
         echo "Command given was $*"

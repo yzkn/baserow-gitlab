@@ -115,6 +115,9 @@ shell           : Start a Django Python shell
 shell           : Start a Django Python shell
 wait_for_db     : Waits BASEROW_POSTGRES_STARTUP_CHECK_ATTEMPTS attempts for the
                   configured db to become available.
+install-plugin  : Installs a plugin (append --help for more info).
+uninstall-plugin: Un-installs a plugin (append --help for more info).
+list-plugins    : Lists currently installed plugins.
 help            : Show this message
 
 SERVICE COMMANDS:
@@ -144,6 +147,7 @@ test:           : Run the tests (only available if using dev target)
 ci-test:        : Run the tests for ci including various reports (dev only)
 ci-check-startup: Start up a single gunicorn and timeout after 10 seconds for ci (dev)
 watch-py CMD    : Auto reruns the provided CMD whenever python files change
+install-plugin  : Installs a baserow plugin.
 """
 }
 
@@ -356,6 +360,15 @@ case "$1" in
     ;;
     wait_for_db)
       wait_for_postgres
+    ;;
+    install-plugin)
+      exec /baserow/plugins/install_plugin.sh --runtime "${@:2}"
+    ;;
+    uninstall-plugin)
+      exec /baserow/plugins/uninstall_plugin.sh "${@:2}"
+    ;;
+    list-plugins)
+      exec /baserow/plugins/list_plugins.sh "${@:2}"
     ;;
     *)
         echo "Command given was $*"

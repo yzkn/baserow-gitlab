@@ -6,9 +6,13 @@ export default function (
   // env variable which is a comma separated list of absolute module paths.
   const additionalModulesCsv = process.env.ADDITIONAL_MODULES
   const additionalModules = additionalModulesCsv
-    ? additionalModulesCsv.split(',')
+    ? additionalModulesCsv
+        .split(',')
+        .map((m) => m.trim())
+        .filter((m) => m !== '')
     : []
 
+  console.log(`Loading extra modules ${additionalModules}`)
   const baseModules = [
     base + '/modules/core/module.js',
     base + '/modules/database/module.js',

@@ -29,6 +29,7 @@
 * Prevent the Airtable import from failing hard when an invalid date is provided.
 * Increased the max decimal places of a number field to 10.
 * Fix formula autocomplete for fields with multiple quotes
+* Fixed plugin boilerplate guide.
 
 ## Released (2022-10-05 1.10.0)
 

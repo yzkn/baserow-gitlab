@@ -12,16 +12,20 @@ COMMANDS:
 nuxt-dev   : Start a normal nuxt development server
 nuxt       : Start a non-dev prod ready nuxt server
 nuxt-local : Start a non-dev prod ready nuxt server using the preset local config
-bash     : Start a bash shell
+bash       : Start a bash shell
+build-local: Triggers a nuxt re-build of Baserow's web-frontend.
 
 DEV COMMANDS:
-lint     : Run all the linting
-lint-fix : Run eslint fix
-stylelint: Run stylelint
-eslint   : Run eslint
-test     : Run jest tests
-ci-test  : Run ci tests with reporting
-help     : Show this message
+lint            : Run all the linting
+lint-fix        : Run eslint fix
+stylelint       : Run stylelint
+eslint          : Run eslint
+test            : Run jest tests
+ci-test         : Run ci tests with reporting
+install-plugin  : Installs a plugin (append --help for more info).
+uninstall-plugin: Un-installs a plugin (append --help for more info).
+list-plugins    : Lists currently installed plugins.
+help            : Show this message
 """
 }
 
@@ -39,6 +43,15 @@ if [[ -z "${1:-}" ]]; then
   exit 1
 fi
 
+BASEROW_PLUGIN_DIR=${BASEROW_PLUGIN_DIR:-/baserow/plugins}
+ADDITIONAL_MODULES="${ADDITIONAL_MODULES:-}"
+shopt -s nullglob
+PLUGIN_MODULE_FILES=("$BASEROW_PLUGIN_DIR"/*/web-frontend/modules/*/module.js)
+for plugin in "${PLUGIN_MODULE_FILES[@]}"; do
+    echo "Loading web-frontend plugin from: $plugin"
+    ADDITIONAL_MODULES="${ADDITIONAL_MODULES:-},$plugin"
+done
+export ADDITIONAL_MODULES
 
 case "$1" in
     nuxt-dev)
@@ -70,6 +83,18 @@ case "$1" in
     ;;
     bash)
       exec /bin/bash -c "${@:2}"
+    ;;
+    build-local)
+      exec yarn run build-local
+    ;;
+    install-plugin)
+      exec /baserow/plugins/install_plugin.sh "${@:2}"
+    ;;
+    uninstall-plugin)
+      exec /baserow/plugins/uninstall_plugin.sh "${@:2}"
+    ;;
+    list-plugins)
+      exec /baserow/plugins/list_plugins.sh "${@:2}"
     ;;
     *)
       echo "Command given was $*"

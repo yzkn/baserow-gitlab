@@ -1,0 +1,12 @@
+{
+  "name": "{{ cookiecutter.project_name }}",
+  "version": "0.0.1",
+  "supported_baserow_versions": "1.11.0>=",
+  "plugin_api_version": "0.0.1-alpha",
+  "description": "{{ cookiecutter.project_description }}",
+  "author": "{{ cookiecutter.project_author }}",
+  "author_url": "",
+  "url": "",
+  "license": "{{ cookiecutter.project_license }}",
+  "contact": "{{ cookiecutter.project_contact }}"
+}
