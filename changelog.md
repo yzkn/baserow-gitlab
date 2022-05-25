@@ -4,6 +4,7 @@
 
 * Added row coloring for Kanban and Gallery views
 * Fix formula bugs caused by unsupported generation of BC dates.
+* Fix formula bug caused when looking up date intervals.
 
 ## Released (2022-10-05 1.10.0)
 

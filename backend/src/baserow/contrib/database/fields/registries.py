@@ -28,6 +28,7 @@ from baserow.core.registry import (
 from .dependencies.types import OptionalFieldDependencies
 from .exceptions import FieldTypeAlreadyRegistered, FieldTypeDoesNotExist
 from .constants import UPSERT_OPTION_DICT_KEY
+from .fields import DurationFieldUsingPostgresFormatting
 from .models import SelectOption, Field
 
 if TYPE_CHECKING:
@@ -194,7 +195,13 @@ class FieldType(
         :return: A Q filter.
         """
 
-        fs = [ManyToManyField, ForeignKey, DurationField, ArrayField]
+        fs = [
+            ManyToManyField,
+            ForeignKey,
+            DurationField,
+            ArrayField,
+            DurationFieldUsingPostgresFormatting,
+        ]
         # If the model_field is a ManyToMany field we only have to check if it is None.
         if any(isinstance(model_field, f) for f in fs):
             return Q(**{f"{field_name}": None})
