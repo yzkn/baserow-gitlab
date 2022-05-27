@@ -194,9 +194,14 @@ class FormulaTypingVisitor(
         from baserow.contrib.database.fields.registries import field_type_registry
         from baserow.contrib.database.fields.models import LinkRowField
 
-        lookup_field_type = field_type_registry.get_by_model(target_field)
-        formula_type = lookup_field_type.to_baserow_formula_type(target_field)
         if isinstance(target_field, LinkRowField):
+            if (
+                target_field.link_row_table_id == self.field_being_typed.table_id
+                and self.field_being_typed.primary
+            ):
+                return field_reference.with_invalid_type(
+                    "references itself via a link field causing a circular dependency"
+                )
             # If we are looking up a link row field we need to do an
             # extra relational jump to that primary field.
             related_primary_field = target_field.get_related_primary_field()
@@ -207,6 +212,10 @@ class FormulaTypingVisitor(
             sub_ref = "__" + related_primary_field.db_column
         else:
             sub_ref = ""
+
+        lookup_field_type = field_type_registry.get_by_model(target_field)
+        formula_type = lookup_field_type.to_baserow_formula_type(target_field)
+
         return BaserowFieldReference(
             referenced_field.db_column,
             target_field.db_column + sub_ref,

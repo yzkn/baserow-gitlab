@@ -69,12 +69,10 @@ def _recalculate_formula_metadata_dependencies_first_order(
                     "Failed to recalculate cell values after formula update."
                 )
                 logger.warning(
-                    f"During formula update change failed to recalculate formula "
-                    f"{field.name}({field.id}) in {field.table.name}({field.table.id})"
-                    f" with formula {field.formula}. Marking the formula "
-                    f"as invalid. "
-                    f"The error was caused by: "
-                    f"{traceback.format_exception_only(type(e), e)}"
+                    f"""During formula update change failed to recalculate formula
+{field.name} with id {field.id} in {field.table.name} with id {field.table.id} with
+formula {field.formula}. Marking the formula as invalid. The error was caused by:
+{traceback.format_exception_only(type(e), e)}"""
                 )
         already_recalculated.add(field.id)
 

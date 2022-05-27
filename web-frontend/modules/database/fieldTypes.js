@@ -2195,10 +2195,6 @@ export class FormulaFieldType extends FieldType {
     return null
   }
 
-  getCanBePrimaryField() {
-    return false
-  }
-
   canBeReferencedByFormulaField() {
     return true
   }

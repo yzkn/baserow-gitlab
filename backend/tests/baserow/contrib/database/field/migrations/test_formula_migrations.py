@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from django.db.models import Q
 
@@ -410,6 +412,58 @@ def test_recalculate_formula_that_is_broken_marks_it_as_invalid(
     formula_that_raises_when_deps_recalculated.refresh_from_db()
     assert formula_that_raises_when_deps_recalculated.error is not None
     assert formula_that_raises_when_deps_recalculated.formula_type == "invalid"
+
+
+@pytest.mark.django_db(transaction=True)
+@patch(
+    "baserow.contrib.database.formula.FormulaHandler.baserow_expression_to_update_django_expression",
+)
+def test_formula_migration_failing_when_refreshing_cell_values_marks_as_invalid(
+    mock_generator_func,
+    data_fixture,
+):
+    mock_generator_func.side_effect = Exception(
+        "Make this formula crash on SQL generation"
+    )
+    table = data_fixture.create_database_table()
+    model = table.get_model()
+    row = model.objects.create()
+    formula_that_raises_when_refreshed = data_fixture.create_formula_field(
+        formula="0",
+        internal_formula="0",
+        formula_type="number",
+        number_decimal_places=1,
+        name="needs_refresh",
+        table=table,
+        recalculate=False,
+        setup_dependencies=False,
+        calculate_cell_values=False,
+        version=1,
+    )
+
+    FormulaField.objects.update(version=1)
+    FormulaMigrationHandler.migrate_formulas(
+        FormulaMigrations(
+            [
+                FormulaMigration(
+                    version=1,
+                    recalculate_formula_attributes_for=ALL_FORMULAS,
+                    recalculate_field_dependencies_for=NO_FORMULAS,
+                    recalculate_cell_values_for=NO_FORMULAS,
+                ),
+                FormulaMigration(
+                    version=2,
+                    recalculate_formula_attributes_for=ALL_FORMULAS,
+                    recalculate_field_dependencies_for=ALL_FORMULAS,
+                    recalculate_cell_values_for=ALL_FORMULAS,
+                ),
+            ]
+        )
+    )
+
+    formula_that_raises_when_refreshed.refresh_from_db()
+    assert formula_that_raises_when_refreshed.error is not None
+    assert formula_that_raises_when_refreshed.formula_type == "invalid"
 
 
 @pytest.mark.django_db
