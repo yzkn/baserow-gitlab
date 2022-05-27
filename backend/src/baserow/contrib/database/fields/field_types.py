@@ -50,8 +50,9 @@ from baserow.contrib.database.formula import (
     BaserowFormulaException,
     BaserowFormulaInvalidType,
     BaserowFormulaSingleSelectType,
+    FormulaHandler,
+    literal,
 )
-from baserow.contrib.database.formula import FormulaHandler
 from baserow.contrib.database.validators import UnicodeRegexValidator
 from baserow.core.models import UserFile
 from baserow.core.user_files.exceptions import UserFileDoesNotExist
@@ -426,6 +427,13 @@ class NumberFieldType(FieldType):
         return BaserowFormulaNumberType(
             number_decimal_places=field.number_decimal_places
         )
+
+    def to_baserow_formula_expression(self, field: NumberField) -> BaserowExpression:
+        from baserow.contrib.database.formula.ast.function_defs import BaserowWhenEmpty
+
+        # treat null values as zero for mathematical operations
+        expression = super().to_baserow_formula_expression(field)
+        return BaserowWhenEmpty()(expression, literal(0))
 
     def from_baserow_formula_type(
         self, formula_type: BaserowFormulaNumberType

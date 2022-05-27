@@ -269,9 +269,10 @@ class BaserowConcat(BaserowFunctionDefinition):
         args: List[BaserowExpression[BaserowFormulaValidType]],
         expression: "BaserowFunctionCall[UnTyped]",
     ) -> BaserowExpression[BaserowFormulaType]:
-        return expression.with_args(
-            [BaserowToText().call_and_type_with(a) for a in args]
-        ).with_valid_type(BaserowFormulaTextType())
+        typed_args = [BaserowToText()(a) for a in args]
+        return expression.with_args(typed_args).with_valid_type(
+            BaserowFormulaTextType()
+        )
 
     def to_django_expression_given_args(
         self, expr_args: List[Expression], *args, **kwargs
@@ -470,9 +471,10 @@ class BaserowEqual(TwoArgumentBaserowFunction):
             # types, then first cast them to text and then compare.
             # We to ourselves via the __class__ property here so subtypes of this type
             # use themselves here instead of us!
-            return self.__class__().call_and_type_with(
-                BaserowToText().call_and_type_with(arg1),
-                BaserowToText().call_and_type_with(arg2),
+
+            return self.__class__()(
+                BaserowToText()(arg1),
+                BaserowToText()(arg2),
             )
         else:
             return func_call.with_valid_type(BaserowFormulaBooleanType())
@@ -503,10 +505,10 @@ class BaserowIf(ThreeArgumentBaserowFunction):
             # Replace the current if func_call with one which casts both args to text
             # if they are of different types as PostgreSQL requires all cases of a case
             # statement to be of the same type.
-            return BaserowIf().call_and_type_with(
+            return BaserowIf()(
                 arg1,
-                BaserowToText().call_and_type_with(arg2),
-                BaserowToText().call_and_type_with(arg3),
+                BaserowToText()(arg2),
+                BaserowToText()(arg3),
             )
         else:
             if isinstance(arg2_type, BaserowFormulaNumberType) and isinstance(
@@ -552,6 +554,7 @@ class BaserowToNumber(OneArgumentBaserowFunction):
 class BaserowErrorToNan(OneArgumentBaserowFunction):
     type = "error_to_nan"
     arg_type = [BaserowFormulaNumberType]
+    is_wrapper = True
 
     def type_function(
         self,
@@ -569,6 +572,7 @@ class BaserowErrorToNan(OneArgumentBaserowFunction):
 class BaserowErrorToNull(OneArgumentBaserowFunction):
     type = "error_to_null"
     arg_type = [BaserowFormulaValidType]
+    is_wrapper = True
 
     def type_function(
         self,
@@ -592,9 +596,9 @@ class BaserowIsBlank(OneArgumentBaserowFunction):
         func_call: BaserowFunctionCall[UnTyped],
         arg: BaserowExpression[BaserowFormulaValidType],
     ) -> BaserowExpression[BaserowFormulaType]:
-        return func_call.with_args(
-            [BaserowToText().call_and_type_with(arg)]
-        ).with_valid_type(BaserowFormulaBooleanType())
+        return func_call.with_args([BaserowToText()(arg)]).with_valid_type(
+            BaserowFormulaBooleanType()
+        )
 
     def to_django_expression(self, arg: Expression) -> Expression:
         return EqualsExpr(
@@ -1445,9 +1449,7 @@ class BaserowTrim(OneArgumentBaserowFunction):
         func_call: BaserowFunctionCall[UnTyped],
         arg: BaserowExpression[BaserowFormulaValidType],
     ) -> BaserowExpression[BaserowFormulaType]:
-        return BaserowRegexReplace().call_and_type_with(
-            arg, literal("(^\\s+|\\s+$)"), literal("")
-        )
+        return BaserowRegexReplace()(arg, literal("(^\\s+|\\s+$)"), literal(""))
 
     def to_django_expression(self, arg: Expression) -> Expression:
         # This function should always be completely substituted when typing and replaced
@@ -1494,6 +1496,7 @@ class BaserowSecond(OneArgumentBaserowFunction):
 class BaserowBcToNull(OneArgumentBaserowFunction):
     type = "bc_to_null"
     arg_type = [BaserowFormulaDateType]
+    is_wrapper = True
 
     def type_function(
         self,

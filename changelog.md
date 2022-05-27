@@ -24,6 +24,7 @@
 * Fix deadlocks and performance problems caused by un-needed accidental row locks.
 * Fix formula bugs caused by unsupported generation of BC dates.
 * Fix formula bug caused when looking up date intervals.
+* Treat null values as zeros for numeric formulas.
 
 ## Released (2022-10-05 1.10.0)
 

@@ -213,7 +213,7 @@ def test_formula_can_reference_and_add_to_an_integer_column(data_fixture):
         given_field_in_table=data_fixture.create_number_field(name="number"),
         given_field_has_rows=[1, 2, None],
         when_created_formula_is="field('number') + 1",
-        then_formula_values_are=[2, 3, None],
+        then_formula_values_are=[2, 3, 1],
     )
 
 
@@ -512,3 +512,80 @@ def test_invalid_formulas(test_input, error, detail, data_fixture, api_client):
     assert response.status_code == 200
     assert response.json() == []
     assert FormulaField.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_formula_returns_zeros_instead_of_null_if_output_is_decimal(
+    data_fixture, api_client
+):
+    user, token = data_fixture.create_user_and_token()
+    table_a, table_b, link_field = data_fixture.create_two_linked_tables(user=user)
+
+    number_field = data_fixture.create_number_field(
+        table=table_b,
+        name="number",
+    )
+
+    table_b_rows = data_fixture.create_rows_in_table(
+        table=table_b,
+        rows=[["Tesla", 5], ["Apple", None], ["Amazon", 11]],
+        fields=[table_b.field_set.get(primary=True), number_field],
+    )
+
+    data_fixture.create_row_for_many_to_many_field(
+        table=table_a, field=link_field, values=[table_b_rows[0].id], user=user
+    )
+    data_fixture.create_row_for_many_to_many_field(
+        table=table_a,
+        field=link_field,
+        values=[table_b_rows[0].id, table_b_rows[1].id],
+        user=user,
+    )
+    data_fixture.create_row_for_many_to_many_field(
+        table=table_a, field=link_field, values=[], user=user
+    )
+
+    count_formula = data_fixture.create_formula_field(
+        user=user,
+        table=table_a,
+        formula=f"count(field('{link_field.name}'))",
+    )
+
+    sum_formula = data_fixture.create_formula_field(
+        user=user,
+        table=table_a,
+        formula=f"sum(lookup('{link_field.name}', '{number_field.name}'))",
+    )
+
+    response = api_client.get(
+        reverse("api:database:rows:list", kwargs={"table_id": table_a.id}),
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    assert response.status_code == HTTP_200_OK
+    results = response.json()["results"]
+    assert len(results) == 3
+    assert [
+        [o[count_formula.db_column], o[sum_formula.db_column]] for o in results
+    ] == [["1", "5"], ["2", "5"], ["0", "0"]]
+
+
+@pytest.mark.django_db
+def test_refernce_to_null_number_field_acts_as_zero(
+    data_fixture,
+):
+    number_field = data_fixture.create_number_field()
+    formula_field = data_fixture.create_formula_field(
+        table=number_field.table, formula="1"
+    )
+
+    formula_field.formula = f"field('{number_field.name}') + 1"
+    formula_field.save(recalculate=True)
+
+    assert (
+        formula_field.internal_formula
+        == f"error_to_nan(add(when_empty(field('{number_field.db_column}'),0),1))"
+    )
+    model = number_field.table.get_model()
+    row = model.objects.create(**{f"{number_field.db_column}": None})
+    assert getattr(row, formula_field.db_column) == 1

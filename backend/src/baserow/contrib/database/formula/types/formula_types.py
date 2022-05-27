@@ -144,7 +144,7 @@ class BaserowFormulaNumberType(BaserowFormulaValidType):
             return True
 
     def wrap_at_field_level(self, expr: "BaserowExpression[BaserowFormulaType]"):
-        return formula_function_registry.get("error_to_nan").call_and_type_with(expr)
+        return formula_function_registry.get("error_to_nan")(expr)
 
     def unwrap_at_field_level(self, expr: "BaserowFunctionCall[BaserowFormulaType]"):
         return expr.args[0].with_valid_type(expr.expression_type)
@@ -340,7 +340,7 @@ class BaserowFormulaDateType(BaserowFormulaValidType):
             return True
 
     def wrap_at_field_level(self, expr: "BaserowExpression[BaserowFormulaType]"):
-        wrapped = formula_function_registry.get("bc_to_null").call_and_type_with(expr)
+        wrapped = formula_function_registry.get("bc_to_null")(expr)
         return super().wrap_at_field_level(wrapped)
 
     def unwrap_at_field_level(self, expr: "BaserowFunctionCall[BaserowFormulaType]"):
@@ -403,7 +403,7 @@ class BaserowFormulaArrayType(BaserowFormulaValidType):
 
     def collapse_many(self, expr: "BaserowExpression[BaserowFormulaType]"):
         func = formula_function_registry.get("array_agg_unnesting")
-        return func.call_and_type_with(expr)
+        return func(expr)
 
     def placeholder_empty_value(self):
         """
@@ -423,7 +423,7 @@ class BaserowFormulaArrayType(BaserowFormulaValidType):
         return Value([], output_field=JSONField())
 
     def wrap_at_field_level(self, expr: "BaserowExpression[BaserowFormulaType]"):
-        return formula_function_registry.get("error_to_null").call_and_type_with(expr)
+        return formula_function_registry.get("error_to_null")(expr)
 
     def unwrap_at_field_level(self, expr: "BaserowFunctionCall[BaserowFormulaType]"):
         arg = expr.args[0]
@@ -588,7 +588,7 @@ class BaserowFormulaSingleSelectType(BaserowFormulaValidType):
         arg: "BaserowExpression[BaserowFormulaValidType]",
     ) -> "BaserowExpression[BaserowFormulaType]":
         get_value_func = formula_function_registry.get("get_single_select_value")
-        return get_value_func.call_and_type_with(arg)
+        return get_value_func(arg)
 
 
 BASEROW_FORMULA_TYPES = [

@@ -110,6 +110,17 @@ class BaserowExpression(abc.ABC, Generic[A]):
         self.many = many
         self.requires_aggregate_wrapper = requires_aggregate_wrapper
 
+    @property
+    def is_wrapper(self) -> bool:
+        """
+        A wrapper expression is a function call that needs to be removed in nested
+        field references.
+        Returns True if the expression is a wrapper expression (e.g 'error_to_nan()').
+        Look at `FomulaTypingVisitor.visit_field_reference` for more information.
+        """
+
+        return False
+
     @abc.abstractmethod
     def accept(self, visitor: "visitors.BaserowFormulaASTVisitor[A, T]") -> T:
         pass
@@ -297,6 +308,10 @@ class BaserowFunctionCall(BaserowExpression[A]):
         self.function_def = function_def
         self.args = args
 
+    @property
+    def is_wrapper(self) -> bool:
+        return self.function_def.is_wrapper
+
     def accept(self, visitor: "visitors.BaserowFormulaASTVisitor[A, T]") -> T:
         return visitor.visit_function_call(self)
 
@@ -361,6 +376,8 @@ class BaserowFunctionDefinition(Instance, abc.ABC):
     - TwoArgumentBaserowFunction
     - ThreeArgumentBaserowFunction
     """
+
+    is_wrapper = False
 
     @property
     @abc.abstractmethod

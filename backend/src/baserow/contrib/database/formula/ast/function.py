@@ -2,6 +2,8 @@ import abc
 from typing import List, Optional, Type, Dict, Set
 
 from django.db.models import (
+    Aggregate,
+    DecimalField,
     Expression,
     Model,
     ExpressionWrapper,
@@ -9,6 +11,7 @@ from django.db.models import (
     Subquery,
     Value,
 )
+from django.db.models.functions import Coalesce
 
 from baserow.contrib.database.formula.ast.tree import (
     BaserowFunctionCall,
@@ -120,7 +123,7 @@ class ZeroArgumentBaserowFunction(BaserowFunctionDefinition):
     ) -> Expression:
         return self.to_django_expression()
 
-    def call_and_type_with(self) -> BaserowFunctionCall[BaserowFormulaType]:
+    def __call__(self) -> BaserowFunctionCall[BaserowFormulaType]:
         return self.call_and_type_with_args([])
 
 
@@ -234,17 +237,21 @@ class OneArgumentBaserowFunction(BaserowFunctionDefinition):
         else:
             return django_expr
 
-    def call_and_type_with(
+    def __call__(
         self, arg: BaserowExpression[BaserowFormulaType]
     ) -> BaserowFunctionCall[BaserowFormulaType]:
         return self.call_and_type_with_args([arg])
 
 
 def aggregate_wrapper(
-    aggregate_func_expr, model, pre_annotations, aggregate_filters, join_ids
-):
+    aggregate_func_expr: Aggregate,
+    model: Type[Model],
+    pre_annotations: Dict[str, Expression],
+    aggregate_filters: List[Expression],
+    join_ids: Set[str],
+) -> ExpressionWrapper:
     if len(aggregate_filters) > 0:
-        combined_filter = Value(True)
+        combined_filter: Expression = Value(True)
         for f in aggregate_filters:
             combined_filter = AndExpr(combined_filter, f)
         aggregate_func_expr.filter = combined_filter
@@ -255,17 +262,19 @@ def aggregate_wrapper(
     not_null_filters_for_inner_join = {
         key + "__isnull": False for key in pre_annotations
     }
-    expr = ExpressionWrapper(
-        Subquery(
-            model.objects_and_trash.annotate(**pre_annotations)
-            .filter(id=OuterRef("id"), **not_null_filters_for_inner_join)
-            .values(result=aggregate_func_expr),
-        ),
-        output_field=aggregate_func_expr.output_field,
+    expr: Expression = Subquery(
+        model.objects_and_trash.annotate(**pre_annotations)
+        .filter(id=OuterRef("id"), **not_null_filters_for_inner_join)
+        .values(result=aggregate_func_expr),
     )
+
+    output_field = aggregate_func_expr.output_field
+    # if the output field type is a number, return 0 instead of null
+    if isinstance(output_field, DecimalField):
+        expr = Coalesce(expr, Value(0), output_field=output_field)
     pre_annotations.clear()
     join_ids.clear()
-    return expr
+    return ExpressionWrapper(expr, output_field=output_field)
 
 
 class TwoArgumentBaserowFunction(BaserowFunctionDefinition):
@@ -395,7 +404,7 @@ class TwoArgumentBaserowFunction(BaserowFunctionDefinition):
         else:
             return django_expr
 
-    def call_and_type_with(
+    def __call__(
         self,
         arg1: BaserowExpression[BaserowFormulaType],
         arg2: BaserowExpression[BaserowFormulaType],
@@ -526,7 +535,7 @@ class ThreeArgumentBaserowFunction(BaserowFunctionDefinition):
     ) -> Expression:
         return self.to_django_expression(args[0], args[1], args[2])
 
-    def call_and_type_with(
+    def __call__(
         self,
         arg1: BaserowExpression[BaserowFormulaType],
         arg2: BaserowExpression[BaserowFormulaType],

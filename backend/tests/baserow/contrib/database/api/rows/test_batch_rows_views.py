@@ -1626,7 +1626,7 @@ def test_batch_create_rows_dependent_fields_lookup(api_client, data_fixture):
             },
             {
                 f"id": 3,
-                f"field_{lookup_formula.id}": None,
+                f"field_{lookup_formula.id}": "0",
                 f"field_{row_id_formula.id}": "3",
             },
         ]
