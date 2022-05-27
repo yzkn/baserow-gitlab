@@ -20,6 +20,7 @@ from baserow.contrib.database.formula import (
 )
 from baserow.contrib.database.formula.ast.tree import BaserowFunctionDefinition
 from baserow.contrib.database.formula.registries import formula_function_registry
+from baserow.contrib.database.formula.types.exceptions import InvalidFormulaType
 from baserow.contrib.database.rows.handler import RowHandler
 from baserow.contrib.database.table.cache import (
     generated_models_cache,
@@ -1163,3 +1164,21 @@ def test_multiple_formula_fields_with_different_django_lookups_being_used_to_fil
         HTTP_AUTHORIZATION=f"JWT {token}",
     )
     assert response.status_code == HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_cant_create_primary_lookup_that_looksup_itself(data_fixture):
+    user = data_fixture.create_user()
+    table_a, table_b, link_field = data_fixture.create_two_linked_tables(user=user)
+
+    with pytest.raises(
+        InvalidFormulaType,
+        match="references itself via a link field causing a circular dependency",
+    ):
+        FieldHandler().update_field(
+            user,
+            table_a.field_set.get(primary=True).specific,
+            new_type_name="formula",
+            name="formulafield",
+            formula=f"lookup('{link_field.name}', '{link_field.link_row_related_field.name}')",
+        )

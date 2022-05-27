@@ -2408,7 +2408,6 @@ class FormulaFieldType(ReadOnlyFieldType):
     type = "formula"
     model_class = FormulaField
 
-    can_be_primary_field = False
     can_be_in_form_view = False
     field_data_is_derived_from_attrs = True
 
