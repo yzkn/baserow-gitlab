@@ -322,7 +322,12 @@ class FieldFixtures:
         return field
 
     def create_formula_field(
-        self, user=None, create_field=True, setup_dependencies=True, **kwargs
+        self,
+        user=None,
+        create_field=True,
+        setup_dependencies=True,
+        calculate_cell_values=True,
+        **kwargs,
     ):
         if "table" not in kwargs:
             kwargs["table"] = self.create_database_table(user=user)
@@ -352,11 +357,12 @@ class FieldFixtures:
 
         if create_field:
             self.create_model_field(kwargs["table"], field)
-            model = field.table.get_model()
-            expr = FormulaHandler.baserow_expression_to_update_django_expression(
-                field.cached_typed_internal_expression, model
-            )
-            model.objects_and_trash.all().update(**{f"{field.db_column}": expr})
+            if calculate_cell_values:
+                model = field.table.get_model()
+                expr = FormulaHandler.baserow_expression_to_update_django_expression(
+                    field.cached_typed_internal_expression, model
+                )
+                model.objects_and_trash.all().update(**{f"{field.db_column}": expr})
 
         if setup_dependencies:
             FieldDependencyHandler().rebuild_dependencies(field, FieldCache())

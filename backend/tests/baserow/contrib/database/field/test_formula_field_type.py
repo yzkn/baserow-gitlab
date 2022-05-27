@@ -15,7 +15,6 @@ from baserow.contrib.database.fields.models import FormulaField, LookupField
 from baserow.contrib.database.fields.registries import field_type_registry
 from baserow.contrib.database.formula import (
     BaserowFormulaInvalidType,
-    FormulaHandler,
     BaserowFormulaTextType,
     BaserowFormulaNumberType,
 )
@@ -303,109 +302,6 @@ def test_can_rename_field_preserving_whitespace(
     formula_field.refresh_from_db()
 
     assert formula_field.formula == f" field('b') \n"
-
-
-@pytest.mark.django_db
-def test_recalculate_formulas_according_to_version(
-    data_fixture,
-):
-    formula_with_default_internal_field = data_fixture.create_formula_field(
-        formula="1",
-        internal_formula="",
-        requires_refresh_after_insert=False,
-        name="a",
-        version=1,
-        recalculate=False,
-        create_field=False,
-    )
-    formula_that_needs_refresh = data_fixture.create_formula_field(
-        formula="row_id()",
-        internal_formula="",
-        formula_type="number",
-        requires_refresh_after_insert=False,
-        name="b",
-        version=1,
-        recalculate=False,
-        create_field=False,
-    )
-    broken_reference_formula = data_fixture.create_formula_field(
-        formula="field('unknown')",
-        internal_formula="",
-        requires_refresh_after_insert=False,
-        name="c",
-        version=1,
-        recalculate=False,
-        create_field=False,
-    )
-    dependant_formula = data_fixture.create_formula_field(
-        table=formula_that_needs_refresh.table,
-        formula="field('b')",
-        internal_formula="",
-        requires_refresh_after_insert=False,
-        name="d",
-        version=1,
-        recalculate=False,
-        create_field=False,
-    )
-    formula_already_at_correct_version = data_fixture.create_formula_field(
-        formula="'a'",
-        internal_formula="",
-        requires_refresh_after_insert=False,
-        name="e",
-        version=FormulaHandler.BASEROW_FORMULA_VERSION,
-        recalculate=False,
-        create_field=False,
-    )
-    upto_date_formula_depending_on_old_version = data_fixture.create_formula_field(
-        table=dependant_formula.table,
-        formula=f"field('{dependant_formula.name}')",
-        internal_formula="",
-        requires_refresh_after_insert=False,
-        name="f",
-        version=FormulaHandler.BASEROW_FORMULA_VERSION,
-        recalculate=False,
-        create_field=False,
-    )
-    assert (
-        formula_already_at_correct_version.version
-        == FormulaHandler.BASEROW_FORMULA_VERSION
-    )
-    assert dependant_formula.version == 1
-
-    FormulaHandler().recalculate_formulas_according_to_version()
-
-    formula_with_default_internal_field.refresh_from_db()
-    assert formula_with_default_internal_field.internal_formula == "error_to_nan(1)"
-    assert not formula_with_default_internal_field.requires_refresh_after_insert
-
-    formula_that_needs_refresh.refresh_from_db()
-    assert formula_that_needs_refresh.internal_formula == "error_to_nan(row_id())"
-    assert formula_that_needs_refresh.requires_refresh_after_insert
-
-    broken_reference_formula.refresh_from_db()
-    assert broken_reference_formula.internal_formula == "field('unknown')"
-    assert broken_reference_formula.formula_type == "invalid"
-    assert not broken_reference_formula.requires_refresh_after_insert
-
-    dependant_formula.refresh_from_db()
-    assert dependant_formula.internal_formula == "error_to_nan(row_id())"
-    assert dependant_formula.requires_refresh_after_insert
-
-    # The update is not done for this formula and hence the values are left alone
-    formula_already_at_correct_version.refresh_from_db()
-    assert formula_already_at_correct_version.internal_formula == ""
-    assert not formula_already_at_correct_version.requires_refresh_after_insert
-
-    upto_date_formula_depending_on_old_version.refresh_from_db()
-    assert (
-        upto_date_formula_depending_on_old_version.field_dependencies.get().specific
-        == dependant_formula
-    )
-    assert (
-        upto_date_formula_depending_on_old_version.internal_formula
-        == "error_to_nan(row_id())"
-    )
-    assert upto_date_formula_depending_on_old_version.requires_refresh_after_insert
 
 
 @pytest.mark.django_db

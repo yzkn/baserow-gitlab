@@ -614,4 +614,6 @@ BASEROW_SYNC_TEMPLATES_TIME_LIMIT = int(
     os.getenv("BASEROW_SYNC_TEMPLATES_TIME_LIMIT", 60 * 30)
 )
 
+# Indicates whether we are running the tests or not. Set to True in the test.py settings
+# file used by pytest.ini
 TESTS = False

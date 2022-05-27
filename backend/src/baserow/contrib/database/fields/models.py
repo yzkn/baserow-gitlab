@@ -419,6 +419,22 @@ class FormulaField(Field):
         if raise_if_invalid:
             expression_type.raise_if_invalid()
 
+    def mark_as_invalid_and_save(self, error: str):
+
+        from baserow.contrib.database.formula import BaserowFormulaInvalidType
+
+        try:
+            # noinspection PyPropertyAccess
+            del self.cached_typed_internal_expression
+        except AttributeError:
+            # It has not been cached yet so nothing to deleted.
+            pass
+
+        invalid_type = BaserowFormulaInvalidType(error)
+        invalid_type.persist_onto_formula_field(self)
+        setattr(self, "cached_formula_type", invalid_type)
+        self.save(recalculate=False, raise_if_invalid=False)
+
     def save(self, *args, **kwargs):
         recalculate = kwargs.pop("recalculate", not self.trashed)
         field_lookup_cache = kwargs.pop("field_lookup_cache", None)

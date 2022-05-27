@@ -25,6 +25,7 @@
 * Fix formula bugs caused by unsupported generation of BC dates.
 * Fix formula bug caused when looking up date intervals.
 * Treat null values as zeros for numeric formulas.
+* Add debugging commands/options for inspecting tables and updating formulas.
 
 ## Released (2022-10-05 1.10.0)
 
