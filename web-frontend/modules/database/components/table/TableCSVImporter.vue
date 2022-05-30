@@ -30,6 +30,16 @@
         </div>
       </div>
     </div>
+    <div
+      v-if="uploading"
+      class="alert alert--simple alert--with-shadow alert--has-icon"
+    >
+      <div class="alert__icon">
+        <div class="loading alert__icon-loading"></div>
+      </div>
+      <div class="alert__title">Uploading CSV...</div>
+      <p class="alert__content">Progress: {{ uploadingProgress }}%</p>
+    </div>
     <div v-if="filename !== ''" class="row">
       <div class="col col-4">
         <div class="control">
@@ -126,6 +136,8 @@ export default {
       error: '',
       rawData: null,
       preview: {},
+      uploading: false,
+      uploadingProgress: 0,
     }
   },
   validations: {
@@ -161,6 +173,12 @@ export default {
       } else {
         this.filename = file.name
         const reader = new FileReader()
+        this.uploading = true
+        reader.addEventListener('progress', (event) => {
+          this.uploadingProgress = Math.floor(
+            (event.loaded / event.total) * 100
+          )
+        })
         reader.addEventListener('load', (event) => {
           this.rawData = event.target.result
           this.reload()
@@ -189,6 +207,7 @@ export default {
       }
 
       this.$papa.parse(decodedData, {
+        worker: true,
         delimiter: this.columnSeparator === 'auto' ? '' : this.columnSeparator,
         complete: (data) => {
           if (data.data.length === 0) {
@@ -208,6 +227,8 @@ export default {
             this.values.data = JSON.stringify(dataWithHeader)
             this.error = ''
             this.preview = this.getPreview(dataWithHeader)
+            this.uploading = false
+            this.uploadingProgress = 0
           }
         },
         error(error) {
@@ -216,6 +237,8 @@ export default {
           this.values.data = ''
           this.error = error.errors[0].message
           this.preview = {}
+          this.uploading = false
+          this.uploadingProgress = 0
         },
       })
     },
