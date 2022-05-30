@@ -2,15 +2,26 @@
 
 ## Unreleased
 
+* Plugins can now include their own menu or other template in the main menu sidebar.
 * Added the ability to use commas as separators in number fields
 * Shift+Enter on grid view exit from editing mode for long text field
 * Shift+Enter on grid view go to field below
 * Make fields sortable in row create/edit modal.
 * Added row coloring for Kanban and Gallery views
 * Duplicate row.
+* Added multi-row delete.
 * Added a dropdown to the grid view that allows you to
   select the type of row identifier displayed next to a row (`Count`or `Row Identifier`).
 * Added an admin setting to disable the ability to reset a users password.
+* Fix formula bug caused when arguments of `when_empty` have different types.
+* Formulas of type text now use textarea to show the cell value.
+* Fix a bug in public grid views that prevented expanding long-text cells.
+* Deprecate the SYNC_TEMPLATES_ON_STARTUP environment variable and no longer call the
+  sync_templates command on startup in the docker images.
+* Added BASEROW_TRIGGER_SYNC_TEMPLATES_AFTER_MIGRATION environment variable and now
+  do the sync_templates task in the background after migration to massively speedup 
+  first time Baserow startup speed.
+* Fix deadlocks and performance problems caused by un-needed accidental row locks.
 
 ## Released (2022-10-05 1.10.0)
 
