@@ -17,6 +17,7 @@ class GroupStorageUsageItemType(Instance, ABC):
         :param group_id: the group that the usage is calculated for
         :return: the total usage
         """
+
         pass
 
 
