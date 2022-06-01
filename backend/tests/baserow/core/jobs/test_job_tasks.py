@@ -2,13 +2,15 @@ import pytest
 from unittest.mock import Mock, patch
 from celery.exceptions import SoftTimeLimitExceeded
 from requests.exceptions import ConnectionError
+from freezegun import freeze_time
 
 from django.core.cache import cache
+from django.utils import timezone
 
 from baserow.core.jobs.models import Job
 from baserow.core.jobs.registries import JobType
 from baserow.core.jobs.cache import job_progress_key
-from baserow.core.jobs.tasks import run_async_job
+from baserow.core.jobs.tasks import run_async_job, clean_up_jobs
 from baserow.core.jobs.constants import (
     JOB_FAILED,
     JOB_FINISHED,
@@ -145,3 +147,27 @@ def test_run_task_with_exception_mapping(mock_get_by_model, data_fixture):
     assert job.state == JOB_FAILED
     assert job.error == "connection error"
     assert job.human_readable_error == "Error message"
+
+
+@pytest.mark.django_db
+@patch("baserow.contrib.database.export.handler.default_storage")
+def test_cleanup_file_import_job(storage_mock, data_fixture, settings):
+    now = timezone.now()
+    time_before_expiration = now - timezone.timedelta(
+        minutes=settings.BASEROW_JOB_EXPIRATION_TIME_LIMIT + 1
+    )
+    with freeze_time(now):
+        data_fixture.create_fake_job()
+        data_fixture.create_fake_job(state=JOB_FAILED)
+
+    with freeze_time(time_before_expiration):
+        data_fixture.create_fake_job()
+        data_fixture.create_fake_job(state=JOB_FAILED)
+        data_fixture.create_fake_job(state=JOB_FINISHED)
+
+    assert Job.objects.count() == 5
+
+    with freeze_time(now):
+        clean_up_jobs()
+
+    assert Job.objects.count() == 3

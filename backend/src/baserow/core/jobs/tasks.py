@@ -57,6 +57,7 @@ def run_async_job(self, job_id: int):
         job.state = JOB_FAILED
         job.error = str(e)
         job.human_readable_error = error
+
         # Don't override the other properties that have been set during the
         # progress update.
         job.save(
@@ -66,6 +67,9 @@ def run_async_job(self, job_id: int):
                 "human_readable_error",
             )
         )
+
+        # Allow a job_type to modify job after an error
+        job_type.on_error(job.specific, e)
 
         raise e
     finally:

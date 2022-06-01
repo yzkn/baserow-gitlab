@@ -237,7 +237,7 @@ def test_batch_update_rows_file_field_wrong_file(api_client, data_fixture):
     )
 
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json()["error"] == "ERROR_USER_FILE_DOES_NOT_EXIST"
+    assert response.json()["error"] == "ERROR_REQUEST_BODY_VALIDATION"
     assert response.json()["detail"] == (
         f"The user files ['{invalid_file_names[0]}', '{invalid_file_names[1]}',"
         f" '{invalid_file_names[2]}'] do not exist."

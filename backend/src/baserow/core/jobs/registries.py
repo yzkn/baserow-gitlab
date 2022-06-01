@@ -67,7 +67,7 @@ class JobType(
         """
         This method is the task of this job type that will be executed asynchronously.
 
-        :param job: the related job instance
+        :param job: the specific instance of the related job instance
         :param progress: A progress object that can be used to track the progress of
           the task.
         """
@@ -79,6 +79,15 @@ class JobType(
         This method is periodically executed and should cleanup jobs that need to be.
         This can be clean generated files or remove expired jobs. Do nothing by default,
         if a job type need to clean jobs, can be done here.
+        """
+
+    def on_error(self, job: AnyJob, error: Exception):
+        """
+        This method gives the possibility to change the job after an exception has
+        been raised. This happens after the transaction so database changes are kept.
+
+        :param job: the specific instance of the related job instance
+        :param error: the exception raised.
         """
 
 

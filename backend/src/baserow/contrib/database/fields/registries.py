@@ -136,7 +136,9 @@ class FieldType(
 
         return getattr(row, field_name)
 
-    def prepare_value_for_db_in_bulk(self, instance, values_by_row):
+    def prepare_value_for_db_in_bulk(
+        self, instance, values_by_row, continue_on_error=False
+    ):
         """
         This method will work for every `prepare_value_for_db` that doesn't
         execute a query. Fields that do should override this method.
@@ -149,7 +151,13 @@ class FieldType(
         """
 
         for row_index, value in values_by_row.items():
-            values_by_row[row_index] = self.prepare_value_for_db(instance, value)
+            try:
+                values_by_row[row_index] = self.prepare_value_for_db(instance, value)
+            except Exception as e:
+                if continue_on_error:
+                    values_by_row[row_index] = e
+                else:
+                    raise
 
         return values_by_row
 

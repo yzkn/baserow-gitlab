@@ -2,13 +2,14 @@ import re
 from collections import defaultdict
 from decimal import Decimal
 from math import floor, ceil
-from typing import cast, Any, Dict, List, NewType, Optional, Type
+from typing import cast, Any, Dict, List, NewType, Optional, Type, Callable
 
 from django.contrib.auth.models import AbstractUser
 from django.db import transaction
 from django.db.models import Max, F, QuerySet
 from django.db.models.fields.related import ManyToManyField, ForeignKey
 
+from baserow.core.utils import grouper
 from baserow.contrib.database.table.models import Table, GeneratedTableModel
 from baserow.core.trash.handler import TrashHandler
 from baserow.contrib.database.trash.models import TrashedRows
@@ -39,6 +40,9 @@ GeneratedTableModelForUpdate = NewType(
 RowsForUpdate = NewType("RowsForUpdate", QuerySet)
 
 
+BATCH_SIZE = 1024
+
+
 class RowHandler:
     def prepare_values(self, fields, values):
         """
@@ -64,7 +68,7 @@ class RowHandler:
             if field_id in values or field["name"] in values
         }
 
-    def prepare_rows_in_bulk(self, fields, rows):
+    def prepare_rows_in_bulk(self, fields, rows, continue_on_error=False):
         """
         Prepares a set of values in bulk for all rows so that they can be created or
         updated in the database. It will check if the values can actually be set and
@@ -97,19 +101,32 @@ class RowHandler:
             prepared_values_by_field[
                 field_name
             ] = field_type.prepare_value_for_db_in_bulk(
-                field["field"],
-                batch_values,
+                field["field"], batch_values, continue_on_error=continue_on_error
             )
 
         # replace original values to keep ordering
         prepared_rows = []
+        # failing_rows = []
+        failing_rows = {}
         for index, row in enumerate(rows):
             new_values = row
+            row_errors = {}
             for field_id, field in fields.items():
                 field_name = field["name"]
                 if field_name in row:
-                    new_values[field_name] = prepared_values_by_field[field_name][index]
-            prepared_rows.append(new_values)
+                    prepared_value = prepared_values_by_field[field_name][index]
+                    if isinstance(prepared_value, Exception):
+                        row_errors[field_name] = [prepared_value]
+                    else:
+                        new_values[field_name] = prepared_value
+            if not row_errors:
+                prepared_rows.append(new_values)
+            else:
+                failing_rows[index] = row_errors
+                # failing_rows.append({"index": index, "errors": row_errors})
+
+        if continue_on_error:
+            return prepared_rows, failing_rows
 
         return prepared_rows
 
@@ -660,6 +677,8 @@ class RowHandler:
         rows_values: List[Dict[str, Any]],
         before_row: Optional[GeneratedTableModel] = None,
         model: Optional[Type[GeneratedTableModel]] = None,
+        import_mode: bool = False,
+        on_progress: Optional[Callable[[int, Dict[str, Any]], None]] = None,
     ) -> List[GeneratedTableModel]:
         """
         Creates new rows for a given table if the user
@@ -685,57 +704,80 @@ class RowHandler:
             before_row, model, amount=len(rows_values)
         )
 
-        rows = self.prepare_rows_in_bulk(model._field_objects, rows_values)
+        inserted_rows = []
+        report = {}
+        for count, chunk in enumerate(grouper(BATCH_SIZE, rows_values)):
+            row_start_index = count * BATCH_SIZE
+            if import_mode:
+                rows, errors = self.prepare_rows_in_bulk(
+                    model._field_objects, chunk, continue_on_error=True
+                )
+                # Renumber the rows and add them
+                report.update(
+                    {index + row_start_index: err for index, err in errors.items()}
+                )
+            else:
+                rows = self.prepare_rows_in_bulk(
+                    model._field_objects, chunk, continue_on_error=False
+                )
 
-        rows_relationships = []
-        for index, row in enumerate(rows, start=-len(rows)):
-            values, manytomany_values = self.extract_manytomany_values(row, model)
-            values["order"] = highest_order - (step * (abs(index + 1)))
-            instance = model(**values)
-            relations = {
-                field_name: value
-                for field_name, value in manytomany_values.items()
-                if value and len(value) > 0
-            }
-            rows_relationships.append((instance, relations))
+            rows_relationships = []
+            for index, row in enumerate(rows, start=-len(rows)):
+                row_index = row_start_index + index
 
-        inserted_rows = model.objects.bulk_create(
-            [row for (row, relations) in rows_relationships]
-        )
+                values, manytomany_values = self.extract_manytomany_values(row, model)
+                values["order"] = highest_order - (step * (abs(row_index + 1)))
+                instance = model(**values)
 
-        many_to_many = defaultdict(list)
-        for index, row in enumerate(inserted_rows):
-            manytomany_values = rows_relationships[index][1]
-            for field_name, value in manytomany_values.items():
-                through = getattr(model, field_name).through
-                through_fields = through._meta.get_fields()
-                value_column = None
-                row_column = None
+                relations = {
+                    field_name: value
+                    for field_name, value in manytomany_values.items()
+                    if value and len(value) > 0
+                }
+                rows_relationships.append((instance, relations))
 
-                # Figure out which field in the many to many through table holds the row
-                # value and which on contains the value.
-                for field in through_fields:
-                    if type(field) is not ForeignKey:
-                        continue
+            chunk_inserted_rows = model.objects.bulk_create(
+                [row for (row, relations) in rows_relationships]
+            )
 
-                    if field.remote_field.model == model:
-                        row_column = field.get_attname_column()[1]
-                    else:
-                        value_column = field.get_attname_column()[1]
+            inserted_rows += chunk_inserted_rows
 
-                for i in value:
-                    many_to_many[field_name].append(
-                        getattr(model, field_name).through(
-                            **{
-                                row_column: row.id,
-                                value_column: i,
-                            }
+            many_to_many = defaultdict(list)
+            for index, row in enumerate(chunk_inserted_rows):
+                _, manytomany_values = rows_relationships[index]
+                for field_name, value in manytomany_values.items():
+                    through = getattr(model, field_name).through
+                    through_fields = through._meta.get_fields()
+                    value_column = None
+                    row_column = None
+
+                    # Figure out which field in the many to many through table holds
+                    # the row value and which on contains the value.
+                    for field in through_fields:
+                        if type(field) is not ForeignKey:
+                            continue
+
+                        if field.remote_field.model == model:
+                            row_column = field.get_attname_column()[1]
+                        else:
+                            value_column = field.get_attname_column()[1]
+
+                    for i in value:
+                        many_to_many[field_name].append(
+                            getattr(model, field_name).through(
+                                **{
+                                    row_column: row.id,
+                                    value_column: i,
+                                }
+                            )
                         )
-                    )
 
-        for field_name, values in many_to_many.items():
-            through = getattr(model, field_name).through
-            through.objects.bulk_create(values)
+            for field_name, values in many_to_many.items():
+                through = getattr(model, field_name).through
+                through.objects.bulk_create(values)
+
+            if on_progress:
+                on_progress(len(chunk), report)
 
         update_collector = CachingFieldUpdateCollector(
             table,
@@ -773,6 +815,9 @@ class RowHandler:
 
         updated_fields = [o["field"] for o in model._field_objects.values()]
         ViewHandler().field_value_updated(updated_fields)
+
+        if import_mode:
+            return inserted_rows, report
 
         rows_to_return = list(
             model.objects.all()
