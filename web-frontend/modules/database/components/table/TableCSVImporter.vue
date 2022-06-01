@@ -37,7 +37,7 @@
       <div class="alert__icon">
         <div class="loading alert__icon-loading"></div>
       </div>
-      <div class="alert__title">Uploading CSV...</div>
+      <div class="alert__title">Uploading...</div>
       <p class="alert__content">Progress: {{ uploadingProgress }}%</p>
     </div>
     <div v-if="filename !== ''" class="row">
@@ -206,8 +206,9 @@ export default {
         return
       }
 
+      // Step 1: Parse first 5 rows to show the preview table
       this.$papa.parse(decodedData, {
-        worker: true,
+        preview: 5,
         delimiter: this.columnSeparator === 'auto' ? '' : this.columnSeparator,
         complete: (data) => {
           if (data.data.length === 0) {
@@ -224,15 +225,6 @@ export default {
               data.data,
               this.values.firstRowHeader
             )
-
-            this.values.data = JSON.stringify(dataWithHeader)
-            if (!this.values.firstRowHeader) {
-              // Remove first row (the genereated header)
-              // The genereated header is only needed for the preview and needs to be
-              // exluded from the data used to create the table, as the backend will
-              // generate a new header if `firstRowHeader` is set to false.
-              this.values.data = JSON.stringify(dataWithHeader.slice(1))
-            }
             this.error = ''
             this.preview = this.getPreview(dataWithHeader)
             this.uploading = false
@@ -249,6 +241,31 @@ export default {
           this.uploadingProgress = 0
         },
       })
+
+      // Step 2: If step 1 hasn't failed, parse the rest of the data
+      if (this.error === '') {
+        this.$papa.parse(decodedData, {
+          delimiter:
+            this.columnSeparator === 'auto' ? '' : this.columnSeparator,
+          complete: (data) => {
+            if (this.values.firstRowHeader) {
+              // Only run ensureHeaderExistsAndIsValid on the first row
+              // as it can't handle too many rows.
+              const dataWithHeader = this.ensureHeaderExistsAndIsValid(
+                data.data.slice(0, 1),
+                this.values.firstRowHeader
+              )
+              // Update the header row with the valid header names
+              data.data[0] = dataWithHeader[0]
+            }
+            this.values.data = JSON.stringify(data.data)
+          },
+          error(error) {
+            this.values.data = ''
+            this.error = error.errors[0].message
+          },
+        })
+      }
     },
   },
 }
