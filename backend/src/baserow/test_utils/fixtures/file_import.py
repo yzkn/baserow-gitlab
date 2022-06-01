@@ -33,7 +33,7 @@ class FileImportFixtures:
                     row.append(f"data_{index}_{field_index}")
                 data.append(row)
         else:
-            data = kwargs["data"]
+            data = kwargs.pop("data")
 
         data_file = kwargs.get("data_file", ContentFile(json.dumps(data)))
 

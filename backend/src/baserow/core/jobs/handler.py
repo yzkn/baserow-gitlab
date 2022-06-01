@@ -5,6 +5,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import transaction
 from django.core.cache import cache
 from django.db.models import QuerySet
+from django.utils import timezone
+from django.conf import settings
 
 from baserow.core.utils import Progress
 
@@ -18,6 +20,7 @@ from .models import Job
 from .tasks import run_async_job
 
 from .cache import job_progress_key
+from .constants import JOB_FAILED, JOB_FINISHED
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +111,16 @@ class JobHandler:
 
     def clean_up_jobs(self):
         """
-        Execute the cleanup method of all job types.
+        Execute the cleanup method of all job types and remove expired jobs.
         """
 
         for job_type in job_type_registry.get_all():
             job_type.clean_up_jobs()
+
+        limit_date = timezone.now() - timezone.timedelta(
+            minutes=(settings.BASEROW_JOB_EXPIRATION_TIME_LIMIT)
+        )
+        Job.objects.filter(
+            updated_on__lte=limit_date,
+            state__in=[JOB_FAILED, JOB_FINISHED],
+        ).delete()
