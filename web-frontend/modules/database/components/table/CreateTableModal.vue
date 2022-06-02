@@ -52,6 +52,8 @@
 </template>
 
 <script>
+import flushPromises from 'flush-promises'
+
 import modal from '@baserow/modules/core/mixins/modal'
 import error from '@baserow/modules/core/mixins/error'
 
@@ -100,13 +102,18 @@ export default {
       let firstRowHeader = false
       let data = null
 
+      await this.$nextTick()
+      await flushPromises()
+      // Wait for the browser had a chance to repaint the UI
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+
       if (Object.prototype.hasOwnProperty.call(values, 'firstRowHeader')) {
         firstRowHeader = values.firstRowHeader
         delete values.firstRowHeader
       }
 
       if (Object.prototype.hasOwnProperty.call(values, 'data')) {
-        data = JSON.parse(values.data)
+        data = values.data
         delete values.data
       }
 

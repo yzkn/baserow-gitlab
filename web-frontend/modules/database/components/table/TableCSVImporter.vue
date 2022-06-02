@@ -31,14 +31,20 @@
       </div>
     </div>
     <div
-      v-if="uploading"
+      v-if="showLoadingMessage"
       class="alert alert--simple alert--with-shadow alert--has-icon"
     >
       <div class="alert__icon">
         <div class="loading alert__icon-loading"></div>
       </div>
-      <div class="alert__title">Uploading...</div>
-      <p class="alert__content">Progress: {{ uploadingProgress }}%</p>
+      <div class="alert__title">
+        {{ getLoadingStateTitle }}
+      </div>
+      <p class="alert__content">
+        {{
+          `${$t('tableCSVImporter.loadingProgress')} ${fileLoadingProgress}`
+        }}%
+      </p>
     </div>
     <div v-if="filename !== ''" class="row">
       <div class="col col-4">
@@ -114,6 +120,7 @@
 
 <script>
 import { required } from 'vuelidate/lib/validators'
+import flushPromises from 'flush-promises'
 
 import form from '@baserow/modules/core/mixins/form'
 import CharsetDropdown from '@baserow/modules/core/components/helpers/CharsetDropdown'
@@ -136,8 +143,9 @@ export default {
       error: '',
       rawData: null,
       preview: {},
-      uploading: false,
-      uploadingProgress: 0,
+      fileLoadingProgress: 0,
+      parsing: false,
+      state: null,
     }
   },
   validations: {
@@ -146,7 +154,21 @@ export default {
     },
     filename: { required },
   },
+  computed: {
+    showLoadingMessage() {
+      return this.state === 'loading' || this.state === 'parsing'
+    },
+    getLoadingStateTitle() {
+      return this.$t(`tableCSVImporter.${this.state}`)
+    },
+  },
   methods: {
+    async ensureRender() {
+      await this.$nextTick()
+      // Wait for the browser had a chance to repaint the UI
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await flushPromises()
+    },
     /**
      * Method that is called when a file has been chosen. It will check if the file is
      * not larger than 15MB. Otherwise it will take a long time and possibly a crash
@@ -160,7 +182,10 @@ export default {
       }
 
       const file = event.target.files[0]
-      const maxSize = 1024 * 1024 * 15
+      let maxSize = 1024 * 1024 * 15 // 15MB
+      if (this.$featureFlags.includes('async_import')) {
+        maxSize = 1024 * 1024 * 1024 // 1Gb
+      }
 
       if (file.size > maxSize) {
         this.filename = ''
@@ -173,14 +198,17 @@ export default {
       } else {
         this.filename = file.name
         const reader = new FileReader()
-        this.uploading = true
+        this.state = 'loading'
         reader.addEventListener('progress', (event) => {
-          this.uploadingProgress = Math.floor(
+          this.fileLoadingProgress = Math.floor(
             (event.loaded / event.total) * 100
           )
         })
-        reader.addEventListener('load', (event) => {
+        reader.addEventListener('load', async (event) => {
           this.rawData = event.target.result
+          this.fileLoadingProgress = 100
+          this.state = 'parsing'
+          await this.ensureRender()
           this.reload()
         })
         reader.readAsArrayBuffer(event.target.files[0])
@@ -192,7 +220,7 @@ export default {
      * Also a small preview will be generated. If something goes wrong, for example
      * when the CSV doesn't have any entries the appropriate error will be shown.
      */
-    reload() {
+    async reload() {
       const decoder = new TextDecoder(this.encoding)
       const decodedData = decoder.decode(this.rawData)
       const limit = this.$env.INITIAL_TABLE_DATA_LIMIT
@@ -227,8 +255,9 @@ export default {
             )
             this.error = ''
             this.preview = this.getPreview(dataWithHeader)
-            this.uploading = false
-            this.uploadingProgress = 0
+            this.state = null
+            this.parsing = false
+            this.fileLoadingProgress = 0
           }
         },
         error(error) {
@@ -237,10 +266,13 @@ export default {
           this.values.data = ''
           this.error = error.errors[0].message
           this.preview = {}
-          this.uploading = false
-          this.uploadingProgress = 0
+          this.state = null
+          this.parsing = false
+          this.fileLoadingProgress = 0
         },
       })
+
+      await this.ensureRender()
 
       // Step 2: If step 1 hasn't failed, parse the rest of the data
       if (this.error === '') {
@@ -258,7 +290,7 @@ export default {
               // Update the header row with the valid header names
               data.data[0] = dataWithHeader[0]
             }
-            this.values.data = JSON.stringify(data.data)
+            this.values.data = data.data
           },
           error(error) {
             this.values.data = ''

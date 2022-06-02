@@ -287,7 +287,10 @@
         "firstRowHeader": "First row is header",
         "limitFileSize": "The maximum file size is {limit}MB.",
         "limitError": "It is not possible to import more than {limit} rows.",
-        "emptyCSV": "This CSV file is empty."
+        "emptyCSV": "This CSV file is empty.",
+        "loading": "Loading...",
+        "parsing": "Parsing...",
+        "loadingProgress": "Progress:"
     },
     "tableForm": {
         "name": "Name"
