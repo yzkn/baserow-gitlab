@@ -65,7 +65,7 @@ def update_fields_with_broken_references(field: "field_models.Field"):
     return len(updated_deps) > 0
 
 
-def _construct_dependency(field_instance, dependency, field_lookup_cache):
+def _construct_dependency(field_instance, dependency, field_cache):
     if isinstance(dependency, Tuple):
         (
             via_field_name,
@@ -79,7 +79,7 @@ def _construct_dependency(field_instance, dependency, field_lookup_cache):
 
     table = field_instance.table
     if via_field_name is None:
-        dependency_field = field_lookup_cache.lookup_by_name(table, dependency)
+        dependency_field = field_cache.lookup_by_name(table, dependency)
         if dependency_field is None:
             return [
                 FieldDependency(
@@ -93,7 +93,7 @@ def _construct_dependency(field_instance, dependency, field_lookup_cache):
                 )
             ]
     else:
-        via_field = field_lookup_cache.lookup_by_name(table, via_field_name)
+        via_field = field_cache.lookup_by_name(table, via_field_name)
         if via_field is None:
             # We are depending on a non existent via field so we have no idea what
             # the target table is. Just create a single broken dependency to the via
@@ -122,9 +122,7 @@ def _construct_dependency(field_instance, dependency, field_lookup_cache):
                     )
 
                 target_table = via_field.link_row_table
-                target_field = field_lookup_cache.lookup_by_name(
-                    target_table, dependency
-                )
+                target_field = field_cache.lookup_by_name(target_table, dependency)
                 if target_field is None:
                     deps.append(
                         FieldDependency(
@@ -146,7 +144,7 @@ def _construct_dependency(field_instance, dependency, field_lookup_cache):
 
 def rebuild_field_dependencies(
     field_instance,
-    field_lookup_cache: FieldCache,
+    field_cache: FieldCache,
 ):
     """
     Deletes all existing dependencies a field has and resets them to the ones
@@ -154,22 +152,20 @@ def rebuild_field_dependencies(
     affect any dependencies from other fields to this field.
 
     :param field_instance: The field whose dependencies to change.
-    :param field_lookup_cache: A cache which will be used to lookup the actual
+    :param field_cache: A cache which will be used to lookup the actual
         fields referenced by any provided field dependencies.
     """
 
     from baserow.contrib.database.fields.registries import field_type_registry
 
     field_type = field_type_registry.get_by_model(field_instance)
-    field_dependencies = field_type.get_field_dependencies(
-        field_instance, field_lookup_cache
-    )
+    field_dependencies = field_type.get_field_dependencies(field_instance, field_cache)
 
     new_dependencies = []
     if field_dependencies is not None:
         for dependency in field_dependencies:
             new_dependencies += _construct_dependency(
-                field_instance, dependency, field_lookup_cache
+                field_instance, dependency, field_cache
             )
     current_dependencies = field_instance.dependencies.all()
 

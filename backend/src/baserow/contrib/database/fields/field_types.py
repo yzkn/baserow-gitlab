@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime, date
 from decimal import Decimal
 from random import randrange, randint, sample
-from typing import Any, Callable, Dict, List, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Tuple, TYPE_CHECKING, Optional
 
 import pytz
 from dateutil import parser
@@ -21,7 +21,6 @@ from django.utils.timezone import make_aware
 from pytz import timezone
 from rest_framework import serializers
 
-from baserow.contrib.database.export_serialized import DatabaseExportSerializedStructure
 from baserow.contrib.database.api.fields.errors import (
     ERROR_LINK_ROW_TABLE_NOT_IN_SAME_DATABASE,
     ERROR_LINK_ROW_TABLE_NOT_PROVIDED,
@@ -38,6 +37,7 @@ from baserow.contrib.database.api.fields.serializers import (
     FileFieldResponseSerializer,
     MustBeEmptyField,
 )
+from baserow.contrib.database.export_serialized import DatabaseExportSerializedStructure
 from baserow.contrib.database.formula import (
     BaserowExpression,
     BaserowFormulaTextType,
@@ -53,11 +53,12 @@ from baserow.contrib.database.formula import (
     FormulaHandler,
     literal,
 )
+from baserow.contrib.database.table.cache import invalidate_table_in_model_cache
 from baserow.contrib.database.validators import UnicodeRegexValidator
 from baserow.core.models import UserFile
 from baserow.core.user_files.exceptions import UserFileDoesNotExist
 from baserow.core.user_files.handler import UserFileHandler
-from baserow.contrib.database.table.cache import invalidate_table_in_model_cache
+from .constants import UPSERT_OPTION_DICT_KEY
 from .dependencies.exceptions import (
     SelfReferenceFieldDependencyError,
     CircularFieldDependencyError,
@@ -83,7 +84,6 @@ from .fields import (
     BaserowLastModifiedField,
 )
 from .handler import FieldHandler
-from .constants import UPSERT_OPTION_DICT_KEY
 from .models import (
     TextField,
     LongTextField,
@@ -106,10 +106,19 @@ from .models import (
     Field,
     LookupField,
 )
-from .registries import FieldType, ReadOnlyFieldType, field_type_registry
+from .registries import (
+    FieldType,
+    ReadOnlyFieldType,
+    field_type_registry,
+    StartingRowType,
+)
 
 if TYPE_CHECKING:
     from baserow.contrib.database.table.models import GeneratedTableModel
+    from baserow.contrib.database.fields.dependencies.update_collector import (
+        FieldUpdateCollector,
+    )
+    from .field_cache import FieldCache
 
 
 class TextFieldMatchingRegexFieldType(FieldType, ABC):
@@ -1513,7 +1522,9 @@ class LinkRowFieldType(FieldType):
             field, primary_field, self.to_baserow_formula_type(field)
         )
 
-    def get_field_dependencies(self, field_instance, field_lookup_cache):
+    def get_field_dependencies(
+        self, field_instance: LinkRowField, field_cache: "FieldCache"
+    ):
         primary_related_field = field_instance.get_related_primary_field()
         if primary_related_field is not None:
             return [
@@ -2571,9 +2582,9 @@ class FormulaFieldType(ReadOnlyFieldType):
         return FormulaHandler.get_typed_internal_expression_from_field(field)
 
     def get_field_dependencies(
-        self, field_instance, field_lookup_cache
+        self, field_instance: FormulaField, field_cache: "FieldCache"
     ) -> OptionalFieldDependencies:
-        return FormulaHandler.get_field_dependencies(field_instance, field_lookup_cache)
+        return FormulaHandler.get_field_dependencies(field_instance, field_cache)
 
     def get_human_readable_value(self, value: Any, field_object) -> str:
         (
@@ -2601,37 +2612,49 @@ class FormulaFieldType(ReadOnlyFieldType):
 
     def row_of_dependency_updated(
         self,
-        field,
-        starting_row,
-        update_collector,
-        via_path_to_starting_table,
+        field: FormulaField,
+        starting_row: "StartingRowType",
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         self._refresh_row_values_if_not_in_starting_table(
-            field, update_collector, via_path_to_starting_table
+            field, update_collector, field_cache, via_path_to_starting_table
         )
         super().row_of_dependency_updated(
             field,
             starting_row,
             update_collector,
+            field_cache,
             via_path_to_starting_table,
         )
 
     def _refresh_row_values_if_not_in_starting_table(
-        self, field, update_collector, via_path_to_starting_table
+        self,
+        field: FormulaField,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         if (
             via_path_to_starting_table is not None
             and len(via_path_to_starting_table) > 0
         ):
             self._refresh_row_values(
-                field, update_collector, via_path_to_starting_table
+                field, update_collector, field_cache, via_path_to_starting_table
             )
 
-    def _refresh_row_values(self, field, update_collector, via_path_to_starting_table):
+    def _refresh_row_values(
+        self,
+        field: FormulaField,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
+    ):
         update_statement = (
             FormulaHandler.baserow_expression_to_update_django_expression(
                 field.cached_typed_internal_expression,
-                update_collector.get_model(field.table),
+                field_cache.get_model(field.table),
             )
         )
         update_collector.add_field_with_pending_update_statement(
@@ -2641,20 +2664,26 @@ class FormulaFieldType(ReadOnlyFieldType):
         )
 
     def field_dependency_created(
-        self, field, created_field, via_path_to_starting_table, update_collector
+        self,
+        field: Field,
+        created_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         old_field = deepcopy(field)
         self._update_formula_after_dependency_change(
-            field, old_field, update_collector, via_path_to_starting_table
+            field, old_field, update_collector, field_cache, via_path_to_starting_table
         )
 
     def field_dependency_updated(
         self,
-        field,
-        updated_field,
-        updated_old_field,
-        via_path_to_starting_table,
-        update_collector,
+        field: Field,
+        updated_field: Field,
+        updated_old_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         old_field = deepcopy(field)
 
@@ -2669,21 +2698,23 @@ class FormulaFieldType(ReadOnlyFieldType):
             field,
             old_field,
             update_collector,
+            field_cache,
             via_path_to_starting_table,
         )
 
     # noinspection PyMethodMayBeStatic
     def _update_formula_after_dependency_change(
         self,
-        field,
-        old_field,
-        update_collector,
-        via_path_to_starting_table,
+        field: Field,
+        old_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         expr = FormulaHandler.recalculate_formula_and_get_update_expression(
-            field, old_field, update_collector
+            field, old_field, field_cache
         )
-        FieldDependencyHandler.rebuild_dependencies(field, update_collector)
+        FieldDependencyHandler.rebuild_dependencies(field, field_cache)
         update_collector.add_field_with_pending_update_statement(
             field, expr, via_path_to_starting_table=via_path_to_starting_table
         )
@@ -2691,23 +2722,27 @@ class FormulaFieldType(ReadOnlyFieldType):
             dependant_field,
             dependant_field_type,
             path_to_starting_table,
-        ) in field.dependant_fields_with_types(
-            update_collector, via_path_to_starting_table
-        ):
+        ) in field.dependant_fields_with_types(field_cache, via_path_to_starting_table):
             dependant_field_type.field_dependency_updated(
                 dependant_field,
                 field,
                 old_field,
-                path_to_starting_table,
                 update_collector,
+                field_cache,
+                path_to_starting_table,
             )
 
     def field_dependency_deleted(
-        self, field, deleted_field, via_path_to_starting_table, update_collector
+        self,
+        field: Field,
+        deleted_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         old_field = deepcopy(field)
         self._update_formula_after_dependency_change(
-            field, old_field, update_collector, via_path_to_starting_table
+            field, old_field, update_collector, field_cache, via_path_to_starting_table
         )
 
     def after_create(self, field, model, user, connection, before):
@@ -2722,9 +2757,15 @@ class FormulaFieldType(ReadOnlyFieldType):
         )
         model.objects_and_trash.all().update(**{f"{field.db_column}": expr})
 
-    def after_rows_created(self, field: FormulaField, rows, update_collector):
+    def after_rows_created(
+        self,
+        field: FormulaField,
+        rows: List["GeneratedTableModel"],
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+    ):
         if field.requires_refresh_after_insert:
-            self._refresh_row_values(field, update_collector, [])
+            self._refresh_row_values(field, update_collector, field_cache, [])
 
     def after_update(
         self,
@@ -2744,14 +2785,22 @@ class FormulaFieldType(ReadOnlyFieldType):
         to_model.objects_and_trash.all().update(**{f"{to_field.db_column}": expr})
 
     def after_import_serialized(self, field, field_cache):
-        field.save(recalculate=True, field_lookup_cache=field_cache)
+        field.save(recalculate=True, field_cache=field_cache)
         super().after_import_serialized(field, field_cache)
 
-    def after_rows_imported(self, field, via_path_to_starting_table, update_collector):
+    def after_rows_imported(
+        self,
+        field: FormulaField,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
+    ):
         self._refresh_row_values_if_not_in_starting_table(
-            field, update_collector, via_path_to_starting_table
+            field, update_collector, field_cache, via_path_to_starting_table
         )
-        super().after_rows_imported(field, via_path_to_starting_table, update_collector)
+        super().after_rows_imported(
+            field, update_collector, field_cache, via_path_to_starting_table
+        )
 
     def check_can_order_by(self, field):
         return self.to_baserow_formula_type(field.specific).can_order_by
@@ -2898,11 +2947,12 @@ class LookupFieldType(FormulaFieldType):
 
     def field_dependency_updated(
         self,
-        field,
-        updated_field,
-        updated_old_field,
-        via_path_to_starting_table,
-        update_collector,
+        field: LookupField,
+        updated_field: Field,
+        updated_old_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         self._rebuild_field_from_names(field)
 
@@ -2910,40 +2960,45 @@ class LookupFieldType(FormulaFieldType):
             field,
             updated_field,
             updated_old_field,
-            via_path_to_starting_table,
             update_collector,
+            field_cache,
+            via_path_to_starting_table,
         )
 
     def field_dependency_deleted(
         self,
-        field,
-        deleted_field,
-        via_path_to_starting_table,
-        update_collector,
+        field: LookupField,
+        deleted_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         self._rebuild_field_from_names(field)
 
         super().field_dependency_deleted(
             field,
             deleted_field,
-            via_path_to_starting_table,
             update_collector,
+            field_cache,
+            via_path_to_starting_table,
         )
 
     def field_dependency_created(
         self,
-        field,
-        created_field,
-        via_path_to_starting_table,
-        update_collector,
+        field: LookupField,
+        created_field: Field,
+        update_collector: "FieldUpdateCollector",
+        field_cache: "FieldCache",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
     ):
         self._rebuild_field_from_names(field)
 
         super().field_dependency_created(
             field,
             created_field,
-            via_path_to_starting_table,
             update_collector,
+            field_cache,
+            via_path_to_starting_table,
         )
 
     def _rebuild_field_from_names(self, field):

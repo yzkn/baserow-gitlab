@@ -5,11 +5,10 @@ from django.db import connection
 from django.urls import path, include
 from django.utils import timezone
 
-from baserow.core.utils import ChildProgressBuilder
 from baserow.contrib.database.api.serializers import DatabaseSerializer
 from baserow.contrib.database.db.schema import safe_django_schema_editor
 from baserow.contrib.database.fields.dependencies.update_collector import (
-    CachingFieldUpdateCollector,
+    FieldUpdateCollector,
 )
 from baserow.contrib.database.fields.field_cache import FieldCache
 from baserow.contrib.database.fields.registries import field_type_registry
@@ -17,8 +16,8 @@ from baserow.contrib.database.models import Database, Table
 from baserow.contrib.database.views.registries import view_type_registry
 from baserow.core.registries import ApplicationType
 from baserow.core.trash.handler import TrashHandler
+from baserow.core.utils import ChildProgressBuilder
 from baserow.core.utils import grouper
-
 from .constants import IMPORT_SERIALIZED_IMPORTING, IMPORT_SERIALIZED_IMPORTING_TABLE
 from .export_serialized import DatabaseExportSerializedStructure
 
@@ -312,11 +311,9 @@ class DatabaseApplicationType(ApplicationType):
         # The progress off `apply_updates_and_get_updated_fields` takes 5% of the
         # total progress of this import.
         for field_type, field in all_fields:
-            update_collector = CachingFieldUpdateCollector(
-                field.table, existing_field_lookup_cache=field_cache
-            )
-            field_type.after_rows_imported(field, [], update_collector)
-            update_collector.apply_updates_and_get_updated_fields()
+            update_collector = FieldUpdateCollector(field.table)
+            field_type.after_rows_imported(field, update_collector, field_cache, [])
+            update_collector.apply_updates_and_get_updated_fields(field_cache)
             progress.increment(state=IMPORT_SERIALIZED_IMPORTING)
 
         # Add the remaining none fields that we must not include in the import

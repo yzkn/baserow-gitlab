@@ -6,8 +6,9 @@ from django.urls import reverse
 from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 
 from baserow.contrib.database.fields.dependencies.update_collector import (
-    CachingFieldUpdateCollector,
+    FieldUpdateCollector,
 )
+from baserow.contrib.database.fields.field_cache import FieldCache
 from baserow.contrib.database.fields.field_types import FormulaFieldType
 from baserow.contrib.database.fields.fields import BaserowExpressionField
 from baserow.contrib.database.fields.handler import FieldHandler
@@ -818,7 +819,8 @@ def test_row_dependency_update_functions_do_no_row_updates_for_same_table(
     table = data_fixture.create_database_table(user=user)
     handler = FieldHandler()
     handler.create_field(user=user, table=table, type_name="text", name="a")
-    formula_field = handler.create_field(
+    # noinspection PyTypeChecker
+    formula_field: FormulaField = handler.create_field(
         user=user,
         table=table,
         type_name="formula",
@@ -828,28 +830,29 @@ def test_row_dependency_update_functions_do_no_row_updates_for_same_table(
     table_model = table.get_model()
     row = table_model.objects.create()
     formula_field_type = FormulaFieldType()
-    update_collector = CachingFieldUpdateCollector(table, existing_model=table_model)
+    update_collector = FieldUpdateCollector(table)
+    field_cache = FieldCache()
 
     formula_field_type.row_of_dependency_updated(
-        formula_field, row, update_collector, None
+        formula_field, row, update_collector, field_cache, None
     )
     formula_field_type.row_of_dependency_updated(
-        formula_field, row, update_collector, []
+        formula_field, row, update_collector, field_cache, []
     )
     formula_field_type.row_of_dependency_created(
-        formula_field, row, update_collector, None
+        formula_field, row, update_collector, field_cache, None
     )
     formula_field_type.row_of_dependency_created(
-        formula_field, row, update_collector, []
+        formula_field, row, update_collector, field_cache, []
     )
     formula_field_type.row_of_dependency_deleted(
-        formula_field, row, update_collector, None
+        formula_field, row, update_collector, field_cache, None
     )
     formula_field_type.row_of_dependency_deleted(
-        formula_field, row, update_collector, []
+        formula_field, row, update_collector, field_cache, []
     )
     with django_assert_num_queries(0):
-        update_collector.apply_updates_and_get_updated_fields()
+        update_collector.apply_updates_and_get_updated_fields(field_cache)
 
 
 @pytest.mark.django_db

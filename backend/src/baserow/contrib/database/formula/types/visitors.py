@@ -70,15 +70,15 @@ class FieldReferenceExtractingVisitor(
     Calculates and returns all the field dependencies that the baserow expression has.
     """
 
-    def __init__(self, table, field_lookup_cache):
-        self.field_lookup_cache = field_lookup_cache
+    def __init__(self, table, field_cache):
+        self.field_cache = field_cache
         self.table = table
 
     def visit_field_reference(
         self, field_reference: BaserowFieldReference[UnTyped]
     ) -> FieldDependencies:
         if field_reference.target_field is None:
-            field = self.field_lookup_cache.lookup_by_name(
+            field = self.field_cache.lookup_by_name(
                 self.table, field_reference.referenced_field_name
             )
             from baserow.contrib.database.fields.models import LinkRowField
@@ -133,8 +133,8 @@ class FieldReferenceExtractingVisitor(
 class FormulaTypingVisitor(
     BaserowFormulaASTVisitor[UnTyped, BaserowExpression[BaserowFormulaType]]
 ):
-    def __init__(self, field_being_typed, field_lookup_cache):
-        self.field_lookup_cache = field_lookup_cache
+    def __init__(self, field_being_typed, field_cache):
+        self.field_cache = field_cache
         self.field_being_typed = field_being_typed
 
     def visit_field_reference(
@@ -147,9 +147,7 @@ class FormulaTypingVisitor(
             raise SelfReferenceFieldDependencyError()
 
         table = self.field_being_typed.table
-        referenced_field = self.field_lookup_cache.lookup_by_name(
-            table, referenced_field_name
-        )
+        referenced_field = self.field_cache.lookup_by_name(table, referenced_field_name)
         if referenced_field is None:
             return field_reference.with_invalid_type(
                 f"references the deleted or unknown field"
@@ -167,7 +165,7 @@ class FormulaTypingVisitor(
                     )
                 target_table = referenced_field.link_row_table
 
-                target_field = self.field_lookup_cache.lookup_by_name(
+                target_field = self.field_cache.lookup_by_name(
                     target_table, target_field
                 )
                 if target_field is None:

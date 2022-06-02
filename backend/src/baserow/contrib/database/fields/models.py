@@ -1,17 +1,16 @@
+import typing
 from typing import NewType
 
 from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils.functional import cached_property
-from django.core.validators import MinValueValidator, MaxValueValidator
+
 from baserow.contrib.database.fields.mixins import (
     BaseDateMixin,
     TimezoneMixin,
     DATE_FORMAT_CHOICES,
     DATE_TIME_FORMAT_CHOICES,
-)
-from baserow.contrib.database.table.cache import (
-    invalidate_table_in_model_cache,
 )
 from baserow.contrib.database.formula import (
     BASEROW_FORMULA_TYPE_CHOICES,
@@ -19,7 +18,9 @@ from baserow.contrib.database.formula import (
     BASEROW_FORMULA_ARRAY_TYPE_CHOICES,
 )
 from baserow.contrib.database.mixins import ParentFieldTrashableModelMixin
-
+from baserow.contrib.database.table.cache import (
+    invalidate_table_in_model_cache,
+)
 from baserow.core.mixins import (
     OrderableMixin,
     PolymorphicContentTypeMixin,
@@ -30,9 +31,10 @@ from baserow.core.utils import (
     to_snake_case,
     remove_special_characters,
 )
-
 from .fields import SerialField
 
+if typing.TYPE_CHECKING:
+    from baserow.contrib.database.fields.dependencies.handler import FieldDependants
 
 NUMBER_MAX_DECIMAL_PLACES = 5
 
@@ -137,7 +139,7 @@ class Field(
 
     def dependant_fields_with_types(
         self, field_cache, starting_via_path_to_starting_table=None
-    ):
+    ) -> "FieldDependants":
         from baserow.contrib.database.fields.dependencies.handler import (
             FieldDependencyHandler,
         )
@@ -147,7 +149,7 @@ class Field(
         )
 
     def save(self, *args, **kwargs):
-        kwargs.pop("field_lookup_cache", None)
+        kwargs.pop("field_cache", None)
         kwargs.pop("raise_if_invalid", None)
         save = super().save(*args, **kwargs)
         self.invalidate_table_model_cache()
@@ -399,9 +401,7 @@ class FormulaField(Field):
     def cached_formula_type(self):
         return FormulaHandler.get_formula_type_from_field(self)
 
-    def recalculate_internal_fields(
-        self, raise_if_invalid=False, field_lookup_cache=None
-    ):
+    def recalculate_internal_fields(self, raise_if_invalid=False, field_cache=None):
         try:
             # noinspection PyPropertyAccess
             del self.cached_untyped_expression
@@ -409,7 +409,7 @@ class FormulaField(Field):
             # It has not been cached yet so nothing to deleted.
             pass
         expression = FormulaHandler.recalculate_formula_field_cached_properties(
-            self, field_lookup_cache
+            self, field_cache
         )
         expression_type = expression.expression_type
         # Update the cached properties
@@ -437,11 +437,11 @@ class FormulaField(Field):
 
     def save(self, *args, **kwargs):
         recalculate = kwargs.pop("recalculate", not self.trashed)
-        field_lookup_cache = kwargs.pop("field_lookup_cache", None)
+        field_cache = kwargs.pop("field_cache", None)
         raise_if_invalid = kwargs.pop("raise_if_invalid", False)
         if recalculate:
             self.recalculate_internal_fields(
-                field_lookup_cache=field_lookup_cache, raise_if_invalid=raise_if_invalid
+                field_cache=field_cache, raise_if_invalid=raise_if_invalid
             )
         super().save(*args, **kwargs)
 

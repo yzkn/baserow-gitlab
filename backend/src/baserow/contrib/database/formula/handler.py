@@ -1,3 +1,4 @@
+import typing
 from typing import Type, Dict, Set, Optional
 
 from django.db.models import Model, Expression
@@ -42,6 +43,9 @@ from baserow.contrib.database.formula.types.visitors import (
     FunctionsUsedVisitor,
     FieldReferenceExtractingVisitor,
 )
+
+if typing.TYPE_CHECKING:
+    from baserow.contrib.database.fields.models import FormulaField
 
 
 def _expression_requires_refresh_after_insert(expression: BaserowExpression):
@@ -204,27 +208,25 @@ class FormulaHandler:
 
     @classmethod
     def get_field_dependencies_from_expression(
-        cls, expression, table, field_lookup_cache
+        cls, expression, table, field_cache
     ) -> FieldDependencies:
         """
         Helper method that returns a the field dependencies of a given expression.
 
-        :param field_lookup_cache: A cache that can be used to lookup fields.
+        :param field_cache: A cache that can be used to lookup fields.
         :param table: The table that the field is in.
         :param expression: The expression to calculate field dependencies for.
         """
 
-        return expression.accept(
-            FieldReferenceExtractingVisitor(table, field_lookup_cache)
-        )
+        return expression.accept(FieldReferenceExtractingVisitor(table, field_cache))
 
     @classmethod
-    def get_field_dependencies(cls, formula_field, field_lookup_cache):
+    def get_field_dependencies(cls, formula_field, field_cache):
         """
         Returns all the field dependencies for the provided formula field.
 
         :param formula_field: A formula field instance to lookup its dependencies for.
-        :param field_lookup_cache: An optional field lookup cache that can be used
+        :param field_cache: An optional field lookup cache that can be used
             when calculating dependencies.
         """
 
@@ -234,7 +236,7 @@ class FormulaHandler:
         return cls.get_field_dependencies_from_expression(
             formula_field.cached_untyped_expression,
             formula_field.table,
-            field_lookup_cache,
+            field_cache,
         )
 
     @classmethod
@@ -305,25 +307,23 @@ class FormulaHandler:
         return untyped_internal_expr.with_type(formula_field.cached_formula_type)
 
     @classmethod
-    def recalculate_formula_field_cached_properties(
-        cls, formula_field, field_lookup_cache
-    ):
+    def recalculate_formula_field_cached_properties(cls, formula_field, field_cache):
         """
         For the provided formula field this function recalculates all of the required
         internal attributes given the user supplied ones have already been set on
         the instance.
 
         :param formula_field: The formula instance to update its internal fields for.
-        :param field_lookup_cache: A field cache that will be used to lookup fields
+        :param field_cache: A field cache that will be used to lookup fields
             during any recalculations.
         :return: The typed internal expression which results after the recalculation.
         """
 
-        if field_lookup_cache is None:
-            field_lookup_cache = FieldCache()
+        if field_cache is None:
+            field_cache = FieldCache()
 
         try:
-            expression = calculate_typed_expression(formula_field, field_lookup_cache)
+            expression = calculate_typed_expression(formula_field, field_cache)
         except BaserowFormulaException as e:
             expression = literal("").with_invalid_type(str(e))
 
@@ -354,7 +354,7 @@ class FormulaHandler:
 
     @classmethod
     def recalculate_formula_and_get_update_expression(
-        cls, field, old_field, field_cache
+        cls, field: "FormulaField", old_field: "FormulaField", field_cache: "FieldCache"
     ) -> Expression:
         """
         Recalculates the internal formula attributes and given its old field instance
@@ -371,7 +371,7 @@ class FormulaHandler:
 
         from baserow.contrib.database.views.handler import ViewHandler
 
-        field.save(field_lookup_cache=field_cache)
+        field.save(field_cache=field_cache)
         recreate_formula_field_if_needed(field, old_field)
         ViewHandler().field_type_changed(field)
         return FormulaHandler.baserow_expression_to_update_django_expression(

@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Iterable
 
 from baserow.contrib.database.fields.dependencies.depedency_rebuilder import (
     rebuild_field_dependencies,
@@ -7,9 +7,12 @@ from baserow.contrib.database.fields.dependencies.depedency_rebuilder import (
 )
 from baserow.contrib.database.fields.registries import field_type_registry, FieldType
 from baserow.contrib.database.fields.field_cache import FieldCache
-from baserow.contrib.database.fields.models import Field
+from baserow.contrib.database.fields.models import Field, LinkRowField
 
 from .models import FieldDependency
+
+
+FieldDependants = List[Tuple[Field, FieldType, List[LinkRowField]]]
 
 
 class FieldDependencyHandler:
@@ -54,10 +57,10 @@ class FieldDependencyHandler:
     @classmethod
     def get_dependant_fields_with_type(
         cls,
-        field_ids: list,
+        field_ids: Iterable[int],
         field_cache: FieldCache,
         starting_via_path_to_starting_table: Optional[str] = None,
-    ) -> List[Tuple[Field, FieldType, str]]:
+    ) -> FieldDependants:
         """
         Finds the unique dependant fields of the provided field ids efficiently with the
         least amount of queries.
@@ -77,7 +80,7 @@ class FieldDependencyHandler:
             .order_by("id")
         )
 
-        result = []
+        result: FieldDependants = []
         for field_dependency in queryset:
             dependant_field = field_cache.lookup_specific(field_dependency.dependant)
             if dependant_field is None:

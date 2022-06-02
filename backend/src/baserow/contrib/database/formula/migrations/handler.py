@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def _recalculate_formula_metadata_dependencies_first_order(
     field: "Field",
-    field_lookup_cache: FieldCache,
+    field_cache: FieldCache,
     recalculate_cell_values: bool,
     already_recalculated: Set[int],
 ):
@@ -36,7 +36,7 @@ def _recalculate_formula_metadata_dependencies_first_order(
     field.
 
     :param field: The field to recalculate its metadata and/or cell values for.
-    :param field_lookup_cache: A cache using to stored queried fields.
+    :param field_cache: A cache using to stored queried fields.
     :param recalculate_cell_values: Whether to recalculate the cell values of the
         fields also and not just their metadata.
     :param already_recalculated: A set of field ids which have already been recalculated
@@ -50,16 +50,16 @@ def _recalculate_formula_metadata_dependencies_first_order(
 
     for dep in field.field_dependencies.all():
         _recalculate_formula_metadata_dependencies_first_order(
-            dep, field_lookup_cache, recalculate_cell_values, already_recalculated
+            dep, field_cache, recalculate_cell_values, already_recalculated
         )
 
-    field = field_lookup_cache.lookup_specific(field)
+    field = field_cache.lookup_specific(field)
 
     if isinstance(field, FormulaField):
-        field.save(field_lookup_cache=field_lookup_cache, raise_if_invalid=False)
+        field.save(field_cache=field_cache, raise_if_invalid=False)
         if recalculate_cell_values:
             try:
-                model = field_lookup_cache.get_model(field.table)
+                model = field_cache.get_model(field.table)
                 expr = FormulaHandler.baserow_expression_to_update_django_expression(
                     field.cached_typed_internal_expression, model
                 )
@@ -248,7 +248,7 @@ class FormulaMigrationHandler:
             FieldDependencyHandler,
         )
 
-        field_lookup_cache = FieldCache()
+        field_cache = FieldCache()
         already_recalculated = set()
 
         # First recalculate all formula dependencies to ensure they are correct and
@@ -263,9 +263,7 @@ class FormulaMigrationHandler:
         ) as pbar:
             for field in formulas_to_rebuild_dependencies_for.iterator():
                 try:
-                    FieldDependencyHandler.rebuild_dependencies(
-                        field, field_lookup_cache
-                    )
+                    FieldDependencyHandler.rebuild_dependencies(field, field_cache)
                 except Exception as e:
                     logger.warning(
                         f"Failed to recalculate dependencies for field: "
@@ -290,7 +288,7 @@ class FormulaMigrationHandler:
             ) in formulas_to_both_calc_attrs_and_refresh_cell_values_for.iterator():
                 _recalculate_formula_metadata_dependencies_first_order(
                     field,
-                    field_lookup_cache,
+                    field_cache,
                     recalculate_cell_values=True,
                     already_recalculated=already_recalculated,
                 )
@@ -304,7 +302,7 @@ class FormulaMigrationHandler:
             for field in formulas_to_only_recalculate_attributes_for.iterator():
                 _recalculate_formula_metadata_dependencies_first_order(
                     field,
-                    field_lookup_cache,
+                    field_cache,
                     recalculate_cell_values=False,
                     already_recalculated=already_recalculated,
                 )
