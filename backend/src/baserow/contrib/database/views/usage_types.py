@@ -1,6 +1,5 @@
 from django.db.models import Sum, Q
 
-from baserow.contrib.database.views.models import FormView
 from baserow.core.usage.registries import GroupStorageUsageItemType
 from baserow.core.user_files.models import UserFile
 
