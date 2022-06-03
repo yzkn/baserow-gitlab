@@ -22,4 +22,4 @@ class FormViewGroupStorageUsageItem(GroupStorageUsageItemType):
             "sum"
         ]
 
-        return usage
+        return usage or 0
