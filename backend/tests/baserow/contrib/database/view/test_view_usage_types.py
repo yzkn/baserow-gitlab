@@ -30,6 +30,56 @@ def test_form_view_group_storage_usage_item(data_fixture):
 
 
 @pytest.mark.django_db
+def test_form_view_group_storage_usage_item_duplicate_ids(data_fixture):
+    user = data_fixture.create_user()
+    group = data_fixture.create_group(user=user)
+    database = data_fixture.create_database_application(group=group)
+    table = data_fixture.create_database_table(user=user, database=database)
+
+    image = data_fixture.create_user_file(is_image=True, size=200)
+
+    data_fixture.create_form_view(
+        table=table,
+        cover_image=image,
+        logo_image=image,
+    )
+
+    usage = FormViewGroupStorageUsageItem().calculate_storage_usage(group.id)
+
+    assert usage == 200  # Instead of 400
+
+
+@pytest.mark.django_db
+def test_form_view_group_storage_usage_item_duplicate_ids_within_image_category(
+    data_fixture, django_assert_num_queries
+):
+    user = data_fixture.create_user()
+    group = data_fixture.create_group(user=user)
+    database = data_fixture.create_database_application(group=group)
+    table = data_fixture.create_database_table(user=user, database=database)
+
+    cover_image = data_fixture.create_user_file(is_image=True, size=200)
+    logo_image = data_fixture.create_user_file(is_image=True, size=400)
+
+    data_fixture.create_form_view(
+        table=table,
+        cover_image=cover_image,
+        logo_image=logo_image,
+    )
+
+    data_fixture.create_form_view(
+        table=table,
+        cover_image=cover_image,
+        logo_image=logo_image,
+    )
+
+    with django_assert_num_queries(0):
+        usage = FormViewGroupStorageUsageItem().calculate_storage_usage(group.id)
+
+    assert usage == 600  # Instead of 1200
+
+
+@pytest.mark.django_db
 @pytest.mark.disabled_in_ci
 # You must add --run-disabled-in-ci -s to pytest to run this test, you can do this in
 # intellij by editing the run config for this test and adding --run-disabled-in-ci -s

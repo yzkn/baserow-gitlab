@@ -1,25 +1,26 @@
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from baserow.contrib.database.views.models import FormView
 from baserow.core.usage.registries import GroupStorageUsageItemType
+from baserow.core.user_files.models import UserFile
 
 
 class FormViewGroupStorageUsageItem(GroupStorageUsageItemType):
     type = "form_view"
 
     def calculate_storage_usage(self, group_id: int) -> int:
-        cover_image_usage = FormView.objects.filter(
-            table__database__group=group_id, cover_image__isnull=False
-        ).aggregate(sum=Sum("cover_image__size"))["sum"]
+        image_ids = (
+            UserFile.objects.filter(
+                Q(form_view_cover_image__table__database__group=group_id)
+                | Q(form_view_logo_image__table__database__group=group_id)
+            )
+            .values("id")
+            .distinct()
+            .values_list("id", flat=True)
+        )
 
-        if cover_image_usage is None:
-            cover_image_usage = 0
+        usage = UserFile.objects.filter(id__in=image_ids).aggregate(sum=Sum("size"))[
+            "sum"
+        ]
 
-        logo_image_usage = FormView.objects.filter(
-            table__database__group=group_id, logo_image__isnull=False
-        ).aggregate(sum=Sum("logo_image__size"))["sum"]
-
-        if logo_image_usage is None:
-            logo_image_usage = 0
-
-        return cover_image_usage + logo_image_usage
+        return usage
