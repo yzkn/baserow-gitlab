@@ -51,7 +51,7 @@ def test_form_view_group_storage_usage_item_duplicate_ids(data_fixture):
 
 @pytest.mark.django_db
 def test_form_view_group_storage_usage_item_duplicate_ids_within_image_category(
-    data_fixture, django_assert_num_queries
+    data_fixture,
 ):
     user = data_fixture.create_user()
     group = data_fixture.create_group(user=user)
@@ -73,8 +73,7 @@ def test_form_view_group_storage_usage_item_duplicate_ids_within_image_category(
         logo_image=logo_image,
     )
 
-    with django_assert_num_queries(0):
-        usage = FormViewGroupStorageUsageItem().calculate_storage_usage(group.id)
+    usage = FormViewGroupStorageUsageItem().calculate_storage_usage(group.id)
 
     assert usage == 600  # Instead of 1200
 
