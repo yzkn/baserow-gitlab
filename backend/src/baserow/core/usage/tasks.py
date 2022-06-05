@@ -18,7 +18,8 @@ def run_calculate_storage():
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(
-        settings.USAGE_CALCULATION_INTERVAL,
-        run_calculate_storage.s(),
-    )
+    if settings.GROUP_STORAGE_USAGE_ENABLED:
+        sender.add_periodic_task(
+            settings.USAGE_CALCULATION_INTERVAL,
+            run_calculate_storage.s(),
+        )

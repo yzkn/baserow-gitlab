@@ -627,3 +627,7 @@ BASEROW_SYNC_TEMPLATES_TIME_LIMIT = int(
 )
 
 TESTS = False
+
+GROUP_STORAGE_USAGE_ENABLED = (
+    os.getenv("GROUP_STORAGE_USAGE_ENABLED", "false") == "true"
+)
