@@ -753,6 +753,27 @@ class LinkRowHasNotViewFilterType(NotViewFilterTypeMixin, LinkRowHasViewFilterTy
     type = "link_row_has_not"
 
 
+class LinkRowContainsFilterType(ViewFilterType):
+    type = "link_row_contains"
+    compatible_field_types = [LinkRowFieldType.type]
+
+    def get_filter(self, field_name, value, model_field, field) -> OptionallyAnnotatedQ:
+        related_primary_field = field.get_related_primary_field()
+        model = related_primary_field.table.get_model(fields=[related_primary_field])
+        related_primary_field_object = model._field_objects[related_primary_field.id]
+        related_primary_field_object_name = related_primary_field_object["name"]
+        matching_ids = model.objects.filter(
+            **{f"{related_primary_field_object_name}__contains": value}
+        ).values_list("id", flat=True)
+
+        return AnnotatedQ(
+            annotation={
+                f"{field_name}_array": ArrayAgg(Cast(field_name, IntegerField())),
+            },
+            q={f"{field_name}_array__overlap": [matching_ids]},
+        )
+
+
 class MultipleSelectHasViewFilterType(ManyToManyHasBaseViewFilter):
     """
     The multiple select has filter accepts the ID of the select_option to filter for

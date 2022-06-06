@@ -51,6 +51,7 @@ import {
   LinkRowHasNotFilterType,
   MultipleSelectHasFilterType,
   MultipleSelectHasNotFilterType,
+  LinkRowContainsFilterType,
 } from '@baserow/modules/database/viewFilters'
 import {
   CSVImporterType,
@@ -265,6 +266,7 @@ export default (context) => {
   app.$registry.register('viewFilter', new BooleanViewFilterType(context))
   app.$registry.register('viewFilter', new LinkRowHasFilterType(context))
   app.$registry.register('viewFilter', new LinkRowHasNotFilterType(context))
+  app.$registry.register('viewFilter', new LinkRowContainsFilterType(context))
   app.$registry.register('viewFilter', new MultipleSelectHasFilterType(context))
   app.$registry.register(
     'viewFilter',

@@ -1121,6 +1121,37 @@ export class LinkRowHasNotFilterType extends ViewFilterType {
   }
 }
 
+export class LinkRowContainsFilterType extends ViewFilterType {
+  static getType() {
+    return 'link_row_contains'
+  }
+
+  getName() {
+    const { i18n } = this.app
+    return i18n.t('viewFilter.contains')
+  }
+
+  getExample() {
+    return 'string'
+  }
+
+  getInputComponent() {
+    return ViewFilterTypeText
+  }
+
+  getCompatibleFieldTypes() {
+    return ['link_row']
+  }
+
+  matches(rowValue, filterValue, field, fieldType) {
+    if (filterValue === '') {
+      return true
+    }
+
+    return true // TODO
+  }
+}
+
 export class EmptyViewFilterType extends ViewFilterType {
   static getType() {
     return 'empty'
