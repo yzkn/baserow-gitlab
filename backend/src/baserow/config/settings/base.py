@@ -92,6 +92,14 @@ REDIS_URL = os.getenv(
     f"{REDIS_PROTOCOL}://{REDIS_USERNAME}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/0",
 )
 
+BASEROW_GROUP_STORAGE_USAGE_ENABLED = (
+    os.getenv("BASEROW_GROUP_STORAGE_USAGE_ENABLED", "false") == "true"
+)
+
+BASEROW_GROUP_STORAGE_USAGE_QUEUE = os.getenv(
+    "BASEROW_GROUP_STORAGE_USAGE_QUEUE", "export"
+)
+
 CELERY_BROKER_URL = REDIS_URL
 CELERY_TASK_ROUTES = {
     "baserow.contrib.database.export.tasks.run_export_job": {"queue": "export"},
@@ -100,7 +108,7 @@ CELERY_TASK_ROUTES = {
         "queue": "export"
     },
     "baserow.core.trash.tasks.permanently_delete_marked_trash": {"queue": "export"},
-    "baserow.core.usage.tasks": {"queue": "export"},
+    "baserow.core.usage.tasks": {"queue": BASEROW_GROUP_STORAGE_USAGE_QUEUE},
     "baserow.contrib.database.table.tasks.run_row_count_job": {"queue": "export"},
 }
 CELERY_SOFT_TIME_LIMIT = 60 * 5  # 5 minutes
@@ -627,7 +635,3 @@ BASEROW_SYNC_TEMPLATES_TIME_LIMIT = int(
 )
 
 TESTS = False
-
-BASEROW_GROUP_STORAGE_USAGE_ENABLED = (
-    os.getenv("BASEROW_GROUP_STORAGE_USAGE_ENABLED", "false") == "true"
-)
