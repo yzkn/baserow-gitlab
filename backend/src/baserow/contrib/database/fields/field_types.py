@@ -982,7 +982,9 @@ class LinkRowFieldType(FieldType):
     ]
     serializer_field_names = ["link_row_table", "link_row_related_field"]
     serializer_field_overrides = {
-        "link_row_related_field": serializers.PrimaryKeyRelatedField(read_only=True)
+        "link_row_related_field": serializers.PrimaryKeyRelatedField(
+            read_only=True, required=False
+        )
     }
     api_exceptions_map = {
         LinkRowTableNotProvided: ERROR_LINK_ROW_TABLE_NOT_PROVIDED,
@@ -1171,10 +1173,13 @@ class LinkRowFieldType(FieldType):
         manytomany_models[instance.table_id] = model
 
         # Check if the related table model is already in the manytomany_models.
-        related_model = manytomany_models.get(instance.link_row_table_id)
+        if instance.link_row_table_id == instance.table_id:
+            related_model = model
+        else:
+            related_model = manytomany_models.get(instance.link_row_table_id)
 
         # If we do not have a related table model already we can generate a new one.
-        if not related_model:
+        if related_model is None:
             related_model = instance.link_row_table.get_model(
                 manytomany_models=manytomany_models
             )
@@ -1193,15 +1198,27 @@ class LinkRowFieldType(FieldType):
             ):
                 related_name = related_field["name"]
 
-        # Note that the through model will not be registered with the apps because of
-        # the `DatabaseConfig.prevent_generated_model_for_registering` hack.
+        # default arguments for many to many fields
+        kwargs = {
+            "null": True,
+            "blank": True,
+            "db_table": instance.through_table_name,
+            "db_constraint": False,
+        }
+        if model == related_model:
+            # when linking the same table, directly create the backwards relation
+            # on this model since both models are the same one.
+            models.ManyToManyField(
+                to=model,
+                related_name=field_name,
+                **kwargs,
+            ).contribute_to_class(model, related_name)
+        # Note that the through model will not be registered with the apps because
+        # of the `DatabaseConfig.prevent_generated_model_for_registering` hack.
         models.ManyToManyField(
             to=related_model,
             related_name=related_name,
-            null=True,
-            blank=True,
-            db_table=instance.through_table_name,
-            db_constraint=False,
+            **kwargs,
         ).contribute_to_class(model, field_name)
 
         # Trigger the newly created pending operations of all the models related to the
@@ -1386,7 +1403,8 @@ class LinkRowFieldType(FieldType):
         After the field has been deleted we also need to delete the related field.
         """
 
-        field.link_row_related_field.delete()
+        if field.link_row_related_field is not None:
+            field.link_row_related_field.delete()
 
     def random_value(self, instance, fake, cache):
         """
@@ -1486,7 +1504,10 @@ class LinkRowFieldType(FieldType):
         getattr(row, field_name).set(value)
 
     def get_other_fields_to_trash_restore_always_together(self, field) -> List[Any]:
-        return [field.link_row_related_field]
+        fields = []
+        if field.link_row_related_field is not None:
+            fields.append(field.link_row_related_field)
+        return fields
 
     def to_baserow_formula_type(self, field) -> BaserowFormulaType:
         primary_field = field.get_related_primary_field()

@@ -988,3 +988,66 @@ def test_change_link_row_related_table_when_field_with_related_name_exists(
     )
     assert names == ["Table", "Table - Link"]
     assert LinkRowField.objects.count() == 2
+
+
+@pytest.mark.django_db
+def test_link_row_field_can_link_same_table(api_client, data_fixture):
+    user, token = data_fixture.create_user_and_token()
+    table = data_fixture.create_database_table(user=user, name="Table")
+    field_handler = FieldHandler()
+    field = data_fixture.create_text_field(
+        table=table, order=1, primary=True, name="Name"
+    )
+    link_row = field_handler.create_field(
+        user, table, "link_row", link_row_table=table, name="Link"
+    )
+    link_row.refresh_from_db()
+    assert link_row.link_row_related_field is None
+    field_names = Field.objects.filter(table=table).values_list("name", flat=True)
+    assert list(field_names) == ["Name", "Link"]
+
+    row_handler = RowHandler()
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        values={
+            f"field_{field.id}": "Tesla",
+        },
+    )
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        values={
+            f"field_{field.id}": "Amazon",
+            f"field_{link_row.id}": [row_1.id],
+        },
+    )
+
+    assert getattr(row_2, f"field_{link_row.id}").count() == 1
+    assert getattr(row_2, f"field_{link_row.id}").all()[0].id == row_1.id
+
+    # it works using api
+    url = reverse(
+        "api:database:rows:item",
+        kwargs={"table_id": table.id, "row_id": row_1.id},
+    )
+    response = api_client.patch(
+        url,
+        {f"field_{link_row.id}": [row_1.id, row_2.id]},
+        format="json",
+        HTTP_AUTHORIZATION=f"JWT {token}",
+    )
+    response_json = response.json()
+    assert response.status_code == HTTP_200_OK
+    assert response_json[f"field_{link_row.id}"] == [
+        {"id": row_1.id, "value": "Tesla"},
+        {"id": row_2.id, "value": "Amazon"},
+    ]
+
+    # can be trashed and restored
+    field_handler.delete_field(user, link_row)
+    assert link_row.trashed is True
+
+    TrashHandler().restore_item(user, "field", link_row.id)
+    link_row.refresh_from_db()
+    assert link_row.trashed is False
