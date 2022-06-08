@@ -67,7 +67,13 @@ export const actions = {
    */
   async create(
     { commit, dispatch },
-    { database, values, initialData = null, firstRowHeader = true }
+    {
+      database,
+      values,
+      initialData = null,
+      firstRowHeader = true,
+      onUploadProgress = null,
+    }
   ) {
     const type = DatabaseApplicationType.getType()
 
@@ -83,7 +89,10 @@ export const actions = {
       database.id,
       values,
       initialData,
-      firstRowHeader
+      firstRowHeader,
+      {
+        onUploadProgress,
+      }
     )
     dispatch('forceCreate', { database, data })
 
