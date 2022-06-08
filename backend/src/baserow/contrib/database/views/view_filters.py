@@ -5,11 +5,15 @@ from math import floor, ceil
 from dateutil import parser
 from dateutil.parser import ParserError
 from django.contrib.postgres.aggregates.general import ArrayAgg
-from django.db.models import Q, IntegerField, DateTimeField
-from django.db.models.functions import Cast, Length
+from django.db.models import Q, IntegerField, DateTimeField, OuterRef, Subquery, Func
+from django.db.models.functions import Cast, Length, Coalesce
 from pytz import timezone, all_timezones
 
-from baserow.contrib.database.fields.field_filters import AnnotatedQ
+from baserow.contrib.database.fields.field_filters import (
+    AnnotatedQ,
+    FilterBuilder,
+    FILTER_TYPE_AND,
+)
 from baserow.contrib.database.fields.field_filters import (
     filename_contains_filter,
     OptionallyAnnotatedQ,
@@ -758,19 +762,38 @@ class LinkRowContainsFilterType(ViewFilterType):
     compatible_field_types = [LinkRowFieldType.type]
 
     def get_filter(self, field_name, value, model_field, field) -> OptionallyAnnotatedQ:
-        related_primary_field = field.get_related_primary_field()
-        model = related_primary_field.table.get_model(fields=[related_primary_field])
-        related_primary_field_object = model._field_objects[related_primary_field.id]
-        related_primary_field_object_name = related_primary_field_object["name"]
-        matching_ids = model.objects.filter(
-            **{f"{related_primary_field_object_name}__contains": value}
-        ).values_list("id", flat=True)
+        """
+        # TODO
+        - Write tests for all the weird field types
+        - Maybe you will need to replace the name of the annotation for weird field types
+        - Write frontend matches function that just compares strings using the `value` attribute of the cell
+        """
 
-        return AnnotatedQ(
-            annotation={
-                f"{field_name}_array": ArrayAgg(Cast(field_name, IntegerField())),
-            },
-            q={f"{field_name}_array__overlap": [matching_ids]},
+        related_primary_field = field.get_related_primary_field().specific
+        related_primary_field_type = field_type_registry.get_by_model(
+            related_primary_field
+        )
+        model = field.table.get_model()
+        related_primary_field_model_field = related_primary_field_type.get_model_field(
+            related_primary_field
+        )
+
+        subquery = (
+            FilterBuilder(FILTER_TYPE_AND)
+            .filter(
+                related_primary_field_type.contains_query(
+                    f"{field_name}__{related_primary_field.db_column}",
+                    value,
+                    related_primary_field_model_field,
+                    related_primary_field,
+                )
+            )
+            .apply_to_queryset(model.objects)
+            .values_list("id", flat=True)
+        )
+
+        return Q(
+            **{f"id__in": subquery},
         )
 
 

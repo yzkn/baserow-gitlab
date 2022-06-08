@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.utils import timezone as django_timezone
 from freezegun import freeze_time
 
 import pytest
@@ -3684,3 +3685,687 @@ def test_date_equals_day_of_month_filter_type(data_fixture):
     assert len(ids) == 2
     assert row_2_tz.id in ids
     assert row_3_tz.id in ids
+
+
+@pytest.mark.django_db
+def test_link_row_contains_filter_type(data_fixture):
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    related_primary_field = data_fixture.create_text_field(
+        primary=True, table=related_table
+    )
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_row_1 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={
+            f"field_{related_primary_field.id}": "Related row 1",
+        },
+    )
+    related_row_2 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={
+            f"field_{related_primary_field.id}": "Related row 2",
+        },
+    )
+    related_row_3 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={
+            f"field_{related_primary_field.id}": "Related row 3",
+        },
+    )
+
+    row_unrelated = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 0",
+        },
+    )
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 1",
+            f"field_{link_row_field.id}": [related_row_1.id],
+        },
+    )
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 2",
+            f"field_{link_row_field.id}": [related_row_2.id],
+        },
+    )
+    row_3 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 3",
+            f"field_{link_row_field.id}": [related_row_3.id],
+        },
+    )
+    row_with_all_relations = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 4",
+            f"field_{link_row_field.id}": [
+                related_row_1.id,
+                related_row_2.id,
+                related_row_3.id,
+            ],
+        },
+    )
+
+    view_handler = ViewHandler()
+    view_filter = data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"",
+    )
+
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 5
+
+    view_filter.value = "nonsense"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 0
+
+    view_filter.value = "row"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 4
+
+    view_filter.value = "1"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+    assert row_1.id in ids
+    assert row_with_all_relations.id in ids
+
+    view_filter.value = "2"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+    assert row_2.id in ids
+    assert row_with_all_relations.id in ids
+
+    view_filter.value = "3"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+    assert row_3.id in ids
+    assert row_with_all_relations.id in ids
+
+    # Chaining filters should also work
+    # creating a second filter for the same field
+    data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value="1",
+    )
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 1
+    assert row_with_all_relations.id in ids
+
+    # Changing the view to use "OR" for multiple filters
+    view_handler.update_view(user=user, view=grid_view, filter_type="OR")
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 3
+    assert row_1.id in ids
+    assert row_3.id in ids
+    assert row_with_all_relations.id in ids
+
+
+@pytest.mark.django_db
+def test_link_row_contains_filter_type_date_field(data_fixture):
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+
+    related_primary_date_field = data_fixture.create_date_field(
+        primary=True, table=related_table, date_format="ISO"
+    )
+
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_date_row_1 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_date_field.id}": "2020-02-01 01:23"},
+    )
+
+    related_date_row_2 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_date_field.id}": "2021-02-01 01:23"},
+    )
+
+    row_unrelated = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 0",
+        },
+    )
+
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 1",
+            f"field_{link_row_field.id}": [related_date_row_1.id],
+        },
+    )
+
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 2",
+            f"field_{link_row_field.id}": [related_date_row_2.id],
+        },
+    )
+
+    view_handler = ViewHandler()
+    view_filter = data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"",
+    )
+
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 3
+
+    view_filter.value = "2020"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 1
+
+    view_filter.value = "01"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+
+
+@pytest.mark.django_db
+def test_link_row_contains_filter_type_created_on_field(data_fixture):
+    """
+    TODO: this guy is also using raw SQL
+    """
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+
+    now = django_timezone.now()
+
+    related_primary_created_on_field = data_fixture.create_created_on_field(
+        primary=True, table=related_table
+    )
+
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_created_on_row_1 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+    )
+
+    related_created_on_row_2 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+    )
+
+    row_unrelated = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 0",
+        },
+    )
+
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 1",
+            f"field_{link_row_field.id}": [related_created_on_row_1.id],
+        },
+    )
+
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 2",
+            f"field_{link_row_field.id}": [related_created_on_row_2.id],
+        },
+    )
+
+    view_handler = ViewHandler()
+    view_filter = data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"",
+    )
+
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 3
+
+    view_filter.value = now.year
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+
+
+@pytest.mark.django_db
+def test_link_row_contains_filter_type_file_field(data_fixture):
+    """
+    TODO: The test currently doesn't work because filename_contains_filter
+        does not use the field_name to reference another table but instead
+        just works with field.id
+        Therefore it executes the query on the wrong table
+        This can't be easily fixed since the query is a raw query
+        and therefore does not respect the `__` syntax, even if we would use
+        the field_name
+    """
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+
+    related_primary_file_field = data_fixture.create_file_field(
+        primary=True, table=related_table
+    )
+
+    file_one = data_fixture.create_user_file(original_name="target 1")
+    file_two = data_fixture.create_user_file(original_name="target 2")
+
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_file_row_1 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_file_field.id}": [{"name": file_one.name}]},
+    )
+
+    related_file_row_2 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_file_field.id}": [{"name": file_two.name}]},
+    )
+
+    row_unrelated = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 0",
+        },
+    )
+
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 1",
+            f"field_{link_row_field.id}": [related_file_row_1.id],
+        },
+    )
+
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 2",
+            f"field_{link_row_field.id}": [related_file_row_2.id],
+        },
+    )
+
+    view_handler = ViewHandler()
+    view_filter = data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"",
+    )
+
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 3
+
+    view_filter.value = "target 1"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 1
+
+    view_filter.value = "target"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+
+
+@pytest.mark.django_db
+def test_link_row_contains_filter_type_single_select_field(data_fixture):
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+
+    related_primary_single_select_field = data_fixture.create_single_select_field(
+        primary=True, table=related_table
+    )
+
+    option_a = data_fixture.create_select_option(
+        field=related_primary_single_select_field, value="target 1", color="blue"
+    )
+    option_b = data_fixture.create_select_option(
+        field=related_primary_single_select_field, value="target 2", color="red"
+    )
+
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_single_select_row_1 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_single_select_field.id}": option_a.id},
+    )
+
+    related_single_select_row_2 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_single_select_field.id}": option_b.id},
+    )
+
+    row_unrelated = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 0",
+        },
+    )
+
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 1",
+            f"field_{link_row_field.id}": [related_single_select_row_1.id],
+        },
+    )
+
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 2",
+            f"field_{link_row_field.id}": [related_single_select_row_2.id],
+        },
+    )
+
+    view_handler = ViewHandler()
+    view_filter = data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"",
+    )
+
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 3
+
+    view_filter.value = "target 1"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 1
+
+    view_filter.value = "target"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
+
+
+@pytest.mark.django_db
+def test_link_row_contains_filter_type_multiple_select_field(data_fixture):
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+
+    related_primary_multiple_select_field = data_fixture.create_multiple_select_field(
+        primary=True, table=related_table
+    )
+
+    option_a = data_fixture.create_select_option(
+        field=related_primary_multiple_select_field, value="target 1", color="blue"
+    )
+    option_b = data_fixture.create_select_option(
+        field=related_primary_multiple_select_field, value="target 2", color="red"
+    )
+
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_multiple_select_row_1 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_multiple_select_field.id}": [option_a.id]},
+    )
+
+    related_multiple_select_row_2 = row_handler.create_row(
+        user=user,
+        table=related_table,
+        model=related_model,
+        values={f"field_{related_primary_multiple_select_field.id}": [option_b.id]},
+    )
+
+    row_unrelated = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 0",
+        },
+    )
+
+    row_1 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 1",
+            f"field_{link_row_field.id}": [related_multiple_select_row_1.id],
+        },
+    )
+
+    row_2 = row_handler.create_row(
+        user=user,
+        table=table,
+        model=model,
+        values={
+            f"field_{primary_field.id}": "Row 2",
+            f"field_{link_row_field.id}": [related_multiple_select_row_2.id],
+        },
+    )
+
+    view_handler = ViewHandler()
+    view_filter = data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"",
+    )
+
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 3
+
+    view_filter.value = "target 1"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 1
+
+    view_filter.value = "target"
+    view_filter.save()
+    ids = [
+        r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
+    ]
+    assert len(ids) == 2
