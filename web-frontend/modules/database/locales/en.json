@@ -326,7 +326,8 @@
         "title": "Create new table",
         "importLabel": "Would you like to import existing data?",
         "newTable": "Start with a new table",
-        "addButton": "Add table"
+        "addButton": "Add table",
+        "uploading": "Uploading..."
     },
     "formulaAdvancedEditContext": {
         "textAreaFormulaInputPlaceholder": "Click to edit the formula",

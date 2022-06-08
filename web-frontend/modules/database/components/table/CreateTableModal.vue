@@ -36,7 +36,21 @@
         </div>
       </div>
       <component :is="importerComponent" />
-      <div class="actions">
+      <div class="modal-progress__actions">
+        <div v-if="loading" class="modal-progress__loading-bar">
+          <div
+            class="modal-progress__loading-bar-inner"
+            :style="{
+              width: `${progressPercentage}%`,
+              'transition-duration': [1, 0].includes(progressPercentage)
+                ? '0s'
+                : '1s',
+            }"
+          ></div>
+          <span class="modal-progress__status-text">
+            {{ $t('createTableModal.uploading') }}</span
+          >
+        </div>
         <div class="align-right">
           <button
             class="button button--large"
@@ -71,6 +85,7 @@ export default {
     return {
       loading: false,
       importer: '',
+      progressPercentage: 0,
     }
   },
   computed: {
@@ -116,8 +131,11 @@ export default {
           values,
           initialData: data,
           firstRowHeader,
+          onUploadProgress: ({ loaded, total }) =>
+            (this.progressPercentage = Math.floor((loaded / total) * 100)),
         })
         this.loading = false
+        this.progressPercentage = 0
         this.hide()
 
         // Redirect to the newly created table.
@@ -130,6 +148,7 @@ export default {
         })
       } catch (error) {
         this.loading = false
+        this.progressPercentage = 0
         this.handleError(error, 'application')
       }
     },
