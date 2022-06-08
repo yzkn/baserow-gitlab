@@ -236,7 +236,7 @@ export default {
 
       // Step 1: Parse first 5 rows to show the preview table
       this.$papa.parse(decodedData, {
-        preview: 5,
+        preview: 3,
         delimiter: this.columnSeparator === 'auto' ? '' : this.columnSeparator,
         complete: (data) => {
           if (data.data.length === 0) {
