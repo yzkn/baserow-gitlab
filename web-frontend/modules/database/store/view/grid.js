@@ -1583,7 +1583,17 @@ export const actions = {
    */
   async updateDataIntoCells(
     { getters, commit, dispatch },
-    { table, view, primary, fields, getScrollTop, data, rowIndex, fieldIndex }
+    {
+      table,
+      view,
+      primary,
+      fields,
+      getScrollTop,
+      data,
+      rowIndex,
+      fieldIndex,
+      allowNull = false,
+    }
   ) {
     // If the origin origin row and field index are not provided, we need to use the
     // head indexes of the multiple select.
@@ -1668,10 +1678,15 @@ export const actions = {
 
         const fieldId = `field_${field.id}`
         const value = data[rowIndex][fieldIndex]
-        const fieldType = this.$registry.get('field', field._.type.type)
-        const preparedValue = fieldType.prepareValueForPaste(field, value)
-        const newValue = fieldType.prepareValueForUpdate(field, preparedValue)
-        valuesForUpdate[rowIndex][fieldId] = newValue
+
+        if (allowNull && !value) {
+          valuesForUpdate[rowIndex][fieldId] = value
+        } else {
+          const fieldType = this.$registry.get('field', field._.type.type)
+          const preparedValue = fieldType.prepareValueForPaste(field, value)
+          const newValue = fieldType.prepareValueForUpdate(field, preparedValue)
+          valuesForUpdate[rowIndex][fieldId] = newValue
+        }
       })
     })
 
@@ -2116,6 +2131,44 @@ export const actions = {
   },
   setPublic({ commit }, { isPublic, publicAuthToken = null }) {
     commit('SET_PUBLIC', { isPublic, publicAuthToken })
+  },
+  /**
+   * Clears the values of all multi-selected cells by updating them to their null values.
+   */
+  async clearValuesFromMultipleCellSelection(
+    { getters, dispatch },
+    { table, view, primary, fields, getScrollTop }
+  ) {
+    const [minFieldIndex, maxFieldIndex] =
+      getters.getMultiSelectFieldIndexSorted
+
+    const [minRowIndex, maxRowIndex] = getters.getMultiSelectRowIndexSorted
+    const numberOfRowsSelected = maxRowIndex - minRowIndex + 1
+
+    const selectedFields = fields.slice(minFieldIndex, maxFieldIndex + 1)
+    const nullValues = []
+
+    // Get the null value for each selected field
+    for (const field of selectedFields) {
+      const fieldType = this.$registry.get('field', field.type)
+      nullValues.push(fieldType.getEmptyValue(field))
+    }
+
+    // Copy the null value array once for each row selected
+    const data = []
+    for (let index = 0; index < numberOfRowsSelected; index++) {
+      data.push(nullValues)
+    }
+
+    await dispatch('updateDataIntoCells', {
+      table,
+      view,
+      primary,
+      fields,
+      getScrollTop,
+      data,
+      allowNull: true,
+    })
   },
 }
 
