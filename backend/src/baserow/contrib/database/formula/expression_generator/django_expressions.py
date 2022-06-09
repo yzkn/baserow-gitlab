@@ -78,7 +78,7 @@ class FileNameContainsExpr(Expression):
         FROM JSONB_ARRAY_ELEMENTS(%(field_name)s) as attached_files
         WHERE UPPER(attached_files ->> 'visible_name') LIKE UPPER(%(value)s)
     )
-    """
+    """  # nosec
 
     def __init__(self, field_name, value, output_field):
         super().__init__(output_field=output_field)
