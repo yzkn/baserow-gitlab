@@ -4055,15 +4055,6 @@ def test_link_row_contains_filter_type_created_on_field(data_fixture):
 def test_link_row_contains_filter_type_file_field(
     data_fixture, django_assert_num_queries
 ):
-    """
-    TODO: The test currently doesn't work because filename_contains_filter
-        does not use the field_name to reference another table but instead
-        just works with field.id
-        Therefore it executes the query on the wrong table
-        This can't be easily fixed since the query is a raw query
-        and therefore does not respect the `__` syntax, even if we would use
-        the field_name
-    """
     user = data_fixture.create_user()
     database = data_fixture.create_database_application(user=user)
     table = data_fixture.create_database_table(database=database)

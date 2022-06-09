@@ -762,13 +762,6 @@ class LinkRowContainsFilterType(ViewFilterType):
     compatible_field_types = [LinkRowFieldType.type]
 
     def get_filter(self, field_name, value, model_field, field) -> OptionallyAnnotatedQ:
-        """
-        # TODO
-        - Write tests for all the weird field types
-        - Maybe you will need to replace the name of the annotation for weird field types
-        - Write frontend matches function that just compares strings using the `value` attribute of the cell
-        """
-
         related_primary_field = field.get_related_primary_field().specific
         related_primary_field_type = field_type_registry.get_by_model(
             related_primary_field
