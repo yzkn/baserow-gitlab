@@ -4052,7 +4052,9 @@ def test_link_row_contains_filter_type_created_on_field(data_fixture):
 
 
 @pytest.mark.django_db
-def test_link_row_contains_filter_type_file_field(data_fixture):
+def test_link_row_contains_filter_type_file_field(
+    data_fixture, django_assert_num_queries
+):
     """
     TODO: The test currently doesn't work because filename_contains_filter
         does not use the field_name to reference another table but instead
