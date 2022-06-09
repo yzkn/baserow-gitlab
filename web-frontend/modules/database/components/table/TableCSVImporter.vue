@@ -134,8 +134,9 @@ export default {
   data() {
     return {
       values: {
-        data: '',
+        data: null,
         firstRowHeader: true,
+        getData: null,
       },
       filename: '',
       columnSeparator: 'auto',
@@ -149,9 +150,10 @@ export default {
     }
   },
   validations: {
-    values: {
+    /* values: {
       data: { required },
-    },
+      getData: { required },
+    }, */
     filename: { required },
   },
   computed: {
@@ -189,7 +191,7 @@ export default {
 
       if (file.size > maxSize) {
         this.filename = ''
-        this.values.data = ''
+        this.values.data = null
         this.error = this.$t('tableCSVImporter.limitFileSize', {
           limit: 15,
         })
@@ -220,13 +222,13 @@ export default {
      * Also a small preview will be generated. If something goes wrong, for example
      * when the CSV doesn't have any entries the appropriate error will be shown.
      */
-    async reload() {
+    reload() {
       const decoder = new TextDecoder(this.encoding)
       const decodedData = decoder.decode(this.rawData)
       const limit = this.$env.INITIAL_TABLE_DATA_LIMIT
       const count = decodedData.split(/\r\n|\r|\n/).length
       if (limit !== null && count > limit) {
-        this.values.data = ''
+        this.values.data = null
         this.error = this.$t('tableCSVImporter.limitError', {
           limit,
         })
@@ -236,13 +238,13 @@ export default {
 
       // Step 1: Parse first 5 rows to show the preview table
       this.$papa.parse(decodedData, {
-        preview: 3,
+        preview: this.values.firstRowHeader ? 4 : 3,
         delimiter: this.columnSeparator === 'auto' ? '' : this.columnSeparator,
         complete: (data) => {
           if (data.data.length === 0) {
             // We need at least a single entry otherwise the user has probably chosen
             // a wrong file.
-            this.values.data = ''
+            this.values.data = null
             this.error = this.$t('tableCSVImporter.emptyCSV')
             this.preview = {}
           } else {
@@ -263,7 +265,7 @@ export default {
         error(error) {
           // Papa parse has resulted in an error which we need to display to the user.
           // All previously loaded data will be removed.
-          this.values.data = ''
+          this.values.data = null
           this.error = error.errors[0].message
           this.preview = {}
           this.state = null
@@ -272,31 +274,36 @@ export default {
         },
       })
 
-      await this.ensureRender()
+      const getData = () => {
+        return new Promise((resolve, reject) => {
+          this.$papa.parse(decodedData, {
+            delimiter:
+              this.columnSeparator === 'auto' ? '' : this.columnSeparator,
+            complete: (data) => {
+              if (this.values.firstRowHeader) {
+                // Only run ensureHeaderExistsAndIsValid on the first row
+                // as it can't handle too many rows.
+                const dataWithHeader = this.ensureHeaderExistsAndIsValid(
+                  data.data.slice(0, 1),
+                  this.values.firstRowHeader
+                )
+                // Update the header row with the valid header names
+                data.data[0] = dataWithHeader[0]
+              }
+              resolve(data.data)
+            },
+            error(error) {
+              reject(error)
+            },
+          })
+        })
+      }
 
       // Step 2: If step 1 hasn't failed, parse the rest of the data
       if (this.error === '') {
-        this.$papa.parse(decodedData, {
-          delimiter:
-            this.columnSeparator === 'auto' ? '' : this.columnSeparator,
-          complete: (data) => {
-            if (this.values.firstRowHeader) {
-              // Only run ensureHeaderExistsAndIsValid on the first row
-              // as it can't handle too many rows.
-              const dataWithHeader = this.ensureHeaderExistsAndIsValid(
-                data.data.slice(0, 1),
-                this.values.firstRowHeader
-              )
-              // Update the header row with the valid header names
-              data.data[0] = dataWithHeader[0]
-            }
-            this.values.data = data.data
-          },
-          error(error) {
-            this.values.data = ''
-            this.error = error.errors[0].message
-          },
-        })
+        this.values.getData = getData
+      } else {
+        this.values.getData = null
       }
     },
   },

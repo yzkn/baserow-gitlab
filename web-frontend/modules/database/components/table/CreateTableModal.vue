@@ -112,9 +112,12 @@ export default {
         delete values.firstRowHeader
       }
 
-      if (Object.prototype.hasOwnProperty.call(values, 'data')) {
-        data = values.data
-        delete values.data
+      if (
+        Object.prototype.hasOwnProperty.call(values, 'getData') &&
+        typeof values.getData === 'function'
+      ) {
+        data = await values.getData()
+        delete values.getData
       }
 
       try {
