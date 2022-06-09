@@ -92,9 +92,11 @@
             $t('tableCSVImporter.firstRowHeader')
           }}</label>
           <div class="control__elements">
-            <Checkbox v-model="values.firstRowHeader" @input="reload()">{{
-              $t('common.yes')
-            }}</Checkbox>
+            <Checkbox
+              v-model="values.firstRowHeader"
+              @input="reloadPreview()"
+              >{{ $t('common.yes') }}</Checkbox
+            >
           </div>
         </div>
       </div>
@@ -236,7 +238,7 @@ export default {
         return
       }
 
-      // Step 1: Parse first 5 rows to show the preview table
+      // Parse only the first 3/4 rows to show a preview.
       this.$papa.parse(decodedData, {
         preview: this.values.firstRowHeader ? 4 : 3,
         delimiter: this.columnSeparator === 'auto' ? '' : this.columnSeparator,
@@ -257,6 +259,7 @@ export default {
             )
             this.error = ''
             this.preview = this.getPreview(dataWithHeader)
+            this.values.data = data.data
             this.state = null
             this.parsing = false
             this.fileLoadingProgress = 0
@@ -274,6 +277,9 @@ export default {
         },
       })
 
+      // Prepare a callback function to be called when the form is submitted.
+      // This is where the rest of the parsing takes place.
+      // This was added to avoid the UI freezing while uploading large files.
       const getData = () => {
         return new Promise((resolve, reject) => {
           this.$papa.parse(decodedData, {
@@ -299,13 +305,24 @@ export default {
         })
       }
 
-      // Step 2: If step 1 hasn't failed, parse the rest of the data
       if (this.error === '') {
         this.values.getData = getData
       } else {
         this.values.getData = null
       }
     },
+  },
+  /**
+   * Reload the preview without re-parsing the raw data.
+   */
+  reloadPreview() {
+    const rows = [...this.values.data]
+    if (!this.values.firstRowHeader) rows.pop()
+    const dataWithHeader = this.ensureHeaderExistsAndIsValid(
+      rows,
+      this.values.firstRowHeader
+    )
+    this.preview = this.getPreview(dataWithHeader)
   },
 }
 </script>
