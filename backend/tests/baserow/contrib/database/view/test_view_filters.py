@@ -3963,9 +3963,6 @@ def test_link_row_contains_filter_type_date_field(data_fixture):
 
 @pytest.mark.django_db
 def test_link_row_contains_filter_type_created_on_field(data_fixture):
-    """
-    TODO: this guy is also using raw SQL
-    """
     user = data_fixture.create_user()
     database = data_fixture.create_database_application(user=user)
     table = data_fixture.create_database_table(database=database)

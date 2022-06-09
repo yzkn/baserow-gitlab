@@ -5,8 +5,8 @@ from math import floor, ceil
 from dateutil import parser
 from dateutil.parser import ParserError
 from django.contrib.postgres.aggregates.general import ArrayAgg
-from django.db.models import Q, IntegerField, DateTimeField, OuterRef, Subquery, Func
-from django.db.models.functions import Cast, Length, Coalesce
+from django.db.models import Q, IntegerField, DateTimeField
+from django.db.models.functions import Cast, Length
 from pytz import timezone, all_timezones
 
 from baserow.contrib.database.fields.field_filters import (

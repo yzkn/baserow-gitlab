@@ -15,7 +15,6 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db import models, OperationalError
 from django.db.models import Case, When, Q, F, Func, Value, CharField
-from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce
 from django.utils.timezone import make_aware
 from pytz import timezone
@@ -866,10 +865,10 @@ class CreatedOnLastModifiedBaseFieldType(ReadOnlyFieldType, DateFieldType):
         return AnnotatedQ(
             annotation={
                 f"formatted_date_{field_name}": Coalesce(
-                    RawSQL(  # nosec
-                        f"""TO_CHAR({field_name} at time zone %s,
-                        '{field.get_psql_format()}')""",
-                        [field.get_timezone()],
+                    Func(
+                        F(field_name),
+                        Value(field.get_psql_format()),
+                        function="to_char",
                         output_field=CharField(),
                     ),
                     Value(""),
