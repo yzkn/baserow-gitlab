@@ -1308,7 +1308,7 @@ class LinkRowFieldType(FieldType):
         table so a reversed lookup can be done by the user.
         """
 
-        if field.link_row_related_field:
+        if field.link_row_related_field or field.table == field.link_row_table:
             return
 
         related_field_name = self.find_next_unused_related_field_name(field)
@@ -1503,7 +1503,7 @@ class LinkRowFieldType(FieldType):
     ):
         getattr(row, field_name).set(value)
 
-    def get_other_fields_to_trash_restore_always_together(self, field) -> List[Any]:
+    def get_other_fields_to_trash_restore_always_together(self, field) -> List[Field]:
         fields = []
         if field.link_row_related_field is not None:
             fields.append(field.link_row_related_field)

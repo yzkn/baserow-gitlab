@@ -3,6 +3,7 @@
 ## Unreleased
 
 * Upload modal no longer closes when removing a file. [#569](https://gitlab.com/bramw/baserow/-/issues/569)
+* Link to table field can now link rows in the same table. [#798](https://gitlab.com/bramw/baserow/-/issues/798)
 
 ## Released (2022-06-09 1.10.1)
 
