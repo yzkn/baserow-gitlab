@@ -1,5 +1,6 @@
 from django.http import HttpResponse, JsonResponse
 from django.urls import path, include, re_path
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status
 from drf_spectacular.views import SpectacularJSONAPIView, SpectacularRedocView
@@ -22,6 +23,7 @@ def public_health_check(request):
     return HttpResponse("OK")
 
 
+@csrf_exempt
 def missing_trailing_slash_error(request):
     return JsonResponse(
         {
@@ -56,6 +58,6 @@ urlpatterns = (
             r".*(?!/)$",
             missing_trailing_slash_error,
             name="missing_trailing_slash_error",
-        )
+        ),
     ]
 )

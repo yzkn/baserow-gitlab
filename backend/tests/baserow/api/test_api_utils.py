@@ -346,7 +346,7 @@ def test_get_serializer_class(data_fixture):
     assert group_serializer_2.data == {"id": str(group.id), "name": "Group 1"}
 
 
-def test_api_error_if_trailing_slash_is_missing_in_url(api_client):
+def test_api_error_if_url_trailing_slash_is_missing(api_client):
 
     for method in ["get", "post", "patch", "delete"]:
         response = getattr(api_client, method)("/api/v1/forgot-the-trailing-slash")
