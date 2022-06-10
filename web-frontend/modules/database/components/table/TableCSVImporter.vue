@@ -238,9 +238,9 @@ export default {
         return
       }
 
-      // Parse only the first 3/4 rows to show a preview.
+      // Parse only the first 4 rows to show a preview. (header + 3 rows)
       this.$papa.parse(decodedData, {
-        preview: this.values.firstRowHeader ? 4 : 3,
+        preview: 4,
         delimiter: this.columnSeparator === 'auto' ? '' : this.columnSeparator,
         complete: (data) => {
           if (data.data.length === 0) {
@@ -250,16 +250,19 @@ export default {
             this.error = this.$t('tableCSVImporter.emptyCSV')
             this.preview = {}
           } else {
+            // Store the data to reload the preview without reparsing.
+            this.values.data = [...data.data]
             // If parsed successfully and it is not empty then the initial data can be
-            // prepared for creating the table. We store the data stringified because
-            // it doesn't need to be reactive.
+            // prepared for creating the table.
             const dataWithHeader = this.ensureHeaderExistsAndIsValid(
               data.data,
               this.values.firstRowHeader
             )
+            // If the first row is not the header, remove the last row as we will
+            // be adding one row of generated headers.
+            if (!this.values.firstRowHeader) dataWithHeader.pop()
             this.error = ''
             this.preview = this.getPreview(dataWithHeader)
-            this.values.data = data.data
             this.state = null
             this.parsing = false
             this.fileLoadingProgress = 0
@@ -311,18 +314,18 @@ export default {
         this.values.getData = null
       }
     },
-  },
-  /**
-   * Reload the preview without re-parsing the raw data.
-   */
-  reloadPreview() {
-    const rows = [...this.values.data]
-    if (!this.values.firstRowHeader) rows.pop()
-    const dataWithHeader = this.ensureHeaderExistsAndIsValid(
-      rows,
-      this.values.firstRowHeader
-    )
-    this.preview = this.getPreview(dataWithHeader)
+    /**
+     * Reload the preview without re-parsing the raw data.
+     */
+    reloadPreview() {
+      const rows = [...this.values.data]
+      if (!this.values.firstRowHeader) rows.pop()
+      const dataWithHeader = this.ensureHeaderExistsAndIsValid(
+        rows,
+        this.values.firstRowHeader
+      )
+      this.preview = this.getPreview(dataWithHeader)
+    },
   },
 }
 </script>
