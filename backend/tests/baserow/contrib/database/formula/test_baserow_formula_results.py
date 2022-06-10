@@ -146,6 +146,12 @@ VALID_FORMULA_TESTS = [
     ("left('a', 2)", "a"),
     ("left('abc', 2)", "ab"),
     ("when_empty(1, 2)", "1"),
+    ("round(1.12345, 0)", "1"),
+    ("round(1.12345, 4)", "1.1234"),
+    ("round(1.12345, 100)", "1.12345"),
+    ("int(1.1234)", "1"),
+    ("int(1.56)", "1"),
+    ("int(-1.56)", "-1"),
 ]
 
 
@@ -471,13 +477,6 @@ INVALID_FORMULA_TESTS = [
         "ERROR_WITH_FORMULA",
         "Error with formula: argument number 2 given to operator - was of type date "
         "but the only usable type for this argument is date_interval.",
-    ),
-    (
-        'left("aa", 2.0)',
-        "ERROR_WITH_FORMULA",
-        "Error with formula: argument number 2 given to function left was of type "
-        "number but the only usable type for this argument is a whole number with no "
-        "decimal places.",
     ),
     (
         "when_empty(1, 'a')",

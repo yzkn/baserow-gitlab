@@ -89,7 +89,6 @@ from baserow.contrib.database.formula.types.formula_types import (
     BaserowFormulaCharType,
     literal,
 )
-from baserow.contrib.database.formula.types.type_checkers import OnlyIntegerNumberTypes
 
 
 def register_formula_functions(registry):
@@ -115,6 +114,8 @@ def register_formula_functions(registry):
     registry.register(BaserowErrorToNan())
     registry.register(BaserowGreatest())
     registry.register(BaserowLeast())
+    registry.register(BaserowRound())
+    registry.register(BaserowInt())
     # Boolean functions
     registry.register(BaserowIf())
     registry.register(BaserowEqual())
@@ -406,6 +407,44 @@ class BaserowLeast(TwoArgumentBaserowFunction):
 
     def to_django_expression(self, arg1: Expression, arg2: Expression) -> Expression:
         return Least(arg1, arg2, output_field=arg1.output_field)
+
+
+class BaserowRound(TwoArgumentBaserowFunction):
+    type = "round"
+    arg1_type = [BaserowFormulaNumberType]
+    arg2_type = [BaserowFormulaNumberType]
+
+    def type_function(
+        self,
+        func_call: BaserowFunctionCall[UnTyped],
+        arg1: BaserowExpression[BaserowFormulaNumberType],
+        arg2: BaserowExpression[BaserowFormulaNumberType],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        return func_call.with_valid_type(
+            BaserowFormulaNumberType(
+                number_decimal_places=BaserowFormulaNumberType.MAX_DIGITS
+            )
+        )
+
+    def to_django_expression(self, arg1: Expression, arg2: Expression) -> Expression:
+        return Func(arg1, arg2, function="round", output_field=arg1.output_field)
+
+
+class BaserowInt(OneArgumentBaserowFunction):
+    type = "int"
+    arg_type = [BaserowFormulaNumberType]
+
+    def type_function(
+        self,
+        func_call: BaserowFunctionCall[UnTyped],
+        arg: BaserowExpression[BaserowFormulaNumberType],
+    ) -> BaserowExpression[BaserowFormulaType]:
+        return func_call.with_valid_type(
+            BaserowFormulaNumberType(number_decimal_places=0)
+        )
+
+    def to_django_expression(self, arg: Expression) -> Expression:
+        return Cast(arg, output_field=fields.IntegerField())
 
 
 class BaserowDivide(TwoArgumentBaserowFunction):
@@ -938,9 +977,7 @@ class BaserowRowId(ZeroArgumentBaserowFunction):
             # noinspection PyUnresolvedReferences
             return Cast(
                 Value(model_instance.id),
-                output_field=fields.DecimalField(
-                    max_digits=BaserowFormulaNumberType.MAX_DIGITS, decimal_places=0
-                ),
+                output_field=fields.IntegerField(),
             )
 
 
@@ -1379,7 +1416,7 @@ class BaserowGetSingleSelectValue(OneArgumentBaserowFunction):
 class BaserowLeft(TwoArgumentBaserowFunction):
     type = "left"
     arg1_type = [BaserowFormulaTextType]
-    arg2_type = [OnlyIntegerNumberTypes()]
+    arg2_type = [BaserowFormulaNumberType]
 
     def type_function(
         self,
@@ -1387,7 +1424,9 @@ class BaserowLeft(TwoArgumentBaserowFunction):
         arg1: BaserowExpression[BaserowFormulaValidType],
         arg2: BaserowExpression[BaserowFormulaNumberType],
     ) -> BaserowExpression[BaserowFormulaType]:
-        return func_call.with_valid_type(arg1.expression_type)
+        return func_call.with_args([arg1, BaserowInt()(arg2)]).with_valid_type(
+            arg1.expression_type
+        )
 
     def to_django_expression(self, arg1: Expression, arg2: Expression) -> Expression:
         return Left(arg1, arg2, output_field=fields.TextField())
@@ -1396,7 +1435,7 @@ class BaserowLeft(TwoArgumentBaserowFunction):
 class BaserowRight(TwoArgumentBaserowFunction):
     type = "right"
     arg1_type = [BaserowFormulaTextType]
-    arg2_type = [OnlyIntegerNumberTypes()]
+    arg2_type = [BaserowFormulaNumberType]
 
     def type_function(
         self,
@@ -1404,7 +1443,9 @@ class BaserowRight(TwoArgumentBaserowFunction):
         arg1: BaserowExpression[BaserowFormulaValidType],
         arg2: BaserowExpression[BaserowFormulaNumberType],
     ) -> BaserowExpression[BaserowFormulaType]:
-        return func_call.with_valid_type(arg1.expression_type)
+        return func_call.with_args([arg1, BaserowInt()(arg2)]).with_valid_type(
+            arg1.expression_type
+        )
 
     def to_django_expression(self, arg1: Expression, arg2: Expression) -> Expression:
         return Right(arg1, arg2, output_field=fields.TextField())

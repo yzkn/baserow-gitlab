@@ -28,6 +28,8 @@
 * Add debugging commands/options for inspecting tables and updating formulas.
 * Fix rare formula bug with multiple different formulas and view filters in one table.
 * Added FormulaField to the options for the primary field.
+* Fix errors when using row_id formula function with left/right functions.
+* Add formula round function.
 
 ## Released (2022-10-05 1.10.0)
 
