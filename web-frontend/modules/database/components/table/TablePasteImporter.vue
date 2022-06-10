@@ -58,7 +58,7 @@ export default {
   data() {
     return {
       values: {
-        data: '',
+        getData: null,
         firstRowHeader: true,
       },
       content: '',
@@ -68,7 +68,7 @@ export default {
   },
   validations: {
     values: {
-      data: { required },
+      getData: { required },
     },
     content: { required },
   },
@@ -79,7 +79,7 @@ export default {
     },
     reload() {
       if (this.content === '') {
-        this.values.data = ''
+        this.values.getData = null
         this.error = ''
         this.preview = {}
         this.$emit('input', this.value)
@@ -89,7 +89,7 @@ export default {
       const limit = this.$env.INITIAL_TABLE_DATA_LIMIT
       const count = this.content.split(/\r\n|\r|\n/).length
       if (limit !== null && count > limit) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tablePasteImporter.limitError', {
           limit,
         })
@@ -104,11 +104,20 @@ export default {
           // If parsed successfully and it is not empty then the initial data can be
           // prepared for creating the table. We store the data stringified because it
           // doesn't need to be reactive.
+          const rows = [...data.data]
           const dataWithHeader = this.ensureHeaderExistsAndIsValid(
             data.data,
             this.values.firstRowHeader
           )
-          this.values.data = JSON.stringify(dataWithHeader)
+
+          this.values.getData = () => {
+            return new Promise((resolve) => {
+              if (this.values.firstRowHeader) {
+                rows[0] = dataWithHeader[0]
+              }
+              resolve(rows)
+            })
+          }
           this.error = ''
           this.preview = this.getPreview(dataWithHeader)
           this.$emit('input', this.value)
@@ -116,7 +125,7 @@ export default {
         error(error) {
           // Papa parse has resulted in an error which we need to display to the user.
           // All previously loaded data will be removed.
-          this.values.data = ''
+          this.values.getData = null
           this.error = error.errors[0].message
           this.preview = {}
           this.$emit('input', this.value)
