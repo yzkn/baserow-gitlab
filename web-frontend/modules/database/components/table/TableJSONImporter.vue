@@ -46,6 +46,22 @@
         </div>
       </div>
     </div>
+    <div
+      v-if="showLoadingMessage"
+      class="alert alert--simple alert--with-shadow alert--has-icon"
+    >
+      <div class="alert__icon">
+        <div class="loading alert__icon-loading"></div>
+      </div>
+      <div class="alert__title">
+        {{ getLoadingStateTitle }}
+      </div>
+      <p class="alert__content">
+        {{
+          `${$t('tableCSVImporter.loadingProgress')} ${fileLoadingProgress}`
+        }}%
+      </p>
+    </div>
     <div v-if="filename !== ''" class="control">
       <label class="control__label">{{
         $t('tableJSONImporter.encodingLabel')
@@ -85,8 +101,8 @@ export default {
   data() {
     return {
       values: {
-        data: '',
         firstRowHeader: true,
+        getData: null,
       },
       encoding: 'utf-8',
       filename: '',
@@ -97,7 +113,7 @@ export default {
   },
   validations: {
     values: {
-      data: { required },
+      getData: { required },
     },
     filename: { required },
   },
@@ -115,21 +131,34 @@ export default {
       }
 
       const file = event.target.files[0]
-      const maxSize = 1024 * 1024 * 15
+
+      let maxSize = 1024 * 1024 * 15 // 15MB
+      if (this.$featureFlags.includes('async_import')) {
+        maxSize = 1024 * 1024 * 1024 // 1Gb
+      }
 
       if (file.size > maxSize) {
         this.filename = ''
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableJSONImporter.limitFileSize', {
           limit: 15,
         })
         this.preview = {}
+        this.state = null
         this.$emit('input', this.value)
       } else {
         this.filename = file.name
         const reader = new FileReader()
-        reader.addEventListener('load', (event) => {
+        reader.addEventListener('progress', (event) => {
+          this.fileLoadingProgress = Math.floor(
+            (event.loaded / event.total) * 100
+          )
+        })
+        reader.addEventListener('load', async (event) => {
           this.rawData = event.target.result
+          this.fileLoadingProgress = 100
+          this.state = 'parsing'
+          await this.ensureRender()
           this.reload()
         })
         reader.readAsArrayBuffer(event.target.files[0])
@@ -143,23 +172,25 @@ export default {
         const decoded = decoder.decode(this.rawData)
         json = JSON.parse(decoded)
       } catch (error) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableJSONImporter.processingError', {
           error: error.message,
         })
         this.preview = {}
+        this.state = null
+        this.parsing = false
         return
       }
 
       if (json.length === 0) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableJSONImporter.emptyError')
         this.preview = {}
         return
       }
 
       if (!Array.isArray(json)) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableJSONImporter.arrayError')
         this.preview = {}
         return
@@ -167,7 +198,7 @@ export default {
 
       const limit = this.$env.INITIAL_TABLE_DATA_LIMIT
       if (limit !== null && json.length > limit - 1) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.error = this.$t('tableJSONImporter.limitError', {
           limit,
         })
@@ -200,7 +231,13 @@ export default {
       data.unshift(header)
 
       const dataWithHeader = this.ensureHeaderExistsAndIsValid(data, true)
-      this.values.data = JSON.stringify(dataWithHeader)
+      this.values.getData = () => {
+        return new Promise((resolve) => {
+          resolve(dataWithHeader)
+        })
+      }
+      this.state = null
+      this.parsing = false
       this.error = ''
       this.preview = this.getPreview(dataWithHeader)
     },

@@ -122,7 +122,6 @@
 
 <script>
 import { required } from 'vuelidate/lib/validators'
-import flushPromises from 'flush-promises'
 
 import form from '@baserow/modules/core/mixins/form'
 import CharsetDropdown from '@baserow/modules/core/components/helpers/CharsetDropdown'
@@ -146,33 +145,15 @@ export default {
       error: '',
       rawData: null,
       preview: {},
-      fileLoadingProgress: 0,
-      parsing: false,
-      state: null,
     }
   },
   validations: {
-    /* values: {
-      data: { required },
+    values: {
       getData: { required },
-    }, */
+    },
     filename: { required },
   },
-  computed: {
-    showLoadingMessage() {
-      return this.state === 'loading' || this.state === 'parsing'
-    },
-    getLoadingStateTitle() {
-      return this.$t(`tableCSVImporter.${this.state}`)
-    },
-  },
   methods: {
-    async ensureRender() {
-      await this.$nextTick()
-      // Wait for the browser had a chance to repaint the UI
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-      await flushPromises()
-    },
     /**
      * Method that is called when a file has been chosen. It will check if the file is
      * not larger than 15MB. Otherwise it will take a long time and possibly a crash
@@ -194,6 +175,7 @@ export default {
       if (file.size > maxSize) {
         this.filename = ''
         this.values.data = null
+        this.values.getData = null
         this.error = this.$t('tableCSVImporter.limitFileSize', {
           limit: 15,
         })
@@ -231,6 +213,7 @@ export default {
       const count = decodedData.split(/\r\n|\r|\n/).length
       if (limit !== null && count > limit) {
         this.values.data = null
+        this.values.getData = null
         this.error = this.$t('tableCSVImporter.limitError', {
           limit,
         })
@@ -247,6 +230,7 @@ export default {
             // We need at least a single entry otherwise the user has probably chosen
             // a wrong file.
             this.values.data = null
+            this.values.getData = null
             this.error = this.$t('tableCSVImporter.emptyCSV')
             this.preview = {}
           } else {
@@ -272,6 +256,7 @@ export default {
           // Papa parse has resulted in an error which we need to display to the user.
           // All previously loaded data will be removed.
           this.values.data = null
+          this.values.getData = null
           this.error = error.errors[0].message
           this.preview = {}
           this.state = null

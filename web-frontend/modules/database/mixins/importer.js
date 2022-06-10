@@ -6,7 +6,24 @@ import {
   MAX_FIELD_NAME_LENGTH,
 } from '@baserow/modules/database/utils/constants'
 
+import flushPromises from 'flush-promises'
+
 export default {
+  data() {
+    return {
+      fileLoadingProgress: 0,
+      parsing: false,
+      state: null,
+    }
+  },
+  computed: {
+    showLoadingMessage() {
+      return this.state === 'loading' || this.state === 'parsing'
+    },
+    getLoadingStateTitle() {
+      return this.$t(`tableCSVImporter.${this.state}`)
+    },
+  },
   methods: {
     /**
      * Adds a header of Field 1, Field 2 etc if the first row is not already a header,
@@ -156,6 +173,12 @@ export default {
         uniqueAndValidHeader.push(uniqueValidName)
       }
       return uniqueAndValidHeader
+    },
+    async ensureRender() {
+      await this.$nextTick()
+      // Wait for the browser had a chance to repaint the UI
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await flushPromises()
     },
   },
 }
