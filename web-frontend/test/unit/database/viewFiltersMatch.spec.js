@@ -442,6 +442,16 @@ const linkRowContainsCases = [
     filterValue: 'bill',
     expected: true,
   },
+  {
+    rowValue: [{ value: 'BILL' }],
+    filterValue: 'bill',
+    expected: true,
+  },
+  {
+    rowValue: [{ value: 'bill' }],
+    filterValue: 'BILL',
+    expected: true,
+  },
 ]
 
 describe('All Tests', () => {

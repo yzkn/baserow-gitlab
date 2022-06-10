@@ -1148,7 +1148,9 @@ export class LinkRowContainsFilterType extends ViewFilterType {
       return true
     }
 
-    return rowValue.some(({ value }) => value.includes(filterValue))
+    return rowValue.some(
+      ({ value }) => value.search(new RegExp(filterValue, 'i')) !== -1
+    )
   }
 }
 
