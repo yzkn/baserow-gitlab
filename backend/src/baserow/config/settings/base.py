@@ -55,7 +55,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
+    # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -623,4 +623,5 @@ BASEROW_SYNC_TEMPLATES_TIME_LIMIT = int(
     os.getenv("BASEROW_SYNC_TEMPLATES_TIME_LIMIT", 60 * 30)
 )
 
+APPEND_SLASH = False
 TESTS = False
