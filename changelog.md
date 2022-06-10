@@ -12,6 +12,7 @@ For example:
 ### New Features
 
 * Added prefill query parameters for forms. [#852](https://gitlab.com/bramw/baserow/-/issues/852)
+* Added Link Row contains filter. [874](https://gitlab.com/bramw/baserow/-/issues/874)
 
 ### Bug Fixes
 
