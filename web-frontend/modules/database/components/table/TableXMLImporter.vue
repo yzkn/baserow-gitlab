@@ -47,6 +47,22 @@
         </div>
       </div>
     </div>
+    <div
+      v-if="showLoadingMessage"
+      class="alert alert--simple alert--with-shadow alert--has-icon"
+    >
+      <div class="alert__icon">
+        <div class="loading alert__icon-loading"></div>
+      </div>
+      <div class="alert__title">
+        {{ getLoadingStateTitle }}
+      </div>
+      <p class="alert__content">
+        {{
+          `${$t('tableCSVImporter.loadingProgress')} ${fileLoadingProgress}`
+        }}%
+      </p>
+    </div>
     <div v-if="error !== ''" class="alert alert--error alert--has-icon">
       <div class="alert__icon">
         <i class="fas fa-exclamation"></i>
@@ -78,7 +94,7 @@ export default {
   data() {
     return {
       values: {
-        data: '',
+        getData: null,
         firstRowHeader: true,
       },
       filename: '',
@@ -89,7 +105,7 @@ export default {
   },
   validations: {
     values: {
-      data: { required },
+      getData: { required },
     },
     filename: { required },
   },
@@ -107,11 +123,14 @@ export default {
       }
 
       const file = event.target.files[0]
-      const maxSize = 1024 * 1024 * 15
+      let maxSize = 1024 * 1024 * 15 // 15MB
+      if (this.$featureFlags.includes('async_import')) {
+        maxSize = 1024 * 1024 * 1024 // 1Gb
+      }
 
       if (file.size > maxSize) {
         this.filename = ''
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableXMLImporter.limitFileSize', {
           limit: 15,
         })
@@ -119,8 +138,16 @@ export default {
       } else {
         this.filename = file.name
         const reader = new FileReader()
-        reader.addEventListener('load', (event) => {
+        reader.addEventListener('progress', (event) => {
+          this.fileLoadingProgress = Math.floor(
+            (event.loaded / event.total) * 100
+          )
+        })
+        reader.addEventListener('load', async (event) => {
           this.rawData = event.target.result
+          this.fileLoadingProgress = 100
+          this.state = 'parsing'
+          await this.ensureRender()
           this.reload()
         })
         reader.readAsBinaryString(event.target.files[0])
@@ -130,7 +157,7 @@ export default {
       const [header, xmlData, errors] = parseXML(this.rawData)
 
       if (errors.length > 0) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableXMLImporter.processingError', {
           errors: errors.join('\n'),
         })
@@ -139,7 +166,7 @@ export default {
       }
 
       if (xmlData.length === 0) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableXMLImporter.emptyError')
         this.preview = {}
         return
@@ -153,7 +180,7 @@ export default {
 
       const limit = this.$env.INITIAL_TABLE_DATA_LIMIT
       if (limit !== null && xmlData.length > limit) {
-        this.values.data = ''
+        this.values.getData = null
         this.error = this.$t('tableXMLImporter.limitError', { limit })
         this.preview = {}
         return
@@ -163,7 +190,13 @@ export default {
         xmlData,
         hasHeader
       )
-      this.values.data = JSON.stringify(dataWithHeader)
+      this.values.getData = () => {
+        return new Promise((resolve) => {
+          resolve(dataWithHeader)
+        })
+      }
+      this.state = null
+      this.parsing = false
       this.error = ''
       this.preview = this.getPreview(dataWithHeader)
     },
