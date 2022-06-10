@@ -9,6 +9,8 @@ def file_import_directory_path(instance, filename):
 
 
 class FileImportJob(Job):
-    table = models.ForeignKey(Table, on_delete=models.CASCADE, null=True)
+    table = models.ForeignKey(
+        Table, on_delete=models.CASCADE, null=True, related_name="import_jobs"
+    )
     data_file = models.FileField(upload_to=file_import_directory_path, null=True)
-    report = models.JSONField(default=dict)
+    report = models.JSONField(default=lambda: {"failing_rows": {}})

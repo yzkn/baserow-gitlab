@@ -47,8 +47,9 @@
                 : '1s',
             }"
           ></div>
-          <span class="modal-progress__status-text">
-            {{ $t('createTableModal.uploading') }}</span
+          <span class="modal-progress__status-text"
+            >{{ `${progressPercentage}%` }}
+            {{ humanReadableStateWithUpload }}</span
           >
         </div>
         <div class="align-right">
@@ -68,13 +69,16 @@
 <script>
 import modal from '@baserow/modules/core/mixins/modal'
 import error from '@baserow/modules/core/mixins/error'
+import jobProgress from '@baserow/modules/core/mixins/jobProgress'
 
+import JobService from '@baserow/modules/core/services/job'
+import { ResponseErrorMessage } from '@baserow/modules/core/plugins/clientHandler'
 import TableForm from './TableForm'
 
 export default {
   name: 'CreateTableModal',
   components: { TableForm },
-  mixins: [modal, error],
+  mixins: [modal, error, jobProgress],
   props: {
     application: {
       type: Object,
@@ -85,10 +89,20 @@ export default {
     return {
       loading: false,
       importer: '',
-      progressPercentage: 0,
+      uploadProgressPercentage: 0,
+      table: null,
     }
   },
   computed: {
+    progressPercentage() {
+      let progress = 0
+      if (this.job === null) {
+        progress = this.uploadProgressPercentage / 2
+      } else {
+        progress = 50 + Math.floor(this.job.progress_percentage / 2)
+      }
+      return Math.floor(progress)
+    },
     importerTypes() {
       return this.$registry.getAll('importer')
     },
@@ -97,6 +111,16 @@ export default {
         ? null
         : this.$registry.get('importer', this.importer).getFormComponent()
     },
+    humanReadableStateWithUpload() {
+      if (this.job === null) {
+        return this.$t('createTableModal.uploading')
+      } else {
+        return this.humanReadableState
+      }
+    },
+  },
+  beforeDestroy() {
+    this.stopPollIfRunning()
   },
   methods: {
     hide(...args) {
@@ -109,6 +133,7 @@ export default {
      * need to be removed from the values.
      */
     async submitted(values) {
+      this.uploadProgressPercentage = 0
       this.loading = true
       this.hideError()
 
@@ -132,25 +157,55 @@ export default {
           initialData: data,
           firstRowHeader,
           onUploadProgress: ({ loaded, total }) =>
-            (this.progressPercentage = Math.floor((loaded / total) * 100)),
+            (this.uploadProgressPercentage = (loaded / total) * 100),
         })
-        this.loading = false
-        this.progressPercentage = 0
-        this.hide()
+        this.table = table
 
-        // Redirect to the newly created table.
-        this.$nuxt.$router.push({
-          name: 'database-table',
-          params: {
-            databaseId: this.application.id,
-            tableId: table.id,
-          },
-        })
+        const jobId = table.import_jobs[0]
+        const { data: job } = await JobService(this.$client).get(jobId)
+        this.job = job
+        this.launchJobPoller()
       } catch (error) {
         this.loading = false
-        this.progressPercentage = 0
-        this.handleError(error, 'application')
+        this.uploadProgressPercentage = 0
+        this.stopPollAndHandleError(error, {
+          ERROR_MAX_JOB_COUNT_EXCEEDED: new ResponseErrorMessage(
+            this.$t('job.errorJobAlreadyRunningTitle'),
+            this.$t('job.errorJobAlreadyRunningDescription')
+          ),
+        })
       }
+    },
+    onJobDone() {
+      // Redirect to the newly created table.
+      this.$nuxt.$router.push({
+        name: 'database-table',
+        params: {
+          databaseId: this.application.id,
+          tableId: this.job.table_id,
+        },
+      })
+      this.loading = false
+      this.uploadProgressPercentage = 0
+      this.hide()
+    },
+    onJobFailure() {
+      const error = new ResponseErrorMessage(
+        this.$t('createTableModal.importError'),
+        this.job.human_readable_error
+      )
+      this.stopPollAndHandleError(error)
+    },
+    onJobError(error) {
+      this.stopPollAndHandleError(error)
+    },
+    stopPollAndHandleError(error, specificErrorMap = null) {
+      this.loading = false
+      this.uploadProgressPercentage = 0
+      this.stopPollIfRunning()
+      error.handler
+        ? this.handleError(error, 'application', specificErrorMap)
+        : this.showError(error)
     },
   },
 }

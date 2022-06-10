@@ -126,6 +126,8 @@ export default {
       error: '',
       rawData: null,
       preview: {},
+      job: null,
+      pollInterval: null,
     }
   },
   validations: {

@@ -327,7 +327,8 @@
         "importLabel": "Would you like to import existing data?",
         "newTable": "Start with a new table",
         "addButton": "Add table",
-        "uploading": "Uploading..."
+        "uploading": "Uploading...",
+        "importError": "Something went wrong"
     },
     "formulaAdvancedEditContext": {
         "textAreaFormulaInputPlaceholder": "Click to edit the formula",
@@ -580,5 +581,11 @@
     },
     "viewDecoratorContext": {
         "addDecorator": "add decorator"
+    },
+    "customJobState": {
+        "file_import": {
+            "file_import_row_creation": "Importing...",
+            "file_import_pre_validation": "Validating data..."
+        }
     }
 }

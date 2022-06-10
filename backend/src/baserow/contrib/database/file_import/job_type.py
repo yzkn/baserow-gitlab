@@ -104,7 +104,7 @@ class FileImportJobType(JobType):
         """
 
         limit_date = timezone.now() - timezone.timedelta(
-            minutes=(settings.BASEROW_JOB_SOFT_TIME_LIMIT + 1)
+            seconds=(settings.BASEROW_JOB_SOFT_TIME_LIMIT + 1)
         )
 
         for job in FileImportJob.objects.filter(updated_on__lte=limit_date).exclude(

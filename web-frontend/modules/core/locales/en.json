@@ -278,5 +278,12 @@
         "settingAllowSignupsViaGroupInvitationsName": "Allow signups via group invitations",
         "settingAllowSignupsViaGroupInvitationDescription": "Even if the creation of new accounts is disabled, this option permits directly invited users to still create an account.",
         "enabled": "enabled"
+    },
+    "job": {
+        "statePending": "Waiting to start...",
+        "stateFinished": "Finished",
+        "stateFailed": "Failed",
+        "errorJobAlreadyRunningTitle": "Already running",
+        "errorJobAlreadyRunningDescription": "Another import job is already running. You need to wait for that one to finish before starting another."
     }
 }
