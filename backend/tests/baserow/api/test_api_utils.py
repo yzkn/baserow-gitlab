@@ -344,3 +344,14 @@ def test_get_serializer_class(data_fixture):
         Group, ["id", "name"], {"id": CharField()}
     )(group)
     assert group_serializer_2.data == {"id": str(group.id), "name": "Group 1"}
+
+
+def test_api_error_if_trailing_slash_is_missing_in_url(api_client):
+
+    for method in ["get", "post", "patch", "delete"]:
+        response = getattr(api_client, method)("/api/v1/forgot-the-trailing-slash")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        response_json = response.json()
+        assert response_json["detail"] == "URL must end with a trailing slash."
+        assert response_json["error"] == "URL_TRAILING_SLASH_MISSING"
