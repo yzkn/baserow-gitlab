@@ -11,6 +11,7 @@ import {
   MultipleSelectHasNotFilterType,
   HasFileTypeViewFilterType,
   LengthIsLowerThanViewFilterType,
+  LinkRowContainsFilterType,
 } from '@baserow/modules/database/viewFilters'
 
 const dateBeforeCasesWithTimezone = [
@@ -420,6 +421,29 @@ const lengthIsLowerThanCases = [
   },
 ]
 
+const linkRowContainsCases = [
+  {
+    rowValue: [{ value: 'bill' }],
+    filterValue: '',
+    expected: true,
+  },
+  {
+    rowValue: [{ value: 'bill' }],
+    filterValue: 'bi',
+    expected: true,
+  },
+  {
+    rowValue: [{ value: 'some other name' }],
+    filterValue: 'bill',
+    expected: false,
+  },
+  {
+    rowValue: [{ value: 'some other name' }, { value: 'bill' }],
+    filterValue: 'bill',
+    expected: true,
+  },
+]
+
 describe('All Tests', () => {
   let testApp = null
 
@@ -566,6 +590,14 @@ describe('All Tests', () => {
       expect(result).toBe(values.expected)
     }
   )
+
+  test.each(linkRowContainsCases)('LinkRowContainsFilterType', (values) => {
+    const result = new LinkRowContainsFilterType().matches(
+      values.rowValue,
+      values.filterValue
+    )
+    expect(result).toBe(values.expected)
+  })
 
   test('HasFileType contains image', () => {
     expect(new HasFileTypeViewFilterType().matches([], '', {})).toBe(true)

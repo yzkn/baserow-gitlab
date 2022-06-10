@@ -1148,7 +1148,7 @@ export class LinkRowContainsFilterType extends ViewFilterType {
       return true
     }
 
-    return true // TODO
+    return rowValue.some(({ value }) => value.includes(filterValue))
   }
 }
 
