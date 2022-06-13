@@ -19,6 +19,8 @@ For example:
 
 ### Breaking Changes
 
+* **breaking change** Webhooks `row.created`, `row.updated` and `row.deleted` are replaced with `rows.created`, `rows.updated` and `rows.deleted`, containing multiple changed rows at once. Already created webhooks will still be called, but the received body now contains multiple items instead of just one.
+
 ## Released (2022-06-09 1.10.1)
 
 * Plugins can now include their own menu or other template in the main menu sidebar.
