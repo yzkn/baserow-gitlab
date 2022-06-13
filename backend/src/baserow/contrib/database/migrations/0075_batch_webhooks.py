@@ -21,7 +21,7 @@ def reverse(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("database", "0071_alter_linkrowfield_link_row_relation_id"),
+        ("database", "0074_auto_20220530_0919"),
     ]
 
     operations = [
