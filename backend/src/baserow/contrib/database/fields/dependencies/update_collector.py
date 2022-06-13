@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Set
 
 from django.db.models import Expression
 
@@ -7,12 +7,14 @@ from baserow.contrib.database.fields.dependencies.exceptions import InvalidViaPa
 from baserow.contrib.database.fields.field_cache import FieldCache
 from baserow.contrib.database.fields.models import Field, LinkRowField
 from baserow.contrib.database.fields.signals import field_updated
+from baserow.contrib.database.rows.signals import before_rows_update, rows_updated
 from baserow.contrib.database.table.models import GeneratedTableModel, Table
 
 
 class PathBasedUpdateStatementCollector:
     def __init__(self, table: Table, field_cache: FieldCache):
         self.update_statements: Dict[str, Expression] = {}
+        self.updated_field_ids: Set[int] = set()
         self.table = table
         self.sub_paths: Dict[str, PathBasedUpdateStatementCollector] = {}
         self.field_cache = field_cache
@@ -26,7 +28,9 @@ class PathBasedUpdateStatementCollector:
         if not path_from_starting_table:
             if self.table != field.table:
                 raise InvalidViaPath()
-            self.update_statements[field.db_column] = update_statement
+            if update_statement is not None:
+                self.update_statements[field.db_column] = update_statement
+            self.updated_field_ids.add(field.id)
         else:
             next_via_field_link = path_from_starting_table[0]
             if next_via_field_link.link_row_table != self.table:
@@ -69,7 +73,34 @@ class PathBasedUpdateStatementCollector:
             if isinstance(starting_row_id, list):
                 path_to_starting_table_id_column += "__in"
             qs = qs.filter(**{path_to_starting_table_id_column: starting_row_id})
+        self._update_cells_and_send_row_update_signals(model, qs)
+
+    def _update_cells_and_send_row_update_signals(self, model, qs):
+        from baserow.contrib.database.rows.handler import RowHandler
+
+        rows_ids_to_update = qs.values_list("id", flat=True)
+        rows_for_update = RowHandler().get_rows_for_update(model, rows_ids_to_update)
+        before_return = before_rows_update.send(
+            self,
+            rows=list(rows_for_update),
+            user=None,
+            table=self.table,
+            model=model,
+            updated_field_ids=self.updated_field_ids,
+        )
         qs.update(**self.update_statements)
+        rows_to_return = list(
+            model.objects.all().enhance_by_fields().filter(id__in=rows_ids_to_update)
+        )
+        rows_updated.send(
+            self,
+            rows=rows_to_return,
+            user=None,
+            table=self.table,
+            model=model,
+            before_return=before_return,
+            updated_field_ids=self.updated_field_ids,
+        )
 
 
 class CachingFieldUpdateCollector(FieldCache):

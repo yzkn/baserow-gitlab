@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime, date
 from decimal import Decimal
 from random import randrange, randint, sample
-from typing import Any, Callable, Dict, List, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Tuple, TYPE_CHECKING, Optional
 
 import pytz
 from dateutil import parser
@@ -1516,6 +1516,24 @@ class LinkRowFieldType(FieldType):
             ]
         else:
             return []
+
+    def row_of_dependency_updated(
+        self,
+        field: LinkRowField,
+        starting_row: "StartingRowType",
+        update_collector: "FieldUpdateCollector",
+        via_path_to_starting_table: Optional[List[LinkRowField]],
+    ):
+        update_collector.add_field_with_pending_update_statement(
+            field, None, via_path_to_starting_table
+        )
+
+        super().row_of_dependency_updated(
+            field,
+            starting_row,
+            update_collector,
+            via_path_to_starting_table,
+        )
 
     def should_backup_field_data_for_same_type_update(
         self, old_field: LinkRowField, new_field_attrs: Dict[str, Any]
