@@ -1,9 +1,11 @@
+import datetime
 from decimal import Decimal
 from typing import List, Type, Optional, Any, Union
 
 from dateutil import parser
 from django.db import models
 from django.db.models import Q, JSONField, Value
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.fields import Field
 
@@ -74,6 +76,9 @@ class BaserowFormulaTextType(BaserowFormulaValidType):
         # in the text type and we don't want to return to_text(arg) but instead just
         # arg.
         return arg
+
+    def placeholder_empty_value(self):
+        return Value("", output_field=models.TextField())
 
 
 class BaserowFormulaCharType(BaserowFormulaTextType):
@@ -149,6 +154,11 @@ class BaserowFormulaNumberType(BaserowFormulaValidType):
     def unwrap_at_field_level(self, expr: "BaserowFunctionCall[BaserowFormulaType]"):
         return expr.args[0].with_valid_type(expr.expression_type)
 
+    def placeholder_empty_value(self):
+        return Value(
+            0, output_field=models.DecimalField(max_digits=50, decimal_places=0)
+        )
+
     def __str__(self) -> str:
         return f"number({self.number_decimal_places})"
 
@@ -168,6 +178,9 @@ class BaserowFormulaBooleanType(BaserowFormulaValidType):
     def limit_comparable_types(self) -> List[Type["BaserowFormulaValidType"]]:
         # true > true makes no sense
         return []
+
+    def placeholder_empty_value(self):
+        return Value(False, output_field=models.BooleanField())
 
 
 def _calculate_addition_interval_type(
@@ -271,6 +284,9 @@ class BaserowFormulaDateIntervalType(BaserowFormulaValidType):
         else:
             return str(human_readable_value)
 
+    def placeholder_empty_value(self):
+        return Value(datetime.timedelta(hours=1), output_field=models.DurationField())
+
 
 class BaserowFormulaDateType(BaserowFormulaValidType):
     type = "date"
@@ -362,6 +378,14 @@ class BaserowFormulaDateType(BaserowFormulaValidType):
             ],
             BaserowFormulaTextType(),
         )
+
+    def placeholder_empty_value(self):
+        if self.date_include_time:
+            field = models.DateTimeField()
+        else:
+            field = models.DateField()
+
+        return Value(timezone.now(), output_field=field)
 
     def __str__(self) -> str:
         date_or_datetime = "datetime" if self.date_include_time else "date"

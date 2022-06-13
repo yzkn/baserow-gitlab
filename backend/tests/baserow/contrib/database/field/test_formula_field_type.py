@@ -1,4 +1,5 @@
 import inspect
+from decimal import Decimal
 
 import pytest
 from django.db.models import TextField
@@ -275,11 +276,34 @@ def test_formula_with_row_id_is_populated_after_creating_row(
     table = data_fixture.create_database_table(user=user)
     handler = FieldHandler()
     formula_field = handler.create_field(
-        user=user, table=table, type_name="formula", name="2", formula="row_id()"
+        user=user,
+        table=table,
+        type_name="formula",
+        name="2",
+        formula="left('abc', row_id())",
     )
 
     row = RowHandler().create_row(user=user, table=table)
-    assert getattr(row, f"field_{formula_field.id}") == row.id
+    assert getattr(row, f"field_{formula_field.id}") == "a"
+
+
+@pytest.mark.django_db
+def test_decimal_formula_with_row_id_is_populated_after_creating_row(
+    data_fixture,
+):
+    user = data_fixture.create_user()
+    table = data_fixture.create_database_table(user=user)
+    handler = FieldHandler()
+    formula_field = handler.create_field(
+        user=user,
+        table=table,
+        type_name="formula",
+        name="2",
+        formula="row_id()/10 * 4",
+    )
+
+    row = RowHandler().create_row(user=user, table=table)
+    assert getattr(row, f"field_{formula_field.id}") == Decimal("0.40000")
 
 
 @pytest.mark.django_db
