@@ -3,7 +3,7 @@ from django.conf import settings
 from baserow.config.celery import app
 
 
-@app.task
+@app.task(queue=settings.BASEROW_GROUP_STORAGE_USAGE_QUEUE)
 def run_calculate_storage():
     """
     Runs the calculate storage job to keep track
