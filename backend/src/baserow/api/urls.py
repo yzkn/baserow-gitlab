@@ -1,8 +1,6 @@
-from django.http import HttpResponse, JsonResponse
-from django.urls import path, include, re_path
-from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+from django.urls import path, include
 
-from rest_framework import status
 from drf_spectacular.views import SpectacularJSONAPIView, SpectacularRedocView
 
 from baserow.core.registries import plugin_registry, application_type_registry
@@ -21,17 +19,6 @@ app_name = "baserow.api"
 
 def public_health_check(request):
     return HttpResponse("OK")
-
-
-@csrf_exempt
-def missing_trailing_slash_error(request):
-    return JsonResponse(
-        {
-            "detail": "URL must end with a trailing slash.",
-            "error": "URL_TRAILING_SLASH_MISSING",
-        },
-        status=status.HTTP_404_NOT_FOUND,
-    )
 
 
 urlpatterns = (
@@ -53,11 +40,4 @@ urlpatterns = (
     ]
     + application_type_registry.api_urls
     + plugin_registry.api_urls
-    + [
-        re_path(
-            r".*(?!/)$",
-            missing_trailing_slash_error,
-            name="missing_trailing_slash_error",
-        ),
-    ]
 )
