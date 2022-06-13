@@ -100,6 +100,8 @@ BASEROW_GROUP_STORAGE_USAGE_QUEUE = os.getenv(
     "BASEROW_GROUP_STORAGE_USAGE_QUEUE", "export"
 )
 
+BASEROW_COUNT_ROWS_ENABLED = os.getenv("BASEROW_COUNT_ROWS_ENABLED", "false") == "true"
+
 CELERY_BROKER_URL = REDIS_URL
 CELERY_TASK_ROUTES = {
     "baserow.contrib.database.export.tasks.run_export_job": {"queue": "export"},
@@ -607,8 +609,6 @@ LOGGING = {
         "level": BASEROW_BACKEND_LOG_LEVEL,
     },
 }
-
-BASEROW_COUNT_ROWS_ENABLED = os.getenv("BASEROW_COUNT_ROWS_ENABLED", "false") == "true"
 
 # Now incorrectly named old variable, previously we would run `sync_templates` prior
 # to starting the gunicorn server in Docker. This variable would prevent that from
