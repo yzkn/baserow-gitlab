@@ -5,7 +5,7 @@ from baserow.core.registry import Registry, Instance
 
 class GroupStorageUsageItemType(Instance, ABC):
     """
-    A UsageItemType defines an item that can calcualte
+    A UsageItemType defines an item that can calculate
     the usage of a group in a specific part of the application
     """
 
