@@ -1,9 +1,13 @@
+import random
+
 from django.db.models import Q
 from django.utils import timezone as django_timezone
 from freezegun import freeze_time
 
 import pytest
 from datetime import date, timedelta
+
+from pyinstrument import Profiler
 from pytz import timezone
 
 from django.utils.timezone import make_aware, datetime
@@ -4359,3 +4363,75 @@ def test_link_row_contains_filter_type_multiple_select_field(data_fixture):
         r.id for r in view_handler.apply_filters(grid_view, model.objects.all()).all()
     ]
     assert len(ids) == 2
+
+
+@pytest.mark.django_db
+@pytest.mark.disabled_in_ci
+# You must add --run-disabled-in-ci -s to pytest to run this test, you can do this in
+# intellij by editing the run config for this test and adding --run-disabled-in-ci -s
+# to additional args.
+def test_link_row_contains_filter_type_performance(data_fixture):
+    rows_count = 5000
+    related_rows_count = 5000
+    relations_count = 50
+
+    user = data_fixture.create_user()
+    database = data_fixture.create_database_application(user=user)
+    table = data_fixture.create_database_table(database=database)
+    related_table = data_fixture.create_database_table(database=database)
+    primary_field = data_fixture.create_text_field(table=table)
+    related_primary_field = data_fixture.create_text_field(
+        primary=True, table=related_table
+    )
+    grid_view = data_fixture.create_grid_view(table=table)
+
+    link_row_field = FieldHandler().create_field(
+        user=user,
+        table=table,
+        type_name="link_row",
+        name="Test",
+        link_row_table=related_table,
+    )
+
+    row_handler = RowHandler()
+    model = table.get_model()
+    related_model = related_table.get_model()
+
+    related_rows = []
+    for i in range(related_rows_count):
+        row = row_handler.create_row(
+            user=user,
+            table=related_table,
+            model=related_model,
+            values={
+                f"field_{related_primary_field.id}": f"Related row {i}",
+            },
+        )
+        related_rows.append(row)
+
+    for i in range(rows_count):
+        related_rows_chosen = random.sample(related_rows, relations_count)
+        related_rows_chosen_ids = [row.id for row in related_rows_chosen]
+        row_handler.create_row(
+            user=user,
+            table=table,
+            model=model,
+            values={
+                f"field_{primary_field.id}": f"Row {i}",
+                f"field_{link_row_field.id}": related_rows_chosen_ids,
+            },
+        )
+
+    view_handler = ViewHandler()
+    data_fixture.create_view_filter(
+        view=grid_view,
+        field=link_row_field,
+        type="link_row_contains",
+        value=f"related row",
+    )
+
+    profiler = Profiler()
+    profiler.start()
+    view_handler.apply_filters(grid_view, model.objects.all()).all()
+    profiler.stop()
+    print(profiler.output_text(unicode=True, color=True))
