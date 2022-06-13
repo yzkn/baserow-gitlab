@@ -12,7 +12,7 @@ class GroupStorageUsageItemType(Instance, ABC):
     @abstractmethod
     def calculate_storage_usage(self, group_id: int) -> int:
         """
-        Calculates the storage usage of files for a group
+        Calculates the storage usage for a group
         in a specific part of the application
         :param group_id: the group that the usage is calculated for
         :return: the total usage
