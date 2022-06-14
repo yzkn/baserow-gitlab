@@ -73,6 +73,10 @@
     border-top-right-radius: 6px;
     border-bottom-right-radius: 6px;
   }
+  
+  &.modal__box-sidebar--dark {
+    background-color: #f5f5f5;
+  }
 }
 
 .modal__box-content {

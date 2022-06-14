@@ -35,7 +35,10 @@
         <div
           v-if="rightSidebar"
           class="modal__box-sidebar modal__box-sidebar--right"
-          :class="{ 'modal__box-sidebar--scrollable': rightSidebarScrollable }"
+          :class="{
+            'modal__box-sidebar--scrollable': rightSidebarScrollable,
+            'modal__box-sidebar--dark': rightSidebarDark,
+          }"
         >
           <slot name="sidebar"></slot>
         </div>
@@ -64,6 +67,11 @@ export default {
       required: false,
     },
     rightSidebar: {
+      type: Boolean,
+      default: false,
+      required: false,
+    },
+    rightSidebarDark: {
       type: Boolean,
       default: false,
       required: false,
