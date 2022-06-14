@@ -182,7 +182,7 @@ class UserHandler:
         language: Optional[str] = None,
     ) -> AbstractUser:
         """
-        Updates the user account writable properties
+        Updates the user's account editable properties
 
         :param user: The user instance to update.
         :param first_name: The new user first name.
@@ -307,7 +307,7 @@ class UserHandler:
 
     def user_signed_in(self, user: AbstractUser):
         """
-        Executes tasks when a user sign id.
+        Executes tasks and informs plugins when a user signs in.
 
         :param user: The user that has just signed in.
         """
@@ -330,8 +330,8 @@ class UserHandler:
         Schedules the user account deletion. The user is flagged as `to_be_deleted` and
         will be deleted after a predefined grace delay unless the user
         cancel his account deletion by log in again.
-        To be valid, the current user password may be provided.
-        This action send a email to the user to explain the proccess.
+        To be valid, the current user password must be provided.
+        This action sends an email to the user to explain the proccess.
 
         :param user: The user to flag as `to_be_deleted`.
         :param password: The current user password.

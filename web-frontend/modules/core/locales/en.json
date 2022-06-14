@@ -51,7 +51,7 @@
         "title": "Delete account",
         "description": "You can schedule the deletion of your account by entering your current password and clicking the button. Your account will be permanently deleted after {days} days. In the meantime, if you log in again, your account deletion will be cancelled.",
         "groupNotice": "Orphan groups will be deleted",
-        "groupNoticeDescription": "When your account is permanently deleted, all groups and associated data for which you are the last active user with Admin permissions will also be deleted. You now have the opportunity to give another user the Admin permissions for these groups. Here is the list of affected groups.",
+        "groupNoticeDescription": "When your account is permanently deleted, all groups and associated data for which you are the last active user with Admin permissions will also be deleted. The groups shown below are the ones that will be deleted because you are the only admin. To prevent them being deleted you must first give another user admin before deleting your account.",
         "orphanGroups": "Will also be permanently deleted after the grace time",
         "orphanGroupMemberCount": "shared with nobody|shared with one user|shared with {count} users",
         "password": "Password",

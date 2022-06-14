@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             field=models.BooleanField(
                 default=False,
                 help_text=(
-                    "True if the user is pending delete. An automatic task will "
+                    "True if the user is pending deletion. An automatic task will "
                     "delete the user after a grace delay."
                 ),
             ),

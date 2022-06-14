@@ -64,14 +64,14 @@ class AccountDeleted(BaseEmailMessage):
 
 
 class AccountDeletionCanceled(BaseEmailMessage):
-    template_name = "baserow/core/user/account_deletion_canceled.html"
+    template_name = "baserow/core/user/account_deletion_cancelled.html"
 
     def __init__(self, user, *args, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
 
     def get_subject(self):
-        return _("Account deletion canceled - Baserow")
+        return _("Account deletion cancelled - Baserow")
 
     def get_context(self):
         context = super().get_context()

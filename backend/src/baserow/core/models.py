@@ -100,7 +100,7 @@ class UserProfile(models.Model):
     )
     to_be_deleted = models.BooleanField(
         default=False,
-        help_text="True if the user is pending delete. "
+        help_text="True if the user is pending deletion. "
         "An automatic task will delete the user after a grace delay.",
     )
 

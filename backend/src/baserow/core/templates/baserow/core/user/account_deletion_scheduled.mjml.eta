@@ -13,7 +13,7 @@
     <mj-text mj-class="text" padding-bottom="20px">
       {% blocktrans trimmed %}
         If you've changed your mind and want to cancel your account deletion,
-        you just have to logging again.
+        you just have to login again.
       {% endblocktrans %}
     </mj-text>
     <mj-text mj-class="text">

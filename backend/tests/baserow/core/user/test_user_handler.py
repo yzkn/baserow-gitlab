@@ -460,7 +460,7 @@ def test_cancel_user_deletion(data_fixture, mailoutbox):
     assert user.profile.to_be_deleted is False
 
     assert len(mailoutbox) == 1
-    assert mailoutbox[0].subject == "Account deletion canceled - Baserow"
+    assert mailoutbox[0].subject == "Account deletion cancelled - Baserow"
 
 
 @pytest.mark.django_db(transaction=True)
