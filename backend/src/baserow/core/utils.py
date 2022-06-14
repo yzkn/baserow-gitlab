@@ -10,8 +10,9 @@ import string
 from collections import namedtuple
 from decimal import Decimal
 from itertools import islice
-from typing import List, Optional, Iterable
+from typing import List, Optional, Iterable, Callable
 
+from django.conf import settings
 from django.db.models import ForeignKey
 from django.db.models.fields import NOT_PROVIDED
 
@@ -514,3 +515,24 @@ class ChildProgressBuilder:
             return parent.create_child(represents_progress, child_total)
         else:
             return Progress(child_total)
+
+
+def get_request_function() -> Callable:
+    """
+    Return the appropriate request function based on production environment
+    or settings.
+    In production mode, the advocate library is used so that the internal
+    network can't be reached. This can be disabled by changing the Django
+    setting WEBHOOKS_BLOCK_PRIVATE_ADDRESS.
+    """
+
+    from advocate import request
+
+    request_function = request
+
+    if (settings.DEBUG is True) or (settings.WEBHOOKS_BLOCK_PRIVATE_ADDRESS is False):
+        from requests import request
+
+        request_function = request
+
+    return request_function

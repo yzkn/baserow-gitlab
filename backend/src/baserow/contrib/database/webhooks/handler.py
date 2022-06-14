@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.contrib.auth.models import User as DjangoUser
 
 from baserow.contrib.database.table.models import Table
-from baserow.core.utils import extract_allowed, set_allowed_attrs
+from baserow.core.utils import extract_allowed, set_allowed_attrs, get_request_function
 
 from .models import (
     TableWebhook,
@@ -294,10 +294,7 @@ class WebhookHandler:
         :return: The request and response as the tuple (request, response)
         """
 
-        if settings.DEBUG is True:
-            from requests import request
-        else:
-            from advocate import request
+        request = get_request_function()
 
         response = request(
             method,

@@ -23,7 +23,7 @@ def url_validator(value):
     """
 
     # in case we run the develop server we want to allow every url.
-    if settings.DEBUG is True:
+    if (settings.DEBUG is True) or (settings.WEBHOOKS_BLOCK_PRIVATE_ADDRESS is False):
         return value
 
     try:

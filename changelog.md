@@ -12,6 +12,7 @@ For example:
 ### New Features
 
 * Added prefill query parameters for forms. [#852](https://gitlab.com/bramw/baserow/-/issues/852)
+* Allow Webhooks to access private addresses. [#931](https://gitlab.com/bramw/baserow/-/issues/931)
 
 ### Bug Fixes
 
